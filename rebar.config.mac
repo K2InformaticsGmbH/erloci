@@ -1,0 +1,13 @@
+{port_env, [
+    {"CXXFLAGS", "$CXXFLAGS -Ilib/instantclient/include -Ideps/threadpool/src"},
+    {"DRV_LDFLAGS", "$ERL_LDFLAGS -Llib/instantclient -locci -lclntsh -lnnz10 -lpthread"},
+    {"LINK_TEMPLATE",
+         "$CXX $PORT_IN_FILES $LDFLAGS $DRV_LDFLAGS -o $PORT_OUT_FILE"}
+]}.
+{port_specs, [{"priv/erloci", [
+                                   "c_src/erloci_drv/e*.cpp",
+                                   "c_src/erloci_drv/o*.cpp",
+                                   "c_src/erloci_drv/s*.cpp",
+                                   "c_src/erloci_drv/c*.cpp"
+                                  ]}
+             ]}.
