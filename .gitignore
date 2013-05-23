@@ -1,5 +1,4 @@
 c_src/*.txt
-priv/
 c_src/lib/instantclient/include/*.h
 c_src/lib/instantclient/*.so
 c_src/lib/instantclient/*.lib
