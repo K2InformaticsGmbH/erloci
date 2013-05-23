@@ -364,13 +364,13 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
 
         if(function_success != SUCCESS)
             return function_success;
-        REMOTE_LOG("Port: Returning Columns");
+        REMOTE_LOG("Port: Returning Column(s)\n");
     } else {
         if(stmthp != NULL) {
             checkerr(errhp, OCIStmtRelease(stmthp, errhp, NULL, 0, OCI_DEFAULT));
             if(function_success != SUCCESS) return function_success;
         }
-        REMOTE_LOG("Port: Executed non-select statement!");
+        REMOTE_LOG("Port: Executed non-select statement!\n");
     }
 
     return function_success;
@@ -481,7 +481,7 @@ REMOTE_LOG("..........................TRACE...\n");
     if(function_success != SUCCESS)
         return ERROR;
 
-    REMOTE_LOG("Port: Returning Rows...");
+    REMOTE_LOG("Port: Returning Rows...\n");
 
     return (res != OCI_NO_DATA ? MORE : DONE);
 }

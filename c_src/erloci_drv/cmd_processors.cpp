@@ -266,14 +266,22 @@ bool cmd_exec_sql(ETERM * command)
         goto error_exit_pre;
 
     // Args: Conn Handle, Sql Statement
-    if(ERL_IS_INTEGER/*ERL_IS_UNSIGNED_LONGLONG*/(args[1])	&&
+    if(
+#ifdef __WIN32__
+    ERL_IS_INTEGER(args[1]) &&
+#else
+    (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
+#endif
        ERL_IS_BINARY(args[2]) &&
        ERL_IS_LIST(args[3])) {
 
         LOG_ARGS(ARG_COUNT(command), args, "Execute SQL");
 
-		//void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
+#ifdef __WIN32__
 		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
+#else
+		void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
+#endif
         inp_t * bind_args = map_to_bind_args(args[3]);
         void * statement_handle = NULL;
 
@@ -287,7 +295,7 @@ bool cmd_exec_sql(ETERM * command)
 				else if (columns == NULL && bind_args == NULL)
 					resp = erl_format((char*)"{~w,~i,{executed,no_ret}}", args[0], EXEC_SQL);
 				else {
-					resp = erl_format((char*)"{~w,~i,{columns,~w,~w}}", args[0], EXEC_SQL, erl_mk_ulonglong((unsigned long long)statement_handle), columns);
+					resp = erl_format((char*)"{~w,~i,{{stmt,~w},{cols,~w}}}", args[0], EXEC_SQL, erl_mk_ulonglong((unsigned long long)statement_handle), columns);
 				}
 				if(write_resp(resp) < 0) goto error_exit;
 				REMOTE_LOG("SUCCESS\n");
@@ -363,13 +371,29 @@ bool cmd_fetch_rows(ETERM * command)
         goto error_exit_pre;
 
     // Args: Connection Handle, Statement Handle	
-    if(ERL_IS_INTEGER/*ERL_IS_UNSIGNED_LONGLONG*/(args[1]) &&
-       ERL_IS_INTEGER/*ERL_IS_UNSIGNED_LONGLONG*/(args[2])) {
+    if(
+#ifdef __WIN32__
+    ERL_IS_INTEGER(args[1]) &&
+#else
+    (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
+#endif
+#ifdef __WIN32__
+    ERL_IS_INTEGER(args[2])
+#else
+    (ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+#endif
+    ) {
 
-		//void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
+#ifdef __WIN32__
 		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
-        //void * statement_handle = (void *)ERL_LL_UVALUE(args[2]);
+#else
+		void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
+#endif
+#ifdef __WIN32__
 		void * statement_handle = (void *)ERL_INT_VALUE(args[2]);
+#else
+        void * statement_handle = (void *)ERL_LL_UVALUE(args[2]);
+#endif
 
         inp_t * bind_args = map_to_bind_args(args[3]);
 

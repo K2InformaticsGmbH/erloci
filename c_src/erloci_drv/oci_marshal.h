@@ -25,7 +25,7 @@
 #define DBG_4			4	//
 #define DBG_5			5	// Debug is off
 
-#define DEBUG			DBG_0
+#define DEBUG			DBG_5
 
 typedef enum _ERL_DEBUG {
     DBG_FLAG_OFF	= 0,
@@ -119,7 +119,7 @@ extern void append_coldef_to_list(const char * col_name, const char * data_type,
 	delete _t;												\
 }
 #else
-#define LOG_DUMP()
+#define LOG_DUMP(__len, __buf)
 #endif
 
 //		REMOTE_LOG("%03d,", (unsigned char)__buf[j]);		

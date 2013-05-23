@@ -265,9 +265,7 @@ void * read_cmd(void)
     }
     rx_len = ntohl(hdr.len);
 
-#if DEBUG <= DBG_2
-    REMOTE_LOG(">>>>>>>>>>>>>> RX Packet length %d\n", rx_len);
-#endif
+    REMOTE_LOG("RX Packet length %d\n", rx_len);
 
     // Read the Term binary
     rx_buf = new char[rx_len];
@@ -351,9 +349,7 @@ int write_resp(void * resp_term)
     tx_len = erl_term_len(resp);				// Length of the required binary buffer
     pkt_len = tx_len+PKT_LEN_BYTES;
 
-#if DEBUG <= DBG_2
     REMOTE_LOG("TX Packet length %d\n", tx_len);
-#endif
 
     // Allocate temporary buffer for transmission of the Term
     tx_buf = new unsigned char[pkt_len];
@@ -362,18 +358,7 @@ int write_resp(void * resp_term)
 
     erl_encode(resp, tx_buf+PKT_LEN_BYTES);			// Encode the Term into the buffer after the length field
 
-/*#if DEBUG <= DBG_0
-    // Printing the packet
-    REMOTE_LOG("[%s:%d] TX:\n", __FUNCTION__, __LINE__);
-    for(int j=PKT_LEN_BYTES; j<pkt_len; ++j) {
-        REMOTE_LOG("%d ", (unsigned char)tx_buf[j]);
-        if(j>0 && (j+1)%16==0)
-            REMOTE_LOG("\n");
-    }
-    if((pkt_len-1)%16)
-        REMOTE_LOG("\n");
-    REMOTE_LOG("\n");
-#endif*/
+	LOG_DUMP(pkt_len, tx_buf);
 
     if(
 #ifdef __WIN32__

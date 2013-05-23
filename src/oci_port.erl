@@ -80,7 +80,11 @@ logging(disable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, {?R_DEBUG_MSG, ?DBG_FLAG_OFF}}, ?PORT_TIMEOUT).
 
 exec_sql(Sql, Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(Opts) ->
-    gen_server:call(PortPid, {port_call, {?EXEC_SQL, SessionId, Sql, Opts}}, ?PORT_TIMEOUT).
+    R = gen_server:call(PortPid, {port_call, {?EXEC_SQL, SessionId, Sql, Opts}}, ?PORT_TIMEOUT),
+    case R of
+        {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, SessionId, StmtId}, {cols, Clms}};
+        R -> R
+    end.
 
 %% Callbacks
 init([Logging, ListenPort]) ->
@@ -110,14 +114,15 @@ start_exe(Executable, Logging, ListenPort) ->
             ?Error("oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
-            ?Info("oci:init opened new port:~n~p", [erlang:port_info(Port)]),
             %% TODO -- Logging is turned after port creation for the integration tests too run
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?R_DEBUG_MSG, ?DBG_FLAG_ON})),
+                    ?Info("started log enabled new port:~n~p", [erlang:port_info(Port)]),
                     {ok, #state{port=Port, logging=?DBG_FLAG_ON}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?R_DEBUG_MSG, ?DBG_FLAG_OFF})),
+                    ?Info("started log disabled new port:~n~p", [erlang:port_info(Port)]),
                     {ok, #state{port=Port, logging=?DBG_FLAG_OFF}}
             end
     end.
@@ -154,7 +159,8 @@ log(Sock) ->
 handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     Cmd = list_to_tuple([From|tuple_to_list(Msg)]),
     CmdBin = term_to_binary(Cmd),
-    ?Info(">>>>>>>>>> TX: ~p ~p", [byte_size(CmdBin), Cmd]),
+    ?Info("TX ~p bytes", [byte_size(CmdBin)]),
+    ?Debug(" ~p", [Cmd]),
     true = port_command(Port, term_to_binary(Cmd)),
     {noreply, State}. %% we will reply inside handle_info_result
 
@@ -164,7 +170,8 @@ handle_cast(_Msg, State) ->
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
     Resp = binary_to_term(Data),
-    ?Info("RX: ~p", [Resp]),
+    ?Info("RX ~p bytes", [byte_size(Data)]),
+    %?Debug(" ~p", [Resp]),
     case handle_result(State#state.logging, Resp) of
         {undefined, Result} ->
             ?Info("no reply for ~p", [Result]);
@@ -200,7 +207,7 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 %% log on and off -- mostly called from an undefined context so logged the status here
-handle_result(L, {Ref, ?R_DEBUG_MSG, En} = Resp) ->
+handle_result(L, {Ref, ?R_DEBUG_MSG, En} = _Resp) ->
     ?log(L, "Remote ~p", [En]),
     {Ref, En};
 
@@ -210,8 +217,8 @@ handle_result(L, {Ref, Cmd, error, Reason}) ->
     {Ref, {error, Reason}};
 
 % generic command handling
-handle_result(L, {Ref, Cmd, Result}) ->
-    ?log(L, "RX: ~s -> ~p", [?CMDSTR(Cmd), Result]),
+handle_result(_L, {Ref, _Cmd, Result}) ->
+    %?log(_L, "RX: ~s -> ~p", [?CMDSTR(_Cmd), Result]),
     {Ref, Result}.
 
 

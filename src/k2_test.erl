@@ -9,7 +9,6 @@
 run1() ->
     try
         OciPort = oci_port:start_link([{logging, true}]),
-        timer:sleep(10000),
         OciPool = OciPort:create_sess_pool(
                 <<"(DESCRIPTION=
                     (ADDRESS=(PROTOCOL=tcp)
@@ -53,9 +52,10 @@ run1() ->
         throw_if_error(Stmt2, "insert failed"),
         oci_logger:log(lists:flatten(io_lib:format("___________----- OCI insert ~p~n", [Stmt2]))),
 %        timer:sleep(10000),
-        Stmt3 = OciSession:exec_sql(<<"select * from test_erloci">>, []),
+        {Stmt3, {cols, Cols}} = OciSession:exec_sql(<<"select * from test_erloci">>, []),
         throw_if_error(Stmt3, "select failed"),
-        oci_logger:log(lists:flatten(io_lib:format("___________----- OCI select ~p~n", [Stmt3])))
+        oci_logger:log(lists:flatten(io_lib:format("___________----- OCI select statement ~p~n", [Stmt3]))),
+        oci_logger:log(lists:flatten(io_lib:format("___________----- OCI select columns ~p~n", [Cols])))
     catch
         Class:Reason -> oci_logger:log(lists:flatten(io_lib:format("___________----- ~p:~p~n", [Class,Reason])))
     end.
