@@ -30,7 +30,7 @@
 //
 //
 //
-//#define DUMMY
+#define DUMMY
 //
 //
 //
@@ -194,7 +194,11 @@ bool oci_create_seesion_pool(const unsigned char * host_str, const int host_len,
 #ifdef DUMMY
 void * oci_get_session_from_pool()
 {
+#ifdef __WIN32__
 	return (void*)(0x12345678);
+#else
+	return (void*)(0x1234567890ABCDEF);
+#endif
 }
 #else
 void * oci_get_session_from_pool()
@@ -238,7 +242,11 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
 					  , inp_t *params_head, void * column_list
 					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
 {
+#ifdef __WIN32__
 	*stmt_handle = (void*)(0x1ABCDEF1);
+#else
+	*stmt_handle = (void*)(0xABCDEF1234567890);
+#endif
 	for(int i=0; i < 5; ++i)
 		(*coldef_append)("col", "string", 100, column_list);
 

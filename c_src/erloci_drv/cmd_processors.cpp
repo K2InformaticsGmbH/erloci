@@ -421,7 +421,7 @@ error_exit:
     return true;
 }
 
-//#define PRINTCMD
+#define PRINTCMD
 
 #ifdef PRINTCMD
 static FILE *tfp = NULL;
