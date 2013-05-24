@@ -265,7 +265,7 @@ void * read_cmd(void)
     }
     rx_len = ntohl(hdr.len);
 
-    REMOTE_LOG("RX Packet length %d\n", rx_len);
+    //REMOTE_LOG("RX Packet length %d\n", rx_len);
 
     // Read the Term binary
     rx_buf = new char[rx_len];
@@ -349,7 +349,7 @@ int write_resp(void * resp_term)
     tx_len = erl_term_len(resp);				// Length of the required binary buffer
     pkt_len = tx_len+PKT_LEN_BYTES;
 
-    REMOTE_LOG("TX Packet length %d\n", tx_len);
+    //REMOTE_LOG("TX Packet length %d\n", tx_len);
 
     // Allocate temporary buffer for transmission of the Term
     tx_buf = new unsigned char[pkt_len];

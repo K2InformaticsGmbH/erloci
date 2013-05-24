@@ -88,7 +88,12 @@ exec_sql(Sql, Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(
     end.
 
 get_rows(Count, {?MODULE, PortPid, StmtId}) ->
-    gen_server:call(PortPid, {port_call, {?FETCH_ROWS, StmtId, Count}}, ?PORT_TIMEOUT).
+    {{rows, Rows}, F} = gen_server:call(PortPid, {port_call, {?FETCH_ROWS, StmtId, Count}}, ?PORT_TIMEOUT),
+    {{rows, flip(Rows)}, F}.
+
+flip(Rows) -> flip(Rows,[]).
+flip([],Acc) -> Acc;
+flip([Row|Rows],Acc) -> flip(Rows, [lists:reverse(Row)|Acc]).
 
 %% Callbacks
 init([Logging, ListenPort]) ->

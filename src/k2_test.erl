@@ -7,16 +7,36 @@
 
 run(Threads, InsertCount) when is_integer(Threads), is_integer(InsertCount) ->
     OciSession = connect_db(),
+    This = self(),
     [(fun(Idx) ->
         Table = "erloci_table_"++Idx,
         try
-            create_table(OciSession, Table),
-            spawn(fun() -> insert_select(OciSession, Table, InsertCount) end)
+            create_table(OciSession, Table),            
+            spawn(fun() -> insert_select(OciSession, Table, InsertCount, This) end)
         catch
             Class:Reason -> oci_logger:log(lists:flatten(io_lib:format("~p:~p~n", [Class,Reason])))
         end
     end)(integer_to_list(I))
-    || I <- lists:seq(1,Threads)].
+    || I <- lists:seq(1,Threads)],
+    receive_all(Threads).
+
+receive_all(Count) -> receive_all(Count, []).
+receive_all(0, Acc) ->
+    [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime) ->
+        InsRate = erlang:trunc(InsertCount / InsertTime),
+        SelRate = erlang:trunc(SelectCount / SelectTime),
+        io:format(user, "~p insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
+    end)(T, Ic, It, Sc, St)
+    || {T, Ic, It, Sc, St} <- Acc];
+receive_all(Count, Acc) ->
+    receive
+        {T, Ic, It, Sc, St} ->
+            receive_all(Count-1, [{T, Ic, It, Sc, St}|Acc])
+    after
+        (30*1000) ->
+            io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
+            receive_all(0, Acc)
+    end.
 
 connect_db() ->
     OciPort = oci_port:start_link([{logging, true}]),
@@ -31,11 +51,11 @@ connect_db() ->
                 <<"SBS0">>,
                 <<"sbs0sbs0_4dev">>,
                 <<>>),
-    throw_if_error(OciPool, "pool creation failed"),
+    throw_if_error(undefined, OciPool, "pool creation failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Pool ~p~n", [OciPool]))),
 
     OciSession = OciPort:get_session(),
-    throw_if_error(OciSession, "get session failed"),
+    throw_if_error(undefined, OciSession, "get session failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Session ~p~n", [OciSession]))),
     OciSession.
 
@@ -50,10 +70,10 @@ create_table(OciSession, Table) ->
                                        real varchar2(100),
                                        votes number,
                                        votes_first_rank number)"]), []),
-    throw_if_error(Res0, "create failed"),
+    throw_if_error(undefined, Res0, "create "++Table++" failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res0]))).
 
-insert_select(OciSession, Table, InsertCount) ->
+insert_select(OciSession, Table, InsertCount, Parent) ->
     try
         InsertStart = ?NowMs,
         [(fun(I) ->
@@ -70,28 +90,31 @@ insert_select(OciSession, Table, InsertCount) ->
                     ")"]),
             oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI insert sql ~p~n", [Table,Qry]))),
             Res = OciSession:exec_sql(Qry, []),
-            throw_if_error(Res, "insert failed"),
+            throw_if_error(Parent, Res, "insert "++Table++" failed"),
             oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI insert ~p~n", [Table,Res])))
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
         {Statement, {cols, Cols}} = OciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
-        throw_if_error(Statement, "select failed"),
+        throw_if_error(Parent, Statement, "select "++Table++" failed"),
         oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select statement ~p~n", [Table,Statement]))),
         oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = Statement:get_rows(100),
         %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,Rows]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
-        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI inserted ~p rows in ~p sec @ ~p rows/sec~n", [Table,InsertCount, InsertTime, erlang:trunc(InsertCount / InsertTime)]))),
         SelectTime = (SelectEnd - InsertEnd)/1000000,
-        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI selected ~p rows in ~p sec @ ~p rows/sec~n", [Table,length(Rows), SelectTime, erlang:trunc(length(Rows) / SelectTime)])))
+        Parent ! {Table, InsertCount, InsertTime, length(Rows), SelectTime}
     catch
-        Class:Reason -> oci_logger:log(lists:flatten(io_lib:format(" ~p:~p~n", [Class,Reason])))
+        Class:Reason ->
+            if is_pid(Parent) -> Parent ! {{Table,Class,Reason}, 0, 1, 0, 1}; true -> ok end,
+            oci_logger:log(lists:flatten(io_lib:format(" ~p:~p~n", [Class,Reason])))
     end.
 
 print_if_error({error, Error}, Msg) -> oci_logger:log(lists:flatten(io_lib:format("___________----- continue after ~p ~p~n", [Msg,Error])));
 print_if_error(_, _) -> ok.
 
-throw_if_error({error, Error}, Msg) -> throw({Msg, Error});
-throw_if_error(_, _) -> ok.
+throw_if_error(Parent, {error, Error}, Msg) ->
+    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
+    throw({Msg, Error});
+throw_if_error(_,_,_) -> ok.

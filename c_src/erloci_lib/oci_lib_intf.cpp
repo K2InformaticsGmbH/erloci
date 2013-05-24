@@ -26,6 +26,16 @@
 #define	SPRINT snprintf
 #endif
 
+//
+//
+//
+//
+//#define DUMMY
+//
+//
+//
+//
+
 typedef struct column_info {
     ub2  dtype;
     ub4	 dlen;
@@ -162,6 +172,31 @@ bool oci_create_tns_seesion_pool(const unsigned char * connect_str, const int co
     return true;
 }
 
+#define MAX_CONNECT_STR_LEN 1024
+bool oci_create_seesion_pool(const unsigned char * host_str, const int host_len, const unsigned int port,
+                             const unsigned char * srv_str, const int srv_len,
+                             const unsigned char * user_name, const int user_name_len,
+                             const unsigned char * password, const int password_len,
+                             const unsigned char * options, const int options_len)
+{
+    char connect_str[MAX_CONNECT_STR_LEN];
+	SPRINT(connect_str, MAX_CONNECT_STR_LEN,
+              "(DESCRIPTION=(ADDRESS=(PROTOCOL=tcp) (HOST=%.*s) (PORT=%d))(CONNECT_DATA=(SERVICE_NAME=%.*s)))",
+              host_len, host_str,
+              port,
+              srv_len, srv_str);
+    return oci_create_tns_seesion_pool((unsigned char *)connect_str, (int)strlen(connect_str),
+                                       user_name, user_name_len,
+                                       password, password_len,
+                                       options, options_len);
+}
+
+#ifdef DUMMY
+void * oci_get_session_from_pool()
+{
+	return (void*)(0x12345678);
+}
+#else
 void * oci_get_session_from_pool()
 {
     function_success = SUCCESS;
@@ -183,6 +218,7 @@ void * oci_get_session_from_pool()
 	//REMOTE_LOG("oci connection handle %p\n", svchp);
     return svchp;
 }
+#endif
 
 bool oci_return_connection_to_pool(void * connection_handle)
 {
@@ -197,26 +233,18 @@ bool oci_return_connection_to_pool(void * connection_handle)
 
     return true;
 }
-
-#define MAX_CONNECT_STR_LEN 1024
-bool oci_create_seesion_pool(const unsigned char * host_str, const int host_len, const unsigned int port,
-                             const unsigned char * srv_str, const int srv_len,
-                             const unsigned char * user_name, const int user_name_len,
-                             const unsigned char * password, const int password_len,
-                             const unsigned char * options, const int options_len)
+#ifdef DUMMY
+INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsigned char * query_str, int query_str_len
+					  , inp_t *params_head, void * column_list
+					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
 {
-    char connect_str[MAX_CONNECT_STR_LEN];
-	SPRINT(connect_str, MAX_CONNECT_STR_LEN,
-              "(DESCRIPTION=(ADDRESS=(PROTOCOL=tcp) (HOST=%.*s) (PORT=%d))(CONNECT_DATA=(SERVICE_NAME=%.*s)))",
-              host_len, host_str,
-              port,
-              srv_len, srv_str);
-    return oci_create_tns_seesion_pool((unsigned char *)connect_str, (int)strlen(connect_str),
-                                       user_name, user_name_len,
-                                       password, password_len,
-                                       options, options_len);
-}
+	*stmt_handle = (void*)(0x1ABCDEF1);
+	for(int i=0; i < 5; ++i)
+		(*coldef_append)("col", "string", 100, column_list);
 
+	return SUCCESS;
+}
+#else
 INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsigned char * query_str, int query_str_len
 					  , inp_t *params_head, void * column_list
 					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
@@ -378,7 +406,28 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
 error_exit:
     return function_success;
 }
+#endif
 
+#ifdef DUMMY
+ROW_FETCH oci_produce_rows(void * stmt_handle
+						   , void * row_list
+						   , void (*string_append)(const char * string, void * list)
+						   , void (*list_append)(const void * sub_list, void * list)
+						   , unsigned int (*sizeof_resp)(void * resp)
+                           , int maxrowcount)
+{
+    void * row = NULL;
+	for (int i = 0; i < 100; ++i) {
+        row = NULL;
+		for (int j = 0; j < 5; ++j) {
+			(*string_append)("test", &row);
+		}
+		(*list_append)(row, row_list);
+	}
+
+	return DONE;
+}
+#else
 ROW_FETCH oci_produce_rows(void * stmt_handle
 						   , void * row_list
 						   , void (*string_append)(const char * string, void * list)
@@ -491,6 +540,7 @@ ROW_FETCH oci_produce_rows(void * stmt_handle
 
     return (res != OCI_NO_DATA ? MORE : DONE);
 }
+#endif
 
 INTF_RET describe(const void *conn_handle, unsigned char * objptr)
 {

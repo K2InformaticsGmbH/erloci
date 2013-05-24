@@ -406,7 +406,7 @@ bool cmd_fetch_rows(ETERM * command)
     } else {
 error_exit_pre:
         resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], FETCH_ROWS);
-		REMOTE_LOG("ERROR badarg\n");
+		REMOTE_LOG("ERROR badarg args[1] %d, args[2] %d\n", ERL_TYPE(args[1]), ERL_TYPE(args[2]));
         if(write_resp(resp) < 0) goto error_exit;
     }
     erl_free_compound(command);
@@ -421,22 +421,28 @@ error_exit:
     return true;
 }
 
+//#define PRINTCMD
+
+#ifdef PRINTCMD
 static FILE *tfp = NULL;
 static char buffer[1024*1024];
+#endif
 
 bool cmd_processor(void * param)
 {
 	ETERM *command = (ETERM *)param;
     ETERM *cmd = erl_element(2, (ETERM *)command);
 
-    REMOTE_LOG("========================================\n");
+    //REMOTE_LOG("========================================\n");
 
+#ifdef PRINTCMD
 	if(tfp != NULL) fclose(tfp);
 	tfp = tmpfile();
 	erl_print_term(tfp, command);
 	rewind(tfp);
 	fread(buffer, 1, sizeof(buffer), tfp);
 	REMOTE_LOG("COMMAND : %s %s\n", cmdnames[ERL_INT_VALUE(cmd)], buffer);
+#endif
 
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
