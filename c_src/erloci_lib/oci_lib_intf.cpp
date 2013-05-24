@@ -223,10 +223,12 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
 {
     function_success = SUCCESS;
 
-	REMOTE_LOG("Executing \"%.*s;\"\n", query_str_len, query_str);
-
     OCISvcCtx *svchp = (OCISvcCtx *)conn_handle;
     OCIStmt *stmthp	= NULL;
+    ub4 itrs = 0;
+    ub4 stmt_typ = OCI_STMT_SELECT;
+    ub2 type = SQLT_INT;
+    int idx = 1;
 
     /* Get a prepared statement handle */
     checkerr(errhp, OCIStmtPrepare2(svchp,
@@ -237,11 +239,9 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
                                     NULL, 0,					/* tagging parameters: optional */
                                     OCI_NTV_SYNTAX, OCI_DEFAULT));
 	*stmt_handle = stmthp;
-    if(function_success != SUCCESS) return function_success;
+    if(function_success != SUCCESS) goto error_exit;
 
     /* Bind variables */
-    ub2 type = SQLT_INT;
-    int idx = 1;
     for(inp_t *param = params_head; param != NULL; param = param->next) {
         switch (param->dty) {
         case NUMBER:
@@ -255,15 +255,13 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
         checkerr(errhp, OCIBindByPos(stmthp, (OCIBind **)&(param->bndp), errhp, idx,
                                      (dvoid *) param->valuep, (sword) param->value_sz, type,
                                      (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT));
-        if(function_success != SUCCESS) return function_success;
+        if(function_success != SUCCESS) goto error_exit;
         idx++;
     }
 
-    ub4 stmt_typ = OCI_STMT_SELECT;
-    ub4 itrs = 0;
     checkerr(errhp, OCIAttrGet((dvoid*) stmthp, (ub4) OCI_HTYPE_STMT,
                                (dvoid*) &stmt_typ, (ub4 *)NULL, (ub4)OCI_ATTR_STMT_TYPE, errhp));
-    if(function_success != SUCCESS) return function_success;
+    if(function_success != SUCCESS) goto error_exit;
     if(stmt_typ != OCI_STMT_SELECT)
         itrs = 1;
 
@@ -271,7 +269,7 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
     checkerr(errhp, OCIStmtExecute(svchp, stmthp, errhp, itrs, 0,
                                    (OCISnapshot *)NULL, (OCISnapshot *)NULL,
                                    OCI_COMMIT_ON_SUCCESS));
-    if(function_success != SUCCESS) return function_success;
+    if(function_success != SUCCESS) goto error_exit;
 
     if(stmt_typ == OCI_STMT_SELECT) {
         OCIParam	*mypard;
@@ -282,7 +280,7 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
         parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,
                                   (ub4) num_cols);
         checkerr(errhp, parm_status);
-        if(function_success != SUCCESS) return function_success;
+        if(function_success != SUCCESS) goto error_exit;
 
         /* Loop only if a descriptor was successfully retrieved for
          * current position, starting at 1
@@ -302,7 +300,7 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
             checkerr(errhp, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                        (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_SIZE,
                                        errhp));
-            if(function_success != SUCCESS) return function_success;
+            if(function_success != SUCCESS) goto error_exit;
             cur_clm->dlen = len;
 
             /* Retrieve the data type attribute */
@@ -310,7 +308,7 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
             checkerr(errhp, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                        (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_TYPE,
                                        errhp));
-            if(function_success != SUCCESS) return function_success;
+            if(function_success != SUCCESS) goto error_exit;
             cur_clm->dtype = len;
 
             switch (len) {
@@ -346,7 +344,7 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
             checkerr(errhp, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                        (dvoid**) &col_name, (ub4 *) &len, (ub4) OCI_ATTR_NAME,
                                        errhp));
-            if(function_success != SUCCESS) return function_success;
+            if(function_success != SUCCESS) goto error_exit;
             char * column_name = new char[len+1];
 			SPRINT(column_name, len+1, "%.*s", len, col_name);
             (*coldef_append)(column_name, data_type, cur_clm->dlen, column_list);
@@ -354,8 +352,10 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
             col_name = NULL;
 
             /* Increment counter and get next descriptor, if there is one */
-            if(OCI_SUCCESS != OCIDescriptorFree(mypard, OCI_DTYPE_PARAM))
-                return FAILURE;
+            if(OCI_SUCCESS != OCIDescriptorFree(mypard, OCI_DTYPE_PARAM)) {
+                function_success = FAILURE;
+                goto error_exit;
+            }
             num_cols++;
             parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,
                                       (ub4) num_cols);
@@ -363,16 +363,19 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
         --num_cols;
 
         if(function_success != SUCCESS)
-            return function_success;
+            goto error_exit;
         REMOTE_LOG("Port: Returning Column(s)\n");
     } else {
         if(stmthp != NULL) {
             checkerr(errhp, OCIStmtRelease(stmthp, errhp, NULL, 0, OCI_DEFAULT));
-            if(function_success != SUCCESS) return function_success;
+            if(function_success != SUCCESS) goto error_exit;
         }
         REMOTE_LOG("Port: Executed non-select statement!\n");
     }
 
+	REMOTE_LOG("Executing \"%.*s;\"\n", query_str_len, query_str);
+
+error_exit:
     return function_success;
 }
 
@@ -380,9 +383,9 @@ ROW_FETCH oci_produce_rows(void * stmt_handle
 						   , void * row_list
 						   , void (*string_append)(const char * string, void * list)
 						   , void (*list_append)(const void * sub_list, void * list)
-						   , unsigned int (*sizeof_resp)(void * resp))
+						   , unsigned int (*sizeof_resp)(void * resp)
+                           , int maxrowcount)
 {
-REMOTE_LOG("..........................TRACE...\n");
     function_success = SUCCESS;
     OCIStmt *stmthp	= (OCIStmt *)stmt_handle;
 
@@ -394,6 +397,10 @@ REMOTE_LOG("..........................TRACE...\n");
     OCIDefine **defnhp = (OCIDefine **)malloc(num_cols * sizeof(OCIDefine *));
     void ** data_row = NULL;
     data_row = (void **) calloc(num_cols, sizeof(void *));
+
+    // overdrive preventation
+    if(maxrowcount > 100)
+        maxrowcount = 100;
 
     /*
      * Fetch the data
@@ -428,12 +435,12 @@ REMOTE_LOG("..........................TRACE...\n");
         }
 
     /* Fetch data by row */
-	REMOTE_LOG("OCI: Fetching rows\n");
-//	unsigned long startTime = GetTickCount();
+	//REMOTE_LOG("OCI: Fetching rows\n");
+
 	unsigned long int total_est_row_size = 0;
     do {
         ++num_rows;
-		if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);
+		//if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);
         res = OCIStmtFetch(stmthp, errhp, 1, 0, 0);
         row = NULL;
 
@@ -461,10 +468,9 @@ REMOTE_LOG("..........................TRACE...\n");
 			(*list_append)(row, row_list);
 		}
     } while (res != OCI_NO_DATA
-			&& num_rows < 100
+			&& num_rows < maxrowcount
 			&& total_est_row_size < MAX_RESP_SIZE);
-//             calculate_resp_size(row_list) < MAX_RESP_SIZE);
-	REMOTE_LOG("OCI: Row fetch and erlang term building complete with %ul rows of %d bytes\n", num_rows, total_est_row_size); //, GetTickCount() - startTime
+	//REMOTE_LOG("OCI: Row fetch and erlang term building complete with %ul rows of %d bytes\n", num_rows, total_est_row_size); //, GetTickCount() - startTime
 
     /* Release the bound variables memeory */
     for (i = 0; i < num_cols; ++i)
@@ -481,7 +487,7 @@ REMOTE_LOG("..........................TRACE...\n");
     if(function_success != SUCCESS)
         return ERROR;
 
-    REMOTE_LOG("Port: Returning Rows...\n");
+    //REMOTE_LOG("Port: Returning Rows...\n");
 
     return (res != OCI_NO_DATA ? MORE : DONE);
 }

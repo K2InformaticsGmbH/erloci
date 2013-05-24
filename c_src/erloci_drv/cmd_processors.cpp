@@ -287,7 +287,6 @@ bool cmd_exec_sql(ETERM * command)
 
         /* Transfer the columns */
         ETERM *columns = NULL;
-		//sprintf(conn_handle_str, "%p", conn_handle);
 		switch(oci_exec_sql(conn_handle, &statement_handle, ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), bind_args, &columns, append_coldef_to_list)) {
 			case SUCCESS:
 				if (columns == NULL && bind_args != NULL)
@@ -298,7 +297,7 @@ bool cmd_exec_sql(ETERM * command)
 					resp = erl_format((char*)"{~w,~i,{{stmt,~w},{cols,~w}}}", args[0], EXEC_SQL, erl_mk_ulonglong((unsigned long long)statement_handle), columns);
 				}
 				if(write_resp(resp) < 0) goto error_exit;
-				REMOTE_LOG("SUCCESS\n");
+	            REMOTE_LOG("SUCCESS \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
 			case CONTINUE_WITH_ERROR:
                 {
@@ -307,12 +306,12 @@ bool cmd_exec_sql(ETERM * command)
 					get_last_error(NULL, err_str_len);
 					err_str = new char[err_str_len+1];
 					get_last_error(err_str, err_str_len);
-					REMOTE_LOG("ERROR Execute SQL %s\n", err_str);
+					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), err_str);
 					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, err_str);
 					delete err_str;
 					write_resp(resp);
 				}
-				REMOTE_LOG("CONTINUE_WITH_ERROR\n");
+	            REMOTE_LOG("CONTINUE_WITH_ERROR \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
 			case FAILURE:
                 {
@@ -321,13 +320,13 @@ bool cmd_exec_sql(ETERM * command)
 					get_last_error(NULL, err_str_len);
 					err_str = new char[err_str_len+1];
 					get_last_error(err_str, err_str_len);
-					REMOTE_LOG("ERROR Execute SQL %s\n", err_str);
+					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), err_str);
 					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, err_str);
 					delete err_str;
 					write_resp(resp);
 					goto error_exit;
 				}
-				REMOTE_LOG("FAILURE\n");
+	            REMOTE_LOG("FAILURE \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
         }
     } else {
@@ -370,37 +369,29 @@ bool cmd_fetch_rows(ETERM * command)
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(FETCH_ROWS))
         goto error_exit_pre;
 
-    // Args: Connection Handle, Statement Handle	
+    // Args: Connection Handle, Statement Handle, Rowcount
     if(
 #ifdef __WIN32__
     ERL_IS_INTEGER(args[1]) &&
 #else
     (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
 #endif
-#ifdef __WIN32__
     ERL_IS_INTEGER(args[2])
-#else
-    (ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
-#endif
     ) {
 
 #ifdef __WIN32__
-		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
+		void * statement_handle = (void *)ERL_INT_VALUE(args[1]);
 #else
-		void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
+        void * statement_handle = (void *)ERL_LL_UVALUE(args[1]);
 #endif
-#ifdef __WIN32__
-		void * statement_handle = (void *)ERL_INT_VALUE(args[2]);
-#else
-        void * statement_handle = (void *)ERL_LL_UVALUE(args[2]);
-#endif
+        int rowcount = ERL_INT_VALUE(args[2]);
 
-        inp_t * bind_args = map_to_bind_args(args[3]);
+        //inp_t * bind_args = map_to_bind_args(args[4]);
 
         /* Transfer the rows */
         if (statement_handle != NULL) {
             ETERM *rows = NULL;
-			ROW_FETCH row_fetch = oci_produce_rows(statement_handle, &rows, append_string_to_list, append_list_to_list, calculate_resp_size);
+			ROW_FETCH row_fetch = oci_produce_rows(statement_handle, &rows, append_string_to_list, append_list_to_list, calculate_resp_size, rowcount);
             if (row_fetch != ERROR) {
                 if (rows == NULL) {
                     resp = erl_format((char*)"{~w,~i,{{rows,[]},done}}", args[0], FETCH_ROWS);
@@ -408,7 +399,6 @@ bool cmd_fetch_rows(ETERM * command)
                 } else {
                     resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FETCH_ROWS, rows, (row_fetch == MORE ? "more" : "done"));
 					//erl_free_compound(rows);
-                    //resp = erl_format((char*)"{~i,~i,{{rows,[]},more}}", FETCH_ROWS, (unsigned long)connection_handle);
                     if(write_resp(resp) < 0) goto error_exit;
                 }
             }

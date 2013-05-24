@@ -24,7 +24,8 @@
     logging/2,
     create_sess_pool/5,
     get_session/1,
-    exec_sql/3
+    exec_sql/3,
+    get_rows/2
 ]).
 
 %% gen_server callbacks
@@ -82,9 +83,12 @@ logging(disable, {?MODULE, PortPid}) ->
 exec_sql(Sql, Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(Opts) ->
     R = gen_server:call(PortPid, {port_call, {?EXEC_SQL, SessionId, Sql, Opts}}, ?PORT_TIMEOUT),
     case R of
-        {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, SessionId, StmtId}, {cols, Clms}};
+        {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, StmtId}, {cols, Clms}};
         R -> R
     end.
+
+get_rows(Count, {?MODULE, PortPid, StmtId}) ->
+    gen_server:call(PortPid, {port_call, {?FETCH_ROWS, StmtId, Count}}, ?PORT_TIMEOUT).
 
 %% Callbacks
 init([Logging, ListenPort]) ->
@@ -162,6 +166,7 @@ handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     ?Info("TX ~p bytes", [byte_size(CmdBin)]),
     ?Debug(" ~p", [Cmd]),
     true = port_command(Port, term_to_binary(Cmd)),
+    io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
     {noreply, State}. %% we will reply inside handle_info_result
 
 handle_cast(_Msg, State) ->
@@ -179,6 +184,7 @@ handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data
             ?Error("~p", [Reason]), % Just in case its ignored later
             gen_server:reply(From, {error, Reason});
         {From, Result} ->
+            io:format(user, "_____________________________________ reply ~p_____________________________________ ~n", [From]),
             gen_server:reply(From, Result) % regular reply
     end,
     {noreply, State};

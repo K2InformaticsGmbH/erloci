@@ -77,4 +77,4 @@ extern void *		oci_get_session_from_pool();
 extern INTF_RET		oci_exec_sql(const void *, void **, const unsigned char *, int, inp_t *, void *, void (*)(const char *, const char *, const unsigned int, void *));
 extern bool			oci_return_connection_to_pool(void *);
 extern void			oci_cleanup(void);
-extern ROW_FETCH	oci_produce_rows(void *, void *, void (*)(const char *, void *), void (*)(const void *, void *), unsigned int (*)(void *));
+extern ROW_FETCH	oci_produce_rows(void *, void *, void (*)(const char *, void *), void (*)(const void *, void *), unsigned int (*)(void *), int);
