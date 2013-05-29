@@ -1,60 +1,22 @@
-// erloci_con.cpp : D	efines the entry point for the console application.
-//
-
 #include "stdafx.h"
 #include "oci_lib_intf.h"
 
 #include "string.h"
-
-#include "erl_interface.h"
-#include "ei.h"
+#include "stdarg.h"
 
 void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list)
 {
 	printf("\t%s\n", col_name);
 }
 
-typedef struct _LIST {
-	unsigned long int len;
-	ETERM **list;
-} LIST;
-
 void string_append(const char * string, void * list)
 {
-	if (list==NULL)
-        return;
-
-	LIST **container_list = (LIST **)list;
-	if (*container_list == NULL) {
-        *container_list = (LIST *)malloc(sizeof(LIST *));
-		(*container_list)->list = NULL;
-		(*container_list)->len = 0;
-	}
-
-	(*container_list)->list = (ETERM **)realloc((*container_list)->list, ((*container_list)->len + 1) * sizeof(ETERM **));
-
-	(*container_list)->list[(*container_list)->len] = erl_format((char*)"~s", string);
-	(*container_list)->len++;
+	printf("%s\t", string);
 }
 
 void list_append(const void * sub_list, void * list)
 {
-	if (list==NULL)
-        return;
-
-	LIST **container_list = (LIST **)list;
-	if (*container_list == NULL) {
-        *container_list = (LIST *)malloc(sizeof(LIST *));
-		(*container_list)->list = NULL;
-		(*container_list)->len = 0;
-	}
-
-	(*container_list)->list = (ETERM **)realloc((*container_list)->list, ((*container_list)->len + 1) * sizeof(ETERM **));
-
-	(*container_list)->list[(*container_list)->len] = erl_mk_list(((LIST *)sub_list)->list, ((LIST *)sub_list)->len);
-	free(((LIST *)sub_list)->list);
-
-	(*container_list)->len++;
+	printf("\n");
 }
 
 unsigned int sizeof_resp(void * resp)
@@ -64,16 +26,13 @@ unsigned int sizeof_resp(void * resp)
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	const char	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=192.168.1.69)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=SBS0.k2informatics.ch)))",
-				*usr = "SBS0",
-				*pwd = "sbs0sbs0_4dev",
+	const char	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+				*usr = "bikram",
+				*pwd = "abcd123",
 				*opt = "";
 	void * conn_handle = NULL;
-	const char * qry = "SELECT * FROM AAABLEVEL";
+	const char * qry = "SELECT * FROM ALL_TABLES";
 	void * statement_handle = NULL;
-	LIST * rows = NULL;
-
-	erl_init(NULL, 0);
 
 	oci_init();
 	oci_create_tns_seesion_pool((const unsigned char *)tns, strlen(tns), (const unsigned char *)usr, strlen(usr), (const unsigned char *)pwd, strlen(pwd), (const unsigned char *)opt, strlen(opt));
@@ -83,23 +42,25 @@ int _tmain(int argc, _TCHAR* argv[])
 	printf("Columns:\n");
 	switch(oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)qry, strlen(qry), NULL, NULL, append_coldef_to_list)) {
 		case SUCCESS:
-			printf("Success...!\n");
+			{
+				printf("Success...!\n");
+				oci_produce_rows(statement_handle, NULL, string_append, list_append, sizeof_resp, 100);
+			}
 			break;
 		case CONTINUE_WITH_ERROR:
-			printf("Continue with error...!\n");
+			{
+				int err_str_len = 0;
+				char * err_str;
+				get_last_error(NULL, err_str_len);
+				err_str = new char[err_str_len+1];
+				get_last_error(err_str, err_str_len);
+				printf("Continue with error... %s!\n", err_str);
+			}
 			break;
 		case FAILURE:
 			printf("Failed...!\n");
 			break;
     }
-
-	oci_produce_rows(statement_handle, &rows, string_append, list_append, sizeof_resp);
-
-	ETERM * t = erl_mk_list(rows->list, rows->len);
-	erl_print_term(stdout, t);
-
-	free(rows->list);
-
 	return 0;
 }
 
