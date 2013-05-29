@@ -50,13 +50,23 @@ static OCISPool		*spoolhp	= NULL;
 
 static char			*poolName	= NULL;
 static ub4			poolNameLen	= 0;
-static ub4			stmt_cachesize;
+char				session_pool_name[2048];
+
+char	gerrbuf[2048];
+sb4		gerrcode = 0;
+
+/*
+ * Context structures
+ */
+typedef struct session_context {
+	char	gerrbuf[2048];
+	sb4		gerrcode;
+
+	OCISvcCtx *svchp;
+} session_context;
+
 static column_info	*columns = NULL;
 static ub4			num_cols = 0;
-
-char				session_pool_name[2048];
-char				gerrbuf[2048];
-sb4					gerrcode = 0;
 
 /* constants */
 #define POOL_MIN	0
@@ -86,7 +96,7 @@ void oci_init(void)
 {
 	function_success = SUCCESS;
     checkenv(envhp, OCIEnvCreate(&envhp,				/* returned env handle */
-                                 OCI_DEFAULT,			/* initilization modes */
+                                 OCI_THREADED,			/* initilization modes */
                                  NULL, NULL, NULL, NULL,/* callbacks, context */
                                  (size_t) 0,			/* optional extra memory size: optional */
                                  (void**) NULL));		/* returned extra memeory */
@@ -136,6 +146,7 @@ bool oci_create_tns_seesion_pool(const unsigned char * connect_str, const int co
     function_success = SUCCESS;
     poolName = NULL;
     poolNameLen = 0;
+	ub4	stmt_cachesize = 0;
 
     oci_free_session_pool();
 
@@ -206,9 +217,10 @@ void * oci_get_session_from_pool()
     function_success = SUCCESS;
 
     /* get the database connection */
-    OCISvcCtx	*svchp = NULL;
+	session_context *ctx = new session_context;
+    ctx->svchp = NULL;
     checkerr(errhp, OCISessionGet(envhp, errhp,
-                                  &svchp,		/* returned database connection */
+                                  &(ctx->svchp),		/* returned database connection */
                                   NULL,		/* initialized authentication handle */
                                   /* connect string */
                                   (OraText *) poolName, poolNameLen,
@@ -220,17 +232,19 @@ void * oci_get_session_from_pool()
         return NULL;
 
 	//REMOTE_LOG("oci connection handle %p\n", svchp);
-    return svchp;
+    return ctx;
 }
 #endif
 
-bool oci_return_connection_to_pool(void * connection_handle)
+bool oci_return_connection_to_pool(void * ctx)
 {
     function_success = SUCCESS;
 
-    OCISvcCtx *svchp = (OCISvcCtx *)connection_handle;
+    OCISvcCtx *svchp = ((session_context *)ctx)->svchp;
     if (svchp != NULL)
         checkerr(errhp, OCISessionRelease(svchp, errhp, NULL, 0, OCI_DEFAULT));
+
+	delete ctx;
 
     if(function_success != SUCCESS)
         return false;
@@ -253,13 +267,13 @@ INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
 	return SUCCESS;
 }
 #else
-INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsigned char * query_str, int query_str_len
+INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char * query_str, int query_str_len
 					  , inp_t *params_head, void * column_list
 					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
 {
     function_success = SUCCESS;
 
-    OCISvcCtx *svchp = (OCISvcCtx *)conn_handle;
+	OCISvcCtx *svchp = ((session_context *)ctx)->svchp;
     OCIStmt *stmthp	= NULL;
     ub4 itrs = 0;
     ub4 stmt_typ = OCI_STMT_SELECT;
