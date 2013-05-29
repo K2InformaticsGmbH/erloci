@@ -90,8 +90,6 @@ extern char			gerrbuf[2048];
 extern int			gerrcode;
 extern char			session_pool_name[2048];
 
-extern void			get_last_error(char *, int &);
-
 // ThreadPool
 extern bool InitializeThreadPool(void);
 extern void CleanupThreadPool(void);

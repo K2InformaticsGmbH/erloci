@@ -15,10 +15,7 @@
 #pragma once
 
 //#define MAX_RESP_SIZE 0xFFFFFFF0
-#define MAX_RESP_SIZE 0x00040000
-
-extern bool	log_flag;
-extern void log_remote(const char *, ...);
+#define MAX_RESP_SIZE 0x00040000UL
 
 #ifndef __WIN32__
 #include <string.h>
@@ -67,7 +64,18 @@ typedef struct inp_t {
     void		*valuep;
 } inp_t;
 
+
+// External linkages (import)
+extern bool	log_flag;
+
+//
+// Exposed linkages (export)
+//
+
+extern void log_remote(const char *, ...);
+
 extern void			oci_init(void);
+
 extern bool			oci_free_session_pool(void);
 extern bool			oci_create_tns_seesion_pool(const unsigned char *, const int,
 												const unsigned char *, const int,
@@ -78,3 +86,5 @@ extern INTF_RET		oci_exec_sql(const void *, void **, const unsigned char *, int,
 extern bool			oci_return_connection_to_pool(void *);
 extern void			oci_cleanup(void);
 extern ROW_FETCH	oci_produce_rows(void *, void *, void (*)(const char *, void *), void (*)(const void *, void *), unsigned int (*)(void *), int);
+
+extern void			get_last_error(char *, int &);
