@@ -26,20 +26,24 @@
 #define	SPRINT snprintf
 #endif
 
-//
-//
-//
-//
-//#define DUMMY
-//
-//
-//
-//
+/* constants */
+#define POOL_MIN	0
+#define POOL_MAX	10
+#define POOL_INCR	0
+#define MAX_COLUMS	1000
 
+/* opaque types */
 typedef struct column_info {
     ub2  dtype;
     ub4	 dlen;
+	sb2  indp;
 } column_info;
+
+typedef struct stmt_ctx {
+	column_info	*columns;
+	ub4			num_cols;
+	OCIStmt		*stmthp;
+} stmt_ctx;
 
 /*
  * Global variables
@@ -48,73 +52,45 @@ static OCIEnv		*envhp		= NULL;
 static OCIError		*errhp		= NULL;
 static OCISPool		*spoolhp	= NULL;
 
-static char			*poolName	= NULL;
+static char			*poolName;
 static ub4			poolNameLen	= 0;
-char				session_pool_name[2048];
-
-char	gerrbuf[2048];
-sb4		gerrcode = 0;
-
-/*
- * Context structures
- */
-typedef struct session_context {
-	char	gerrbuf[2048];
-	sb4		gerrcode;
-
-	OCISvcCtx *svchp;
-} session_context;
-
-static column_info	*columns = NULL;
-static ub4			num_cols = 0;
-
-/* constants */
-#define POOL_MIN	0
-#define POOL_MAX	10
-#define POOL_INCR	0
-#define MAX_COLUMS	1000
 
 /* Error checking functions and macros */
-void checkerr0(void *, ub4, sword, const char * function_name, int line_no);
+void checkerr0(intf_ret *, ub4, sword, const char * function_name, int line_no);
 #define checkerr(errhp, status) checkerr0((errhp), OCI_HTYPE_ERROR, (status), __FUNCTION__, __LINE__)
 #define checkenv(envhp, status) checkerr0((envhp), OCI_HTYPE_ENV, (status), __FUNCTION__, __LINE__)
 
 static INTF_RET function_success = SUCCESS;
 
-void get_last_error(char *buf, int & len)
-{
-    len = (int)strlen(gerrbuf);
-    if(buf != NULL)
-#ifdef __WIN32__
-        strncpy_s(buf, len+1, gerrbuf, len);
-#else
-		strncpy(buf, gerrbuf, len);
-#endif
-}
-
 void oci_init(void)
 {
-	function_success = SUCCESS;
-    checkenv(envhp, OCIEnvCreate(&envhp,				/* returned env handle */
-                                 OCI_THREADED,			/* initilization modes */
-                                 NULL, NULL, NULL, NULL,/* callbacks, context */
-                                 (size_t) 0,			/* optional extra memory size: optional */
-                                 (void**) NULL));		/* returned extra memeory */
+	intf_ret r;
+	r.fn_ret = SUCCESS;
 
-    checkenv(envhp, OCIHandleAlloc(envhp,				/* environment handle */
-                                   (void **) &errhp,	/* returned err handle */
-                                   OCI_HTYPE_ERROR,		/* typ of handle to allocate */
-                                   (size_t) 0,			/* optional extra memory size */
-                                   (void **) NULL));	/* returned extra memeory */
+	sword ret = 0;
+	ret = OCIEnvCreate(&envhp,					/* returned env handle */
+                       OCI_THREADED,			/* initilization modes */
+                       NULL, NULL, NULL, NULL,	/* callbacks, context */
+                       (size_t) 0,				/* optional extra memory size: optional */
+                       (void**) NULL);			/* returned extra memeory */
 
-    if(function_success != SUCCESS)
+	r.handle = envhp;
+    checkenv(&r, ret);
+    if(r.fn_ret != SUCCESS)
+        exit(1);
+
+    checkenv(&r, OCIHandleAlloc(envhp,				/* environment handle */
+                                (void **) &errhp,	/* returned err handle */
+                                OCI_HTYPE_ERROR,	/* typ of handle to allocate */
+                                (size_t) 0,			/* optional extra memory size */
+                                (void **) NULL));	/* returned extra memeory */
+
+    if(r.fn_ret != SUCCESS)
         exit(1);
 }
 
 void oci_cleanup(void)
 {
-    if (columns != NULL)
-        free(columns);
     oci_free_session_pool();
     if (errhp != NULL) {
         OCIHandleFree(errhp, OCI_HTYPE_ERROR);
@@ -122,174 +98,164 @@ void oci_cleanup(void)
     }
 }
 
-bool oci_free_session_pool(void)
+intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect_str_len,
+                                 const char * user_name, const int user_name_len,
+                                 const char * password, const int password_len,
+                                 const char * options, const int options_len)
 {
-    function_success = SUCCESS;
+	intf_ret r;
+	r.fn_ret = SUCCESS;
 
-    if (spoolhp != NULL) {
-        checkerr(errhp, OCISessionPoolDestroy(spoolhp, errhp, OCI_SPD_FORCE));
-        if(function_success != SUCCESS)return false;
-
-        if(OCI_SUCCESS != OCIHandleFree(spoolhp, OCI_HTYPE_SPOOL))
-            return false;
-        spoolhp = NULL;
-    }
-
-    return true;
-}
-
-bool oci_create_tns_seesion_pool(const unsigned char * connect_str, const int connect_str_len,
-                                 const unsigned char * user_name, const int user_name_len,
-                                 const unsigned char * password, const int password_len,
-                                 const unsigned char * options, const int options_len)
-{
-    function_success = SUCCESS;
-    poolName = NULL;
     poolNameLen = 0;
 	ub4	stmt_cachesize = 0;
 
-    oci_free_session_pool();
+    if((r = oci_free_session_pool()).fn_ret != SUCCESS)
+		return r;
 
     /* allocate session pool handle
      * note: for OCIHandleAlloc() we check error on environment handle
      */
-    checkenv(envhp, OCIHandleAlloc(envhp, (void **)&spoolhp,
+	r.handle = envhp;
+    checkenv(&r, OCIHandleAlloc(envhp, (void **)&spoolhp,
                                    OCI_HTYPE_SPOOL, (size_t) 0, (void **) NULL));
 
     /* set the statement cache size for all sessions in the pool
      * note: this can also be set per session after obtaining the session from the pool
      */
-    checkerr(errhp, OCIAttrSet(spoolhp, OCI_HTYPE_SPOOL,
+	r.handle = errhp;
+    checkerr(&r, OCIAttrSet(spoolhp, OCI_HTYPE_SPOOL,
                                &stmt_cachesize, 0, OCI_ATTR_SPOOL_STMTCACHESIZE, errhp));
 
-    checkerr(errhp, OCISessionPoolCreate(envhp, errhp,
+    checkerr(&r, OCISessionPoolCreate(envhp, errhp,
                                          spoolhp,
                                          (OraText **) &poolName, &poolNameLen,
                                          (OraText *) connect_str, connect_str_len,
                                          POOL_MIN, POOL_MAX, POOL_INCR,
-                                         (OraText*)user_name, user_name_len,			/* homo pool user specified */
+                                         (OraText*)user_name, user_name_len,		/* homo pool user specified */
                                          (OraText*)password, password_len,			/* homo pool password specified */
                                          OCI_SPC_STMTCACHE));	/* modes */
-    if(function_success != SUCCESS)return false;
+    if(r.fn_ret != SUCCESS)
+		return r;
 
-	SPRINT(session_pool_name, sizeof(session_pool_name), "%.*s", poolNameLen, (char *)poolName);
+	REMOTE_LOG("created session pool %.*s\n", poolNameLen, (char *)poolName);
 
     ub1 spoolMode = OCI_SPOOL_ATTRVAL_NOWAIT;
-    checkerr(errhp, OCIAttrSet(spoolhp, OCI_HTYPE_SPOOL,
+    checkerr(&r, OCIAttrSet(spoolhp, OCI_HTYPE_SPOOL,
                                (void*)&spoolMode, sizeof(ub1),
                                OCI_ATTR_SPOOL_GETMODE, errhp));
-    if(function_success != SUCCESS)return false;
 
-    return true;
+    return r;
 }
 
-#define MAX_CONNECT_STR_LEN 1024
-bool oci_create_seesion_pool(const unsigned char * host_str, const int host_len, const unsigned int port,
-                             const unsigned char * srv_str, const int srv_len,
-                             const unsigned char * user_name, const int user_name_len,
-                             const unsigned char * password, const int password_len,
-                             const unsigned char * options, const int options_len)
+intf_ret oci_free_session_pool(void)
 {
-    char connect_str[MAX_CONNECT_STR_LEN];
-	SPRINT(connect_str, MAX_CONNECT_STR_LEN,
-              "(DESCRIPTION=(ADDRESS=(PROTOCOL=tcp) (HOST=%.*s) (PORT=%d))(CONNECT_DATA=(SERVICE_NAME=%.*s)))",
-              host_len, host_str,
-              port,
-              srv_len, srv_str);
-    return oci_create_tns_seesion_pool((unsigned char *)connect_str, (int)strlen(connect_str),
-                                       user_name, user_name_len,
-                                       password, password_len,
-                                       options, options_len);
+	intf_ret r;
+	r.fn_ret = SUCCESS;
+	r.handle = errhp;
+
+    if (spoolhp != NULL) {
+        checkerr(&r, OCISessionPoolDestroy(spoolhp, errhp, OCI_SPD_FORCE));
+        if(r.fn_ret != SUCCESS)return r;
+
+        if(OCI_SUCCESS != OCIHandleFree(spoolhp, OCI_HTYPE_SPOOL))
+            return r;
+        spoolhp = NULL;
+    }
+
+    return r;
 }
 
-#ifdef DUMMY
-void * oci_get_session_from_pool()
+intf_ret oci_get_session_from_pool(void **conn_handle)
 {
-#ifdef __WIN32__
-	return (void*)(0x12345678);
-#else
-	return (void*)(0x1234567890ABCDEF);
-#endif
-}
-#else
-void * oci_get_session_from_pool()
-{
-    function_success = SUCCESS;
+	OCISvcCtx *svchp;
+	intf_ret r;
+
+	r.fn_ret = SUCCESS;
 
     /* get the database connection */
-	session_context *ctx = new session_context;
-    ctx->svchp = NULL;
-    checkerr(errhp, OCISessionGet(envhp, errhp,
-                                  &(ctx->svchp),		/* returned database connection */
-                                  NULL,		/* initialized authentication handle */
-                                  /* connect string */
-                                  (OraText *) poolName, poolNameLen,
-                                  /* session tagging parameters: optional */
-                                  NULL, 0, NULL, NULL, NULL,
-                                  OCI_SESSGET_SPOOL));/* modes */
+	r.handle = errhp;
+    checkerr(&r, OCISessionGet(envhp, errhp,
+                               &svchp,								/* returned database connection */
+                               NULL,								/* initialized authentication handle */                               
+                               (OraText *) poolName, poolNameLen,	/* connect string */
+                               NULL, 0, NULL, NULL, NULL,			/* session tagging parameters: optional */
+                               OCI_SESSGET_SPOOL));					/* modes */
 
-    if(function_success != SUCCESS)
-        return NULL;
+    if(r.fn_ret != SUCCESS)
+        return r;
 
 	//REMOTE_LOG("oci connection handle %p\n", svchp);
-    return ctx;
+	*conn_handle = svchp;
+    return r;
 }
-#endif
 
-bool oci_return_connection_to_pool(void * ctx)
+intf_ret oci_return_connection_to_pool(void * svchp)
 {
-    function_success = SUCCESS;
+	intf_ret r;
 
-    OCISvcCtx *svchp = ((session_context *)ctx)->svchp;
+	r.fn_ret = SUCCESS;
+	r.handle = errhp;
+
     if (svchp != NULL)
-        checkerr(errhp, OCISessionRelease(svchp, errhp, NULL, 0, OCI_DEFAULT));
+        checkerr(&r, OCISessionRelease((OCISvcCtx*)svchp, errhp, NULL, 0, OCI_DEFAULT));
 
-	delete ctx;
+    if(r.fn_ret != SUCCESS)
+        return r;
 
-    if(function_success != SUCCESS)
-        return false;
-
-    return true;
+    return r;
 }
-#ifdef DUMMY
-INTF_RET oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsigned char * query_str, int query_str_len
+
+intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned char * query_str, int query_str_len
 					  , inp_t *params_head, void * column_list
 					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
 {
-#ifdef __WIN32__
-	*stmt_handle = (void*)(0x1ABCDEF1);
-#else
-	*stmt_handle = (void*)(0xABCDEF1234567890);
-#endif
-	for(int i=0; i < 5; ++i)
-		(*coldef_append)("col", "string", 100, column_list);
+    intf_ret r;
 
-	return SUCCESS;
-}
-#else
-INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char * query_str, int query_str_len
-					  , inp_t *params_head, void * column_list
-					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
-{
-    function_success = SUCCESS;
+	r.fn_ret = SUCCESS;
 
-	OCISvcCtx *svchp = ((session_context *)ctx)->svchp;
     OCIStmt *stmthp	= NULL;
+	stmt_ctx *smtctx = NULL;
     ub4 itrs = 0;
     ub4 stmt_typ = OCI_STMT_SELECT;
     ub2 type = SQLT_INT;
     int idx = 1;
 
+	// private error structure for each statement
+	OCIError * ehp = NULL;
+	r.handle = envhp;
+	checkenv(&r, OCIHandleAlloc(envhp,				/* environment handle */
+                                (void **) &ehp,		/* returned err handle */
+                                OCI_HTYPE_ERROR,	/* typ of handle to allocate */
+                                (size_t) 0,			/* optional extra memory size */
+                                (void **) NULL));	/* returned extra memeory */
+    if(r.fn_ret != SUCCESS)
+        return r;
+
+	// allocate the statement handle
+	checkenv(&r, OCIHandleAlloc(envhp,					/* environment handle */
+                                (void **) &stmthp,		/* returned statement handle */
+                                OCI_HTYPE_STMT,			/* typ of handle to allocate */
+                                sizeof(stmt_ctx),		/* optional extra memory size */
+                                (void **) &smtctx));	/* returned extra memeory */
+    if(r.fn_ret != SUCCESS)
+        return r;
+
+	// from this point on regular errhp will do
+	r.handle = ehp;
+
     /* Get a prepared statement handle */
-    checkerr(errhp, OCIStmtPrepare2(svchp,
-                                    &stmthp,					/* returned statement handle */
-                                    errhp,						/* error handle */
-                                    (OraText *) query_str,		/* the statement text */
-                                    query_str_len,				/* length of the text */
-                                    NULL, 0,					/* tagging parameters: optional */
-                                    OCI_NTV_SYNTAX, OCI_DEFAULT));
-	*stmt_handle = stmthp;
-    if(function_success != SUCCESS) goto error_exit;
+    checkerr(&r, OCIStmtPrepare2((OCISvcCtx *)svchp,
+                                 &stmthp,					/* returned statement handle */
+                                 ehp,						/* error handle */
+                                 (OraText *) query_str,		/* the statement text */
+                                 query_str_len,				/* length of the text */
+                                 NULL, 0,					/* tagging parameters: optional */
+                                 OCI_NTV_SYNTAX, OCI_DEFAULT));
+
+	smtctx->stmthp = stmthp;
+	*stmt_handle = smtctx;
+
+    if(r.fn_ret != SUCCESS) goto error_exit;
 
     /* Bind variables */
     for(inp_t *param = params_head; param != NULL; param = param->next) {
@@ -302,35 +268,35 @@ INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char 
             break;
         }
         param->bndp = NULL;
-        checkerr(errhp, OCIBindByPos(stmthp, (OCIBind **)&(param->bndp), errhp, idx,
-                                     (dvoid *) param->valuep, (sword) param->value_sz, type,
-                                     (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT));
-        if(function_success != SUCCESS) goto error_exit;
+        checkerr(&r, OCIBindByPos(stmthp, (OCIBind **)&(param->bndp), ehp, idx,
+                                  (dvoid *) param->valuep, (sword) param->value_sz, type,
+                                  (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT));
+        if(r.fn_ret != SUCCESS) goto error_exit;
         idx++;
     }
 
-    checkerr(errhp, OCIAttrGet((dvoid*) stmthp, (ub4) OCI_HTYPE_STMT,
-                               (dvoid*) &stmt_typ, (ub4 *)NULL, (ub4)OCI_ATTR_STMT_TYPE, errhp));
-    if(function_success != SUCCESS) goto error_exit;
+    checkerr(&r, OCIAttrGet((dvoid*) stmthp, (ub4) OCI_HTYPE_STMT,
+                            (dvoid*) &stmt_typ, (ub4 *)NULL, (ub4)OCI_ATTR_STMT_TYPE, ehp));
+    if(r.fn_ret != SUCCESS) goto error_exit;
     if(stmt_typ != OCI_STMT_SELECT)
         itrs = 1;
 
     /* execute the statement and commit */
-    checkerr(errhp, OCIStmtExecute(svchp, stmthp, errhp, itrs, 0,
-                                   (OCISnapshot *)NULL, (OCISnapshot *)NULL,
-                                   OCI_COMMIT_ON_SUCCESS));
-    if(function_success != SUCCESS) goto error_exit;
+    checkerr(&r, OCIStmtExecute((OCISvcCtx *)svchp, stmthp, ehp, itrs, 0,
+                                (OCISnapshot *)NULL, (OCISnapshot *)NULL,
+                                OCI_COMMIT_ON_SUCCESS));
+    if(r.fn_ret != SUCCESS) goto error_exit;
 
     if(stmt_typ == OCI_STMT_SELECT) {
         OCIParam	*mypard;
-        num_cols	= 1;
+        smtctx->num_cols	= 1;
         sb4         parm_status;
 
         /* Request a parameter descriptor for position 1 in the select-list */
-        parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,
-                                  (ub4) num_cols);
-        checkerr(errhp, parm_status);
-        if(function_success != SUCCESS) goto error_exit;
+        parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, ehp, (dvoid **)&mypard,
+                                  (ub4) smtctx->num_cols);
+        checkerr(&r, parm_status);
+        if(r.fn_ret != SUCCESS) goto error_exit;
 
         /* Loop only if a descriptor was successfully retrieved for
          * current position, starting at 1
@@ -338,27 +304,25 @@ INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char 
         text *col_name;
         ub4 len = 0;
         char * data_type = NULL;
-        if (columns != NULL)
-            free(columns);
-        columns = NULL;
+        smtctx->columns = NULL;
         while (parm_status == OCI_SUCCESS) {
-            columns = (column_info *)realloc(columns, num_cols * sizeof(column_info));
-            column_info * cur_clm = &(columns[num_cols-1]);
+            smtctx->columns = (column_info *)realloc(smtctx->columns, smtctx->num_cols * sizeof(column_info));
+            column_info * cur_clm = &(smtctx->columns[smtctx->num_cols-1]);
 
 			/* Retrieve the data size attribute */
             len = 0;
-            checkerr(errhp, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
-                                       (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_SIZE,
-                                       errhp));
-            if(function_success != SUCCESS) goto error_exit;
+            checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+                                    (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_SIZE,
+                                    ehp));
+            if(r.fn_ret != SUCCESS) goto error_exit;
             cur_clm->dlen = len;
 
             /* Retrieve the data type attribute */
             len = 0;
-            checkerr(errhp, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
-                                       (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_TYPE,
-                                       errhp));
-            if(function_success != SUCCESS) goto error_exit;
+            checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+                                    (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_TYPE,
+                                    ehp));
+            if(r.fn_ret != SUCCESS) goto error_exit;
             cur_clm->dtype = len;
 
             switch (len) {
@@ -391,10 +355,10 @@ INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char 
 
             /* Retrieve the column name attribute */
             len = 0;
-            checkerr(errhp, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
-                                       (dvoid**) &col_name, (ub4 *) &len, (ub4) OCI_ATTR_NAME,
-                                       errhp));
-            if(function_success != SUCCESS) goto error_exit;
+            checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+                                    (dvoid**) &col_name, (ub4 *) &len, (ub4) OCI_ATTR_NAME,
+                                    ehp));
+            if(r.fn_ret != SUCCESS) goto error_exit;
             char * column_name = new char[len+1];
 			SPRINT(column_name, len+1, "%.*s", len, col_name);
             (*coldef_append)(column_name, data_type, cur_clm->dlen, column_list);
@@ -403,22 +367,22 @@ INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char 
 
             /* Increment counter and get next descriptor, if there is one */
             if(OCI_SUCCESS != OCIDescriptorFree(mypard, OCI_DTYPE_PARAM)) {
-                function_success = FAILURE;
+                r.fn_ret = FAILURE;
                 goto error_exit;
             }
-            num_cols++;
-            parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,
-                                      (ub4) num_cols);
+            smtctx->num_cols++;
+            parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, ehp, (dvoid **)&mypard,
+                                      (ub4) smtctx->num_cols);
         }
-        --num_cols;
+        --smtctx->num_cols;
 
-        if(function_success != SUCCESS)
+        if(r.fn_ret != SUCCESS)
             goto error_exit;
         REMOTE_LOG("Port: Returning Column(s)\n");
     } else {
         if(stmthp != NULL) {
-            checkerr(errhp, OCIStmtRelease(stmthp, errhp, NULL, 0, OCI_DEFAULT));
-            if(function_success != SUCCESS) goto error_exit;
+            checkerr(&r, OCIStmtRelease(stmthp, ehp, NULL, 0, OCI_DEFAULT));
+            if(r.fn_ret != SUCCESS) goto error_exit;
         }
         REMOTE_LOG("Port: Executed non-select statement!\n");
     }
@@ -426,48 +390,46 @@ INTF_RET oci_exec_sql(const void *ctx, void ** stmt_handle, const unsigned char 
 	REMOTE_LOG("Executing \"%.*s;\"\n", query_str_len, query_str);
 
 error_exit:
-    return function_success;
+    return r;
 }
-#endif
 
-#ifdef DUMMY
-ROW_FETCH oci_produce_rows(void * stmt_handle
+intf_ret oci_produce_rows(void * stmt_handle
 						   , void * row_list
 						   , void (*string_append)(const char * string, void * list)
 						   , void (*list_append)(const void * sub_list, void * list)
 						   , unsigned int (*sizeof_resp)(void * resp)
                            , int maxrowcount)
 {
-    void * row = NULL;
-	for (int i = 0; i < 100; ++i) {
-        row = NULL;
-		for (int j = 0; j < 5; ++j) {
-			(*string_append)("test", &row);
-		}
-		(*list_append)(row, row_list);
-	}
+	intf_ret r;
 
-	return DONE;
-}
-#else
-ROW_FETCH oci_produce_rows(void * stmt_handle
-						   , void * row_list
-						   , void (*string_append)(const char * string, void * list)
-						   , void (*list_append)(const void * sub_list, void * list)
-						   , unsigned int (*sizeof_resp)(void * resp)
-                           , int maxrowcount)
-{
-    function_success = SUCCESS;
-    OCIStmt *stmthp	= (OCIStmt *)stmt_handle;
+	// private error structure for each statement
+	OCIError * ehp = NULL;
+	r.handle = envhp;
+	checkenv(&r, OCIHandleAlloc(envhp,				/* environment handle */
+                                (void **) &ehp,		/* returned err handle */
+                                OCI_HTYPE_ERROR,	/* typ of handle to allocate */
+                                (size_t) 0,			/* optional extra memory size */
+                                (void **) NULL));	/* returned extra memeory */
+    if(r.fn_ret != SUCCESS)
+        return r;
 
-    if (columns == NULL || stmthp == NULL)
-        return ERROR;
+	// from this point on regular ehp will do
+	r.handle = ehp;
 
+	r.fn_ret = FAILURE;
+
+	stmt_ctx *smtctx = (stmt_ctx *)stmt_handle;
+	OCIStmt *stmthp	= smtctx->stmthp;
+
+    if (smtctx->columns == NULL || stmthp == NULL)
+        return r;
+
+	r.fn_ret = SUCCESS;
     sword res = OCI_NO_DATA;
 
-    OCIDefine **defnhp = (OCIDefine **)malloc(num_cols * sizeof(OCIDefine *));
+    OCIDefine **defnhp = (OCIDefine **)malloc(smtctx->num_cols * sizeof(OCIDefine *));
     void ** data_row = NULL;
-    data_row = (void **) calloc(num_cols, sizeof(void *));
+    data_row = (void **) calloc(smtctx->num_cols, sizeof(void *));
 
     // overdrive preventation
     if(maxrowcount > 100)
@@ -481,24 +443,24 @@ ROW_FETCH oci_produce_rows(void * stmt_handle
     void * row = NULL;
 
     /* Bind appropriate variables for data based on the column type */
-    for (i = 0; i < num_cols; ++i)
-        switch (columns[i].dtype) {
+    for (i = 0; i < smtctx->num_cols; ++i)
+        switch (smtctx->columns[i].dtype) {
 		case SQLT_DAT: 
 					   {
-            data_row[i] = (text *) malloc((columns[i].dlen + 1) * sizeof(text));
-            checkerr(errhp, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *) (data_row[i]),
-                                           (sword) columns[i].dlen + 1, SQLT_DAT, (dvoid *) 0, (ub2 *)0,
-                                           (ub2 *)0, OCI_DEFAULT));
-            if(function_success != SUCCESS) return ERROR;
+            data_row[i] = (text *) malloc((smtctx->columns[i].dlen + 1) * sizeof(text));
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), ehp, i+1, (dvoid *) (data_row[i]),
+										(sword) smtctx->columns[i].dlen + 1, SQLT_DAT, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+            if(r.fn_ret != SUCCESS) return r;
         }
         break;//*/
         case SQLT_NUM:
         case SQLT_CHR: {
-            data_row[i] = (text *) malloc((columns[i].dlen + 1) * sizeof(text));
-            checkerr(errhp, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *) (data_row[i]),
-                                           (sword) columns[i].dlen + 1, SQLT_STR, (dvoid *) 0, (ub2 *)0,
-                                           (ub2 *)0, OCI_DEFAULT));
-            if(function_success != SUCCESS) return ERROR;
+            data_row[i] = (text *) malloc((smtctx->columns[i].dlen + 1) * sizeof(text));
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), ehp, i+1, (dvoid *) (data_row[i]),
+                                        (sword) smtctx->columns[i].dlen + 1, SQLT_STR, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+            if(r.fn_ret != SUCCESS) return r;
         }
         break;
         default:
@@ -512,12 +474,16 @@ ROW_FETCH oci_produce_rows(void * stmt_handle
     do {
         ++num_rows;
 		//if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);
-        res = OCIStmtFetch(stmthp, errhp, 1, 0, 0);
+        res = OCIStmtFetch(stmthp, ehp, 1, 0, 0);
+		checkerr(&r, res);
+	    if(r.fn_ret != SUCCESS)
+		    goto error_return;
+
         row = NULL;
 
 		if (res != OCI_NO_DATA) {
-			for (i = 0; i < num_cols; ++i)
-					switch (columns[i].dtype) {
+			for (i = 0; i < smtctx->num_cols; ++i)
+					switch (smtctx->columns[i].dtype) {
 					case SQLT_DAT: {
 						char date_buf[15];
 						sprintf(date_buf, "%02d%02d%02d%02d%02d%02d%02d",
@@ -543,26 +509,27 @@ ROW_FETCH oci_produce_rows(void * stmt_handle
 			&& total_est_row_size < MAX_RESP_SIZE);
 	//REMOTE_LOG("OCI: Row fetch and erlang term building complete with %ul rows of %d bytes\n", num_rows, total_est_row_size); //, GetTickCount() - startTime
 
+    /* cleanup only if data fetch is finished */
+    if (res == OCI_NO_DATA)
+        checkerr(&r, OCIStmtRelease(stmthp, ehp, (OraText *) NULL, 0, OCI_DEFAULT));
+
+    free(defnhp);
+
+    if(r.fn_ret != SUCCESS)
+        return r;
+
+    //REMOTE_LOG("Port: Returning Rows...\n");
+	if(res != OCI_NO_DATA) r.fn_ret = MORE; else r.fn_ret = DONE;
+
+error_return:
     /* Release the bound variables memeory */
-    for (i = 0; i < num_cols; ++i)
+    for (i = 0; i < smtctx->num_cols; ++i)
         if(data_row[i] != NULL)
             free(data_row[i]);
     free(data_row);
 
-    /* cleanup only if data fetch is finished */
-    if (res == OCI_NO_DATA)
-        checkerr(errhp, OCIStmtRelease(stmthp, errhp, (OraText *) NULL, 0, OCI_DEFAULT));
-
-    free(defnhp);
-
-    if(function_success != SUCCESS)
-        return ERROR;
-
-    //REMOTE_LOG("Port: Returning Rows...\n");
-
-    return (res != OCI_NO_DATA ? MORE : DONE);
+    return r;
 }
-#endif
 
 INTF_RET describe(const void *conn_handle, unsigned char * objptr)
 {
@@ -657,52 +624,51 @@ REMOTE_LOG("..........................TRACE...\n");
  *                OCI_ERROR/OCI_INVALID_HANDLE.
  *				  CUSTOMIZE ACCORDING TO YOUR ERROR HANDLING REQUIREMNTS
  */
-void checkerr0(void *handle, ub4 htype, sword status, const char * function_name, int line_no)
+void checkerr0(intf_ret *r, ub4 htype, sword status, const char * function_name, int line_no)
 {
     /* a buffer to hold the error message */
-    text errbuf[2048];
-    gerrcode = 0;
-    function_success = SUCCESS;
+    r->gerrcode = 0;
+    r->fn_ret = FAILURE;
 
     switch (status) {
     case OCI_SUCCESS:
-#ifdef TRACE
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Ok - OCI_SUCCESS\n", function_name, line_no);
-#endif
+		r->fn_ret = SUCCESS;
+		//SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Ok - OCI_SUCCESS\n", function_name, line_no);
         break;
     case OCI_SUCCESS_WITH_INFO:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_SUCCESS_WITH_INFO\n", function_name, line_no);
+		r->fn_ret = SUCCESS;
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_SUCCESS_WITH_INFO\n", function_name, line_no);
         break;
     case OCI_NEED_DATA:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_NEED_DATA\n", function_name, line_no);
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NEED_DATA\n", function_name, line_no);
         break;
     case OCI_NO_DATA:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_NO_DATA\n", function_name, line_no);
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NO_DATA\n", function_name, line_no);
         break;
     case OCI_ERROR:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_ERROR\n", function_name, line_no);
-        if (handle) {
-            OCIErrorGet(handle, 1, (text *) NULL, &gerrcode,
-                               errbuf, (ub4)sizeof(errbuf), htype);
-			SPRINT(gerrbuf, sizeof(gerrbuf), " - %.*s\n", sizeof(errbuf), errbuf);
-	        function_success = CONTINUE_WITH_ERROR;
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_ERROR\n", function_name, line_no);
+        if (r->handle) {
+            OCIErrorGet(r->handle, 1, (text *) NULL, &(r->gerrcode),
+                               (OraText*)(r->gerrbuf), (ub4)sizeof(r->gerrbuf), htype);
+			r->fn_ret = CONTINUE_WITH_ERROR;
         } else {
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] NULL Handle\n", function_name, line_no);
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Unable to extract detailed diagnostic information\n", function_name, line_no);
-	        function_success = FAILURE;
+			SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] NULL Handle\n", function_name, line_no);
+			SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Unable to extract detailed diagnostic information\n", function_name, line_no);
+	        r->fn_ret = FAILURE;
         }
         break;
     case OCI_INVALID_HANDLE:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_INVALID_HANDLE\n", function_name, line_no);
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_INVALID_HANDLE\n", function_name, line_no);
         break;
     case OCI_STILL_EXECUTING:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_STILL_EXECUTING\n", function_name, line_no);
+		r->fn_ret = CONTINUE_WITH_ERROR;
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_STILL_EXECUTING\n", function_name, line_no);
         break;
     case OCI_CONTINUE:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Error - OCI_CONTINUE\n", function_name, line_no);
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_CONTINUE\n", function_name, line_no);
         break;
     default:
-		SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Unknown - %d\n", function_name, line_no, status);
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Unknown - %d\n", function_name, line_no, status);
         break;
     }
 }

@@ -36,13 +36,10 @@ typedef enum _INTF_RET {
     SUCCESS				= 0,
     CONTINUE_WITH_ERROR	= 1,
     FAILURE				= 2,
+    ERROR				= 3,
+    MORE				= 4,
+    DONE				= 5,
 } INTF_RET;
-
-typedef enum _ROW_FETCH {
-    ERROR,
-    MORE,
-    DONE
-} ROW_FETCH;
 
 typedef enum _DATA_TYPES {
     NUMBER	= 0,
@@ -64,6 +61,12 @@ typedef struct inp_t {
     void		*valuep;
 } inp_t;
 
+typedef struct intf_ret {
+	void		*handle;
+	char		gerrbuf[512]; // from oracle example
+	int			gerrcode;
+	INTF_RET	fn_ret;
+} intf_ret;
 
 // External linkages (import)
 extern bool	log_flag;
@@ -74,17 +77,16 @@ extern bool	log_flag;
 
 extern void log_remote(const char *, ...);
 
-extern void			oci_init(void);
+extern void		oci_init(void);
+extern void		oci_cleanup(void);
 
-extern bool			oci_free_session_pool(void);
-extern bool			oci_create_tns_seesion_pool(const unsigned char *, const int,
-												const unsigned char *, const int,
-												const unsigned char *, const int,
-												const unsigned char *, const int);
-extern void *		oci_get_session_from_pool();
-extern INTF_RET		oci_exec_sql(const void *, void **, const unsigned char *, int, inp_t *, void *, void (*)(const char *, const char *, const unsigned int, void *));
-extern bool			oci_return_connection_to_pool(void *);
-extern void			oci_cleanup(void);
-extern ROW_FETCH	oci_produce_rows(void *, void *, void (*)(const char *, void *), void (*)(const void *, void *), unsigned int (*)(void *), int);
+extern intf_ret	oci_create_tns_seesion_pool(const char *, const int,
+												const char *, const int,
+												const char *, const int,
+												const char *, const int);
+extern intf_ret	oci_free_session_pool(void);
+extern intf_ret	oci_get_session_from_pool(void **);
+extern intf_ret	oci_return_connection_to_pool(void *);
 
-extern void			get_last_error(char *, int &);
+extern intf_ret	oci_exec_sql(const void *, void **, const unsigned char *, int, inp_t *, void *, void (*)(const char *, const char *, const unsigned int, void *));
+extern intf_ret	oci_produce_rows(void *, void *, void (*)(const char *, void *), void (*)(const void *, void *), unsigned int (*)(void *), int);

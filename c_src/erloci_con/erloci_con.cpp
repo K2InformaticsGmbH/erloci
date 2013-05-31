@@ -26,41 +26,54 @@ unsigned int sizeof_resp(void * resp)
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	const char	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
-				*usr = "bikram",
-				*pwd = "abcd123",
-				*opt = "";
+	const char
+		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+		*usr = "bikram",
+		*pwd = "abcd123",
+		*opt = "";
 	void * conn_handle = NULL;
 	const char * qry = "SELECT * FROM ALL_TABLES";
 	void * statement_handle = NULL;
 
 	oci_init();
-	oci_create_tns_seesion_pool((const unsigned char *)tns, strlen(tns), (const unsigned char *)usr, strlen(usr), (const unsigned char *)pwd, strlen(pwd), (const unsigned char *)opt, strlen(opt));
-	conn_handle = oci_get_session_from_pool();
+	oci_create_tns_seesion_pool(tns, strlen(tns),
+								usr, strlen(usr),
+								pwd, strlen(pwd),
+								opt, strlen(opt));
+
+	intf_ret r = oci_get_session_from_pool(&conn_handle);
+	if(r.fn_ret != SUCCESS) {
+		printf("oci_get_session_from_pool error... %s!\n", r.gerrbuf);
+		return -1;
+	}
 
     /* Columns */
 	printf("Columns:\n");
-	switch(oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)qry, strlen(qry), NULL, NULL, append_coldef_to_list)) {
+	r = oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)qry, strlen(qry), NULL, NULL, append_coldef_to_list);
+	switch(r.fn_ret) {
 		case SUCCESS:
-			{
-				printf("Success...!\n");
-				oci_produce_rows(statement_handle, NULL, string_append, list_append, sizeof_resp, 100);
-			}
+			printf("oci_exec_sql success...!\n");
 			break;
 		case CONTINUE_WITH_ERROR:
-			{
-				int err_str_len = 0;
-				char * err_str;
-				get_last_error(NULL, err_str_len);
-				err_str = new char[err_str_len+1];
-				get_last_error(err_str, err_str_len);
-				printf("Continue with error... %s!\n", err_str);
-			}
-			break;
+			printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+			return -1;
 		case FAILURE:
-			printf("Failed...!\n");
-			break;
+			printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+			return -1;
     }
+	r = oci_produce_rows(statement_handle, NULL, string_append, list_append, sizeof_resp, 100);
+	switch(r.fn_ret) {
+		case SUCCESS:
+			printf("oci_produce_rows success...!\n");
+			break;
+		case CONTINUE_WITH_ERROR:
+			printf("oci_produce_rows error... %s!\n", r.gerrbuf);
+			return -1;
+		case FAILURE:
+			printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
+			return -1;
+    }
+
 	return 0;
 }
 
