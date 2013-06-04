@@ -17,11 +17,14 @@
 
 -include("erloci.hrl").
 
+% TODO convert to eunit
+-export([run/2]).
+
 %% API
 -export([
     start_link/5,
     exec_sql/3,
-    get_rows/2
+    get_rows/3
 ]).
 
 %% gen_server callbacks
@@ -51,8 +54,8 @@ start_link(Tns,Usr,Pswd,Opts,PortOptions) ->
 exec_sql(Sql, Opts, {?MODULE, ErlOciSession}) when is_binary(Sql); is_list(Opts) ->
     gen_server:call(ErlOciSession, {exec_sql, Sql, Opts}, ?PORT_TIMEOUT).
 
-get_rows(Count, {?MODULE, ErlOciSession}) ->
-    gen_server:call(ErlOciSession, {get_rows, Count}, ?PORT_TIMEOUT).
+get_rows(Count, StmtId, {?MODULE, ErlOciSession}) ->
+    gen_server:call(ErlOciSession, {get_rows, Count, StmtId}, ?PORT_TIMEOUT).
 
 %
 % gen_server interfaces
@@ -68,7 +71,7 @@ init([Tns,Usr,Pswd,Opts,PortOptions]) ->
 
 handle_call({exec_sql, Sql, Opts}, _From, #state{ociSess=OciSession} = State) ->
     Resp = case OciSession:exec_sql(Sql, Opts) of
-        {{?MODULE, _, StmtId}, Clms} ->
+        {{_, _, StmtId}, Clms} ->
             Cols = [
                 #stmtCol {
                     alias = N,
@@ -112,3 +115,133 @@ throw_if_error(_,_) -> ok.
 flip(Rows) -> flip(Rows,[]).
 flip([],Acc) -> Acc;
 flip([Row|Rows],Acc) -> flip(Rows, [lists:reverse(Row)|Acc]).
+
+
+%
+% Eunit tests
+%
+
+-include_lib("eunit/include/eunit.hrl").
+-define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
+
+run(Threads, InsertCount) when is_integer(Threads), is_integer(InsertCount) ->
+    ErlOciSession = connect_db(),
+    This = self(),
+    [(fun(Idx) ->
+        Table = "erloci_table_"++Idx,
+        try
+            create_table(ErlOciSession, Table),            
+            spawn(fun() -> insert_select(ErlOciSession, Table, InsertCount, This) end)
+        catch
+            Class:Reason -> oci_logger:log(lists:flatten(io_lib:format("~p:~p~n", [Class,Reason])))
+        end
+    end)(integer_to_list(I))
+    || I <- lists:seq(1,Threads)],
+    receive_all(Threads).
+
+receive_all(Count) -> receive_all(Count, []).
+receive_all(0, Acc) ->
+    [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime) ->
+        InsRate = erlang:trunc(InsertCount / InsertTime),
+        SelRate = erlang:trunc(SelectCount / SelectTime),
+        io:format(user, "~p insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
+    end)(T, Ic, It, Sc, St)
+    || {T, Ic, It, Sc, St} <- Acc];
+receive_all(Count, Acc) ->
+    receive
+        {T, Ic, It, Sc, St} ->
+            receive_all(Count-1, [{T, Ic, It, Sc, St}|Acc])
+    after
+        (100*1000) ->
+            io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
+            receive_all(0, Acc)
+    end.
+
+connect_db() ->
+    erloci_session:start_link(
+                <<"(DESCRIPTION=
+                    (ADDRESS_LIST=
+                        (ADDRESS=(PROTOCOL=tcp)
+                            (HOST=80.67.144.206)
+                            (PORT=1521)
+                        )
+                    )
+                    (CONNECT_DATA=(SERVICE_NAME=XE))
+                )">>,
+                <<"bikram">>,
+                <<"abcd123">>,
+                <<>>,
+                [{logging, true}]).
+    %erloci_session:start_link(
+    %            <<"(DESCRIPTION=
+    %                (ADDRESS=(PROTOCOL=tcp)
+    %                    (HOST=192.168.1.69)
+    %                    (PORT=1521)
+    %                )
+    %                (CONNECT_DATA=(SERVICE_NAME=SBS0.k2informatics.ch))
+    %            )">>,
+    %            <<"SBS0">>,
+    %            <<"sbs0sbs0_4dev">>,
+    %            <<>>,
+    %            [{logging, true}]).
+
+create_table(ErlOciSession, Table) ->
+    Res = ErlOciSession:exec_sql(list_to_binary(["drop table ",Table]), []),
+    print_if_error(Res, "drop failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI drop ~p~n", [Res]))),
+    Res0 = ErlOciSession:exec_sql(list_to_binary(["create table ",Table,"(pkey number,
+                                       publisher varchar2(100),
+                                       rank number,
+                                       hero varchar2(100),
+                                       real varchar2(100),
+                                       votes number,
+                                       createdate date default sysdate,
+                                       votes_first_rank number)"]), []),
+%                                       createtime timestamp default systimestamp,
+    throw_if_error(undefined, Res0, "create "++Table++" failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res0]))).
+
+insert_select(ErlOciSession, Table, InsertCount, Parent) ->
+    try
+        InsertStart = ?NowMs,
+        [(fun(I) ->
+            Qry = erlang:list_to_binary([
+                    "insert into ", Table, " (pkey,publisher,rank,hero,real,votes,votes_first_rank) values (",
+                    I,
+                    ", 'publisher"++I++"',",
+                    I,
+                    ", 'hero"++I++"'",
+                    ", 'real"++I++"',",
+                    I,
+                    ",",
+                    I,
+                    ")"]),
+            oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Qry]))),
+            Res = ErlOciSession:exec_sql(Qry, []),
+            throw_if_error(Parent, Res, "insert "++Table++" failed"),
+            if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
+          end)(integer_to_list(Idx))
+        || Idx <- lists:seq(1, InsertCount)],
+        InsertEnd = ?NowMs,
+        #stmtResult{stmtRef = StmtId, stmtCols = Cols} = ErlOciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
+        throw_if_error(Parent, StmtId, "select "++Table++" failed"),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
+        {Rows, _} = RowResp = ErlOciSession:get_rows(100, StmtId),
+        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,RowResp]))),
+        SelectEnd = ?NowMs,
+        InsertTime = (InsertEnd - InsertStart)/1000000,
+        SelectTime = (SelectEnd - InsertEnd)/1000000,
+        Parent ! {Table, InsertCount, InsertTime, length(Rows), SelectTime}
+    catch
+        Class:Reason ->
+            if is_pid(Parent) -> Parent ! {{Table,Class,Reason}, 0, 1, 0, 1}; true -> ok end,
+            oci_logger:log(lists:flatten(io_lib:format(" ~p:~p~n", [Class,Reason])))
+    end.
+
+print_if_error({error, Error}, Msg) -> oci_logger:log(lists:flatten(io_lib:format("___________----- continue after ~p ~p~n", [Msg,Error])));
+print_if_error(_, _) -> ok.
+
+throw_if_error(Parent, {error, Error}, Msg) ->
+    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
+    throw({Msg, Error});
+throw_if_error(_,_,_) -> ok.

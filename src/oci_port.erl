@@ -269,7 +269,6 @@ signal_str(33) -> {'SIGLWP',        ignore, "Virtual Interprocessor Interrupt fo
 signal_str(34) -> {'SIGAIO',        ignore, "Asynchronous I/O"};
 signal_str(N)  -> {udefined,        ignore, N}.
 
-
 %
 % Eunit tests
 %
