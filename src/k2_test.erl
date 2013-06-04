@@ -33,7 +33,7 @@ receive_all(Count, Acc) ->
         {T, Ic, It, Sc, St} ->
             receive_all(Count-1, [{T, Ic, It, Sc, St}|Acc])
     after
-        (30*1000) ->
+        (100*1000) ->
             io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
             receive_all(0, Acc)
     end.
@@ -42,15 +42,28 @@ connect_db() ->
     OciPort = oci_port:start_link([{logging, true}]),
     OciPool = OciPort:create_sess_pool(
                 <<"(DESCRIPTION=
-                    (ADDRESS=(PROTOCOL=tcp)
-                        (HOST=192.168.1.69)
-                        (PORT=1521)
+                    (ADDRESS_LIST=
+                        (ADDRESS=(PROTOCOL=tcp)
+                            (HOST=80.67.144.206)
+                            (PORT=1521)
+                        )
                     )
-                    (CONNECT_DATA=(SERVICE_NAME=SBS0.k2informatics.ch))
+                    (CONNECT_DATA=(SERVICE_NAME=XE))
                 )">>,
-                <<"SBS0">>,
-                <<"sbs0sbs0_4dev">>,
+                <<"bikram">>,
+                <<"abcd123">>,
                 <<>>),
+    %OciPool = OciPort:create_sess_pool(
+    %            <<"(DESCRIPTION=
+    %                (ADDRESS=(PROTOCOL=tcp)
+    %                    (HOST=192.168.1.69)
+    %                    (PORT=1521)
+    %                )
+    %                (CONNECT_DATA=(SERVICE_NAME=SBS0.k2informatics.ch))
+    %            )">>,
+    %            <<"SBS0">>,
+    %            <<"sbs0sbs0_4dev">>,
+    %            <<>>),
     throw_if_error(undefined, OciPool, "pool creation failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Pool ~p~n", [OciPool]))),
 
@@ -69,6 +82,7 @@ create_table(OciSession, Table) ->
                                        hero varchar2(100),
                                        real varchar2(100),
                                        votes number,
+                                       created date default sysdate,
                                        votes_first_rank number)"]), []),
     throw_if_error(undefined, Res0, "create "++Table++" failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res0]))).
@@ -78,7 +92,7 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         InsertStart = ?NowMs,
         [(fun(I) ->
             Qry = erlang:list_to_binary([
-                    "insert into ", Table, " values (",
+                    "insert into ", Table, " (pkey,publisher,rank,hero,real,votes,votes_first_rank) values (",
                     I,
                     ", 'publisher"++I++"',",
                     I,
@@ -88,19 +102,19 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                     ",",
                     I,
                     ")"]),
-            oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI insert sql ~p~n", [Table,Qry]))),
+            oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Qry]))),
             Res = OciSession:exec_sql(Qry, []),
             throw_if_error(Parent, Res, "insert "++Table++" failed"),
-            oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI insert ~p~n", [Table,Res])))
+            if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
         {Statement, {cols, Cols}} = OciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
         throw_if_error(Parent, Statement, "select "++Table++" failed"),
-        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select statement ~p~n", [Table,Statement]))),
-        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select columns ~p~n", [Table,Cols]))),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ statement ~p~n", [Table,Statement]))),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = Statement:get_rows(100),
-        %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,Rows]))),
+        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,Rows]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
         SelectTime = (SelectEnd - InsertEnd)/1000000,

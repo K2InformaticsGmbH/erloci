@@ -40,8 +40,7 @@ bool change_log_flag(ETERM * command)
 
     MAP_ARGS(command, args);
 
-	REMOTE_LOG("----- CHANGE LOG FLAG -----\n");
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(R_DEBUG_MSG))
+	if(ARG_COUNT(command) != CMD_ARGS_COUNT(R_DEBUG_MSG))
         goto error_exit;
 
     // Args : {log, DBG_FLAG_OFF/DBG_FLAG_ON}
@@ -77,8 +76,8 @@ error_exit:
     erl_free_compound(command);
 
     delete args;
-    REMOTE_LOG("---------------------------\n");
-    return ret;
+
+	return ret;
 }
 
 bool cmd_create_tns_ssn_pool(ETERM * command)
@@ -89,8 +88,7 @@ bool cmd_create_tns_ssn_pool(ETERM * command)
 
     MAP_ARGS(command, args);
 
-	REMOTE_LOG("----- CREATE POOL -----\n");
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(CREATE_SESSION_POOL))
+	if(ARG_COUNT(command) != CMD_ARGS_COUNT(CREATE_SESSION_POOL))
         goto error_exit;
 
     // Args : Connection String, User name, Password, Options
@@ -101,20 +99,16 @@ bool cmd_create_tns_ssn_pool(ETERM * command)
 
 		LOG_ARGS(ARG_COUNT(command), args, "Create Pool");
 
-        if (oci_create_tns_seesion_pool(
-                ERL_BIN_PTR(args[1]), ERL_BIN_SIZE(args[1]),	// Connect String
-                ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]),	// User Name String
-                ERL_BIN_PTR(args[3]), ERL_BIN_SIZE(args[3]),	// Password String
-                ERL_BIN_PTR(args[4]), ERL_BIN_SIZE(args[4])))	// Options String
-            resp = erl_format((char*)"{~w,~i,~s}", args[0], CREATE_SESSION_POOL, session_pool_name);
+		intf_ret r = oci_create_tns_seesion_pool(
+                (char*)ERL_BIN_PTR(args[1]), ERL_BIN_SIZE(args[1]),		// Connect String
+                (char*)ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]),		// User Name String
+                (char*)ERL_BIN_PTR(args[3]), ERL_BIN_SIZE(args[3]),		// Password String
+                (char*)ERL_BIN_PTR(args[4]), ERL_BIN_SIZE(args[4]));	// Options String
+		if (r.fn_ret == SUCCESS)
+            resp = erl_format((char*)"{~w,~i,ok}", args[0], CREATE_SESSION_POOL);
         else {
-            int err_str_len = 0;
-            char * err_str;
-            get_last_error(NULL, err_str_len);
-            err_str = new char[err_str_len+1];
-            get_last_error(err_str, err_str_len);
-			REMOTE_LOG("CMD: Connect ERROR - %s", err_str);
-            resp = erl_format((char*)"{~w,~i,error,~s}", args[0], CREATE_SESSION_POOL, err_str);
+			REMOTE_LOG("CMD: Connect ERROR - %s", r.gerrbuf);
+			resp = erl_format((char*)"{~w,~i,error,~s}", args[0], CREATE_SESSION_POOL, r.gerrbuf);
         }
     } else {
 error_exit:
@@ -128,8 +122,8 @@ error_exit:
     erl_free_compound(command);
 
     delete args;
-    REMOTE_LOG("-----------------------\n");
-    return ret;
+
+	return ret;
 }
 
 bool cmd_get_session(ETERM * command)
@@ -141,25 +135,20 @@ bool cmd_get_session(ETERM * command)
 
     MAP_ARGS(command, args);
 
-	REMOTE_LOG("----- GET SESSION -----\n");
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSION)) {
 	    resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], GET_SESSION);
 		REMOTE_LOG("ERROR badarg\n");
 	    goto error_exit;
 	}
 
-	if ((conn_handle = oci_get_session_from_pool()) != NULL) {
+	intf_ret r = oci_get_session_from_pool(&conn_handle);
+	if (r.fn_ret == SUCCESS) {
         REMOTE_LOG("connection from session pool %lu\n", (unsigned long long)conn_handle);
 		resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSION, erl_mk_ulonglong((unsigned long long)conn_handle));
 	}
     else {
-        int err_str_len = 0;
-        char * err_str;
-        get_last_error(NULL, err_str_len);
-        err_str = new char[err_str_len+1];
-        get_last_error(err_str, err_str_len);
-		REMOTE_LOG("ERROR %s\n", err_str);
-        resp = erl_format((char*)"{~w,~i,error,~s}", args[0], GET_SESSION, err_str);
+		REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+        resp = erl_format((char*)"{~w,~i,error,~s}", args[0], GET_SESSION, r.gerrbuf);
     }
 
 error_exit:
@@ -168,8 +157,8 @@ error_exit:
 
     erl_free_compound(command);
 
-	REMOTE_LOG("--------------------------\n");
-    return ret;
+	delete args;
+	return ret;
 }
 
 bool cmd_release_conn(ETERM * command)
@@ -180,26 +169,28 @@ bool cmd_release_conn(ETERM * command)
 
     MAP_ARGS(command, args);
 
-	REMOTE_LOG("----- RELEASE CONNECTION -----\n");
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(RELEASE_SESSION))
         goto error_exit;
 
-    if(ERL_IS_INTEGER/*ERL_IS_UNSIGNED_LONGLONG*/(args[1])) {
-		//void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
-		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
+	if(
+#ifdef __WIN32__
+    ERL_IS_INTEGER(args[1])
+#else
+    (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+#endif
+	) {
 
-        if (oci_return_connection_to_pool(conn_handle))
+#ifdef __WIN32__
+		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
+#else
+		void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
+#endif
+		intf_ret r = oci_return_connection_to_pool(conn_handle);
+        if (r.fn_ret == SUCCESS)
             resp = erl_format((char*)"{~w,~i,ok}", args[0], RELEASE_SESSION);
         else {
-            int err_str_len = 0;
-            char * err_str;
-            get_last_error(NULL, err_str_len);
-            err_str = new char[err_str_len+1];
-            get_last_error(err_str, err_str_len);
-            REMOTE_LOG("Connect Return %s\n", err_str);
-            resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], RELEASE_SESSION, err_str);
-            delete err_str;
-			REMOTE_LOG("ERROR %s\n", err_str);
+			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+            resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], RELEASE_SESSION, r.gerrbuf);
         }
     } else {
 error_exit:
@@ -213,8 +204,7 @@ error_exit:
     erl_free_compound(command);
 
     delete args;
-	REMOTE_LOG("------------------------------\n");
-    return ret;
+	return ret;
 }
 
 bool cmd_free_ssn_pool(ETERM * command)
@@ -232,16 +222,12 @@ bool cmd_free_ssn_pool(ETERM * command)
         goto error_exit;
 	}
 
-    if (oci_free_session_pool())
+	intf_ret r = oci_free_session_pool();
+	if (r.fn_ret == SUCCESS)
         resp = erl_format((char*)"{~w,~i}", args[0], FREE_SESSION_POOL);
     else {
-        int err_str_len = 0;
-        char * err_str;
-        get_last_error(NULL, err_str_len);
-        err_str = new char[err_str_len+1];
-        get_last_error(err_str, err_str_len);
-		REMOTE_LOG("CMD: free session pool ERROR - %s", err_str);
-        resp = erl_format((char*)"{~w,~i,error,~s}", args[0], FREE_SESSION_POOL, err_str);
+		REMOTE_LOG("CMD: free session pool ERROR - %s", r.gerrbuf);
+        resp = erl_format((char*)"{~w,~i,error,~s}", args[0], FREE_SESSION_POOL, r.gerrbuf);
     }
 
 error_exit:
@@ -250,8 +236,8 @@ error_exit:
 
     erl_free_compound(command);
 
-	REMOTE_LOG("---------------------\n");
-    return ret;
+	delete args;
+	return ret;
 }
 
 bool cmd_exec_sql(ETERM * command)
@@ -261,7 +247,6 @@ bool cmd_exec_sql(ETERM * command)
 
     MAP_ARGS(command, args);
 
-	REMOTE_LOG("----- EXECUTE SQL -----\n");
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_SQL))
         goto error_exit_pre;
 
@@ -287,7 +272,8 @@ bool cmd_exec_sql(ETERM * command)
 
         /* Transfer the columns */
         ETERM *columns = NULL;
-		switch(oci_exec_sql(conn_handle, &statement_handle, ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), bind_args, &columns, append_coldef_to_list)) {
+		intf_ret r = oci_exec_sql(conn_handle, &statement_handle, ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), bind_args, &columns, append_coldef_to_list);
+		switch(r.fn_ret) {
 			case SUCCESS:
 				if (columns == NULL && bind_args != NULL)
 					resp = erl_format((char*)"{~w,~i,{executed,~w}}", args[0], EXEC_SQL, build_term_from_bind_args(bind_args));
@@ -297,32 +283,20 @@ bool cmd_exec_sql(ETERM * command)
 					resp = erl_format((char*)"{~w,~i,{{stmt,~w},{cols,~w}}}", args[0], EXEC_SQL, erl_mk_ulonglong((unsigned long long)statement_handle), columns);
 				}
 				if(write_resp(resp) < 0) goto error_exit;
-	            REMOTE_LOG("SUCCESS \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
+	            //REMOTE_LOG("SUCCESS \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
 			case CONTINUE_WITH_ERROR:
                 {
-					int err_str_len = 0;
-					char * err_str;
-					get_last_error(NULL, err_str_len);
-					err_str = new char[err_str_len+1];
-					get_last_error(err_str, err_str_len);
-					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), err_str);
-					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, err_str);
-					delete err_str;
+					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, r.gerrbuf);
 					write_resp(resp);
 				}
 	            REMOTE_LOG("CONTINUE_WITH_ERROR \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
 			case FAILURE:
                 {
-					int err_str_len = 0;
-					char * err_str;
-					get_last_error(NULL, err_str_len);
-					err_str = new char[err_str_len+1];
-					get_last_error(err_str, err_str_len);
-					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), err_str);
-					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, err_str);
-					delete err_str;
+					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, r.gerrbuf);
 					write_resp(resp);
 					goto error_exit;
 				}
@@ -334,27 +308,29 @@ error_exit_pre:
         resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], EXEC_SQL);
 		REMOTE_LOG("ERROR badarg %d\n", ERL_TYPE(args[1]));
 
-		/*     if(ERL_IS_INTEGER(args[1]))			REMOTE_LOG("conn %d\n", ERL_INT_VALUE(args[1])));
+#if 0
+		     if(ERL_IS_INTEGER(args[1]))			REMOTE_LOG("conn %d\n", ERL_INT_VALUE(args[1])));
 		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
-		else if(ERL_IS_LONGLONG(args[1]))	REMOTE_LOG("conn %d\n", ERL_LL_VALUE(args[1])));
-		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
-		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
-		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
+		else if(ERL_IS_LONGLONG(args[1]))			REMOTE_LOG("conn %d\n", ERL_LL_VALUE(args[1])));
 		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
 		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
-		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));*/
+		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
+		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
+		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
+		else if(ERL_IS_UNSIGNED_INTEGER(args[1]))	REMOTE_LOG("conn %d\n", ERL_INT_UVALUE(args[1])));
+#endif
 
 		if(write_resp(resp) < 0) goto error_exit;
     }
+
     erl_free_compound(command);
+
     delete args;
-	REMOTE_LOG("-----------------------\n");
     return false;
 
 error_exit:
     erl_free_compound(command);
     delete args;
-	REMOTE_LOG("-----------------------\n");
     return true;
 }
 
@@ -365,7 +341,6 @@ bool cmd_fetch_rows(ETERM * command)
 
     MAP_ARGS(command, args);
 
-	REMOTE_LOG("----- FETCH ROWS -----\n");
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(FETCH_ROWS))
         goto error_exit_pre;
 
@@ -391,14 +366,14 @@ bool cmd_fetch_rows(ETERM * command)
         /* Transfer the rows */
         if (statement_handle != NULL) {
             ETERM *rows = NULL;
-			ROW_FETCH row_fetch = oci_produce_rows(statement_handle, &rows, append_string_to_list, append_list_to_list, calculate_resp_size, rowcount);
-            if (row_fetch != ERROR) {
-                if (rows == NULL) {
-                    resp = erl_format((char*)"{~w,~i,{{rows,[]},done}}", args[0], FETCH_ROWS);
+			intf_ret r = oci_produce_rows(statement_handle, &rows, append_string_to_list, append_list_to_list, calculate_resp_size, rowcount);
+			if (r.fn_ret == MORE || r.fn_ret == DONE) {
+                if (rows != NULL) {
+                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FETCH_ROWS, rows, (r.fn_ret == MORE ? "more" : "done"));
+					//erl_free_compound(rows);
                     if(write_resp(resp) < 0) goto error_exit;
                 } else {
-                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FETCH_ROWS, rows, (row_fetch == MORE ? "more" : "done"));
-					//erl_free_compound(rows);
+                    resp = erl_format((char*)"{~w,~i,{{rows,[]},done}}", args[0], FETCH_ROWS);
                     if(write_resp(resp) < 0) goto error_exit;
                 }
             }
@@ -410,18 +385,18 @@ error_exit_pre:
         if(write_resp(resp) < 0) goto error_exit;
     }
     erl_free_compound(command);
+
     delete args;
-	REMOTE_LOG("----------------------\n");
     return false;
 
 error_exit:
     erl_free_compound(command);
+
     delete args;
-	REMOTE_LOG("----------------------\n");
     return true;
 }
 
-#define PRINTCMD
+//#define PRINTCMD
 
 #ifdef PRINTCMD
 static FILE *tfp = NULL;
@@ -433,15 +408,13 @@ bool cmd_processor(void * param)
 	ETERM *command = (ETERM *)param;
     ETERM *cmd = erl_element(2, (ETERM *)command);
 
-    //REMOTE_LOG("========================================\n");
-
 #ifdef PRINTCMD
 	if(tfp != NULL) fclose(tfp);
 	tfp = tmpfile();
 	erl_print_term(tfp, command);
 	rewind(tfp);
 	fread(buffer, 1, sizeof(buffer), tfp);
-	REMOTE_LOG("COMMAND : %s %s\n", cmdnames[ERL_INT_VALUE(cmd)], buffer);
+	REMOTE_LOG("========================================\nCOMMAND : %s %s\n========================================\n", cmdnames[ERL_INT_VALUE(cmd)], buffer);
 #endif
 
 	if(ERL_IS_INTEGER(cmd)) {

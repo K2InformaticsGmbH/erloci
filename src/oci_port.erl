@@ -82,6 +82,7 @@ logging(disable, {?MODULE, PortPid}) ->
 
 exec_sql(Sql, Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(Opts) ->
     R = gen_server:call(PortPid, {port_call, {?EXEC_SQL, SessionId, Sql, Opts}}, ?PORT_TIMEOUT),
+    timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, StmtId}, {cols, Clms}};
         R -> R
@@ -123,7 +124,7 @@ start_exe(Executable, Logging, ListenPort) ->
             ?Error("oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
-            %% TODO -- Logging is turned after port creation for the integration tests too run
+            %% TODO -- Logging is turned after port creation for the integration tests to run
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?R_DEBUG_MSG, ?DBG_FLAG_ON})),
@@ -168,10 +169,10 @@ log(Sock) ->
 handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     Cmd = list_to_tuple([From|tuple_to_list(Msg)]),
     CmdBin = term_to_binary(Cmd),
-    ?Info("TX ~p bytes", [byte_size(CmdBin)]),
-    ?Debug(" ~p", [Cmd]),
+    %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
+    %?Debug(" ~p", [Cmd]),
     true = port_command(Port, term_to_binary(Cmd)),
-    io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
+    %io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
     {noreply, State}. %% we will reply inside handle_info_result
 
 handle_cast(_Msg, State) ->
@@ -180,7 +181,7 @@ handle_cast(_Msg, State) ->
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
     Resp = binary_to_term(Data),
-    ?Info("RX ~p bytes", [byte_size(Data)]),
+    %?Info("RX ~p bytes", [byte_size(Data)]),
     %?Debug(" ~p", [Resp]),
     case handle_result(State#state.logging, Resp) of
         {undefined, Result} ->
@@ -189,7 +190,7 @@ handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data
             ?Error("~p", [Reason]), % Just in case its ignored later
             gen_server:reply(From, {error, Reason});
         {From, Result} ->
-            io:format(user, "_____________________________________ reply ~p_____________________________________ ~n", [From]),
+            %io:format(user, "_____________________________________ reply ~p_____________________________________ ~n", [From]),
             gen_server:reply(From, Result) % regular reply
     end,
     {noreply, State};

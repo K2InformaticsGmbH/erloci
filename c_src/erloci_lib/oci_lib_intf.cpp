@@ -39,6 +39,10 @@ typedef struct column_info {
 	sb2  indp;
 } column_info;
 
+typedef struct sess_ctx {
+	OCISvcCtx *svchp;
+} sess_ctx;
+
 typedef struct stmt_ctx {
 	column_info	*columns;
 	ub4			num_cols;
@@ -109,8 +113,10 @@ intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect
     poolNameLen = 0;
 	ub4	stmt_cachesize = 0;
 
-    if((r = oci_free_session_pool()).fn_ret != SUCCESS)
+	if((r = oci_free_session_pool()).fn_ret != SUCCESS) {
+		REMOTE_LOG("failed oci_free_session_pool for %s\n", r.gerrbuf);
 		return r;
+	}
 
     /* allocate session pool handle
      * note: for OCIHandleAlloc() we check error on environment handle
@@ -134,8 +140,10 @@ intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect
                                          (OraText*)user_name, user_name_len,		/* homo pool user specified */
                                          (OraText*)password, password_len,			/* homo pool password specified */
                                          OCI_SPC_STMTCACHE));	/* modes */
-    if(r.fn_ret != SUCCESS)
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCISessionPoolCreate for %s\n", r.gerrbuf);
 		return r;
+	}
 
 	REMOTE_LOG("created session pool %.*s\n", poolNameLen, (char *)poolName);
 
@@ -155,22 +163,42 @@ intf_ret oci_free_session_pool(void)
 
     if (spoolhp != NULL) {
         checkerr(&r, OCISessionPoolDestroy(spoolhp, errhp, OCI_SPD_FORCE));
-        if(r.fn_ret != SUCCESS)return r;
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCISessionPoolDestroy %.*s for %s\n", poolNameLen, (char*)poolName, r.gerrbuf);
+			return r;
+		}
 
-        if(OCI_SUCCESS != OCIHandleFree(spoolhp, OCI_HTYPE_SPOOL))
+		if(OCI_SUCCESS != OCIHandleFree(spoolhp, OCI_HTYPE_SPOOL)) {
+			REMOTE_LOG("failed OCIHandleFree for pool %.*s\n", poolNameLen, (char*)poolName);
+			r.fn_ret = FAILURE;
             return r;
+		}
         spoolhp = NULL;
+
+		REMOTE_LOG("destroyed session pool %.*s\n", poolNameLen, (char *)poolName);
     }
 
-    return r;
+	return r;
 }
 
 intf_ret oci_get_session_from_pool(void **conn_handle)
 {
-	OCISvcCtx *svchp;
+	OCISvcCtx *svchp = NULL;
 	intf_ret r;
 
 	r.fn_ret = SUCCESS;
+
+	// allocate the session handle
+	sess_ctx *sessctx = NULL;
+	checkenv(&r, OCIHandleAlloc(envhp,					/* environment handle */
+                                (void **) &svchp,		/* returned statement handle */
+                                OCI_HTYPE_SVCCTX,			/* typ of handle to allocate */
+                                sizeof(sess_ctx),		/* optional extra memory size */
+                                (void **) &sessctx));	/* returned extra memeory */
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("session handle alloc failed %s\n", r.gerrbuf);
+        return r;
+	}
 
     /* get the database connection */
 	r.handle = errhp;
@@ -180,32 +208,40 @@ intf_ret oci_get_session_from_pool(void **conn_handle)
                                (OraText *) poolName, poolNameLen,	/* connect string */
                                NULL, 0, NULL, NULL, NULL,			/* session tagging parameters: optional */
                                OCI_SESSGET_SPOOL));					/* modes */
-
-    if(r.fn_ret != SUCCESS)
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCISessionGet from pool %.*s for %s\n", poolNameLen, (char*)poolName, r.gerrbuf);
         return r;
+	}
 
-	//REMOTE_LOG("oci connection handle %p\n", svchp);
-	*conn_handle = svchp;
+	sessctx->svchp = svchp;
+	*conn_handle = sessctx;
+
+	REMOTE_LOG("got session %p from pool %.*s\n", svchp, poolNameLen, (char*)poolName);
     return r;
 }
 
-intf_ret oci_return_connection_to_pool(void * svchp)
+intf_ret oci_return_connection_to_pool(void * conn_handle)
 {
 	intf_ret r;
 
 	r.fn_ret = SUCCESS;
 	r.handle = errhp;
+	sess_ctx *sessctx = (sess_ctx *)conn_handle;
 
-    if (svchp != NULL)
-        checkerr(&r, OCISessionRelease((OCISvcCtx*)svchp, errhp, NULL, 0, OCI_DEFAULT));
+	if (sessctx->svchp != NULL) {
+        checkerr(&r, OCISessionRelease(sessctx->svchp, errhp, NULL, 0, OCI_SESSRLS_DROPSESS));
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("return session %p to pool %.*s failed %s\n", sessctx->svchp, poolNameLen, (char*)poolName, r.gerrbuf);
+		    return r;
+		}
 
-    if(r.fn_ret != SUCCESS)
-        return r;
+		REMOTE_LOG("return session %p to pool %.*s\n", sessctx->svchp, poolNameLen, (char*)poolName);
+	}
 
     return r;
 }
 
-intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned char * query_str, int query_str_len
+intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsigned char * query_str, int query_str_len
 					  , inp_t *params_head, void * column_list
 					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
 {
@@ -219,34 +255,27 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
     ub4 stmt_typ = OCI_STMT_SELECT;
     ub2 type = SQLT_INT;
     int idx = 1;
-
-	// private error structure for each statement
-	OCIError * ehp = NULL;
-	r.handle = envhp;
-	checkenv(&r, OCIHandleAlloc(envhp,				/* environment handle */
-                                (void **) &ehp,		/* returned err handle */
-                                OCI_HTYPE_ERROR,	/* typ of handle to allocate */
-                                (size_t) 0,			/* optional extra memory size */
-                                (void **) NULL));	/* returned extra memeory */
-    if(r.fn_ret != SUCCESS)
-        return r;
+	sess_ctx *sessctx = (sess_ctx *)conn_handle;
 
 	// allocate the statement handle
+	r.handle = envhp;
 	checkenv(&r, OCIHandleAlloc(envhp,					/* environment handle */
                                 (void **) &stmthp,		/* returned statement handle */
                                 OCI_HTYPE_STMT,			/* typ of handle to allocate */
                                 sizeof(stmt_ctx),		/* optional extra memory size */
                                 (void **) &smtctx));	/* returned extra memeory */
-    if(r.fn_ret != SUCCESS)
-        return r;
+	if(r.fn_ret != SUCCESS) {
+        REMOTE_LOG("statement handle from session %p alloc failed %s\n", sessctx->svchp, r.gerrbuf);
+		goto error_exit;
+	}
 
 	// from this point on regular errhp will do
-	r.handle = ehp;
+	r.handle = errhp;
 
     /* Get a prepared statement handle */
-    checkerr(&r, OCIStmtPrepare2((OCISvcCtx *)svchp,
+    checkerr(&r, OCIStmtPrepare2(sessctx->svchp,
                                  &stmthp,					/* returned statement handle */
-                                 ehp,						/* error handle */
+                                 errhp,						/* error handle */
                                  (OraText *) query_str,		/* the statement text */
                                  query_str_len,				/* length of the text */
                                  NULL, 0,					/* tagging parameters: optional */
@@ -255,7 +284,10 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
 	smtctx->stmthp = stmthp;
 	*stmt_handle = smtctx;
 
-    if(r.fn_ret != SUCCESS) goto error_exit;
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCIStmtPrepare2(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+		goto error_exit;
+	}
 
     /* Bind variables */
     for(inp_t *param = params_head; param != NULL; param = param->next) {
@@ -268,24 +300,34 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
             break;
         }
         param->bndp = NULL;
-        checkerr(&r, OCIBindByPos(stmthp, (OCIBind **)&(param->bndp), ehp, idx,
+        checkerr(&r, OCIBindByPos(stmthp, (OCIBind **)&(param->bndp), errhp, idx,
                                   (dvoid *) param->valuep, (sword) param->value_sz, type,
                                   (dvoid *) 0, (ub2 *) 0, (ub2 *) 0, (ub4) 0, (ub4 *) 0, OCI_DEFAULT));
-        if(r.fn_ret != SUCCESS) goto error_exit;
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCIBindByPos(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+			goto error_exit;
+		}
         idx++;
     }
 
     checkerr(&r, OCIAttrGet((dvoid*) stmthp, (ub4) OCI_HTYPE_STMT,
-                            (dvoid*) &stmt_typ, (ub4 *)NULL, (ub4)OCI_ATTR_STMT_TYPE, ehp));
-    if(r.fn_ret != SUCCESS) goto error_exit;
+                            (dvoid*) &stmt_typ, (ub4 *)NULL, (ub4)OCI_ATTR_STMT_TYPE, errhp));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCIAttrGet(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+		goto error_exit;
+	}
+
     if(stmt_typ != OCI_STMT_SELECT)
         itrs = 1;
 
     /* execute the statement and commit */
-    checkerr(&r, OCIStmtExecute((OCISvcCtx *)svchp, stmthp, ehp, itrs, 0,
+    checkerr(&r, OCIStmtExecute(sessctx->svchp, stmthp, errhp, itrs, 0,
                                 (OCISnapshot *)NULL, (OCISnapshot *)NULL,
                                 OCI_COMMIT_ON_SUCCESS));
-    if(r.fn_ret != SUCCESS) goto error_exit;
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCIStmtExecute(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+		goto error_exit;
+	}
 
     if(stmt_typ == OCI_STMT_SELECT) {
         OCIParam	*mypard;
@@ -293,10 +335,13 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
         sb4         parm_status;
 
         /* Request a parameter descriptor for position 1 in the select-list */
-        parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, ehp, (dvoid **)&mypard,
+        parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,
                                   (ub4) smtctx->num_cols);
         checkerr(&r, parm_status);
-        if(r.fn_ret != SUCCESS) goto error_exit;
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCIParamGet(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+			goto error_exit;
+		}
 
         /* Loop only if a descriptor was successfully retrieved for
          * current position, starting at 1
@@ -313,16 +358,22 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
             len = 0;
             checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                     (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_SIZE,
-                                    ehp));
-            if(r.fn_ret != SUCCESS) goto error_exit;
+                                    errhp));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIAttrGet(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+				goto error_exit;
+			}
             cur_clm->dlen = len;
 
             /* Retrieve the data type attribute */
             len = 0;
             checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                     (dvoid*) &len, (ub4 *)0, (ub4)OCI_ATTR_DATA_TYPE,
-                                    ehp));
-            if(r.fn_ret != SUCCESS) goto error_exit;
+                                    errhp));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIAttrGet(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+				goto error_exit;
+			}
             cur_clm->dtype = len;
 
             switch (len) {
@@ -357,8 +408,11 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
             len = 0;
             checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                     (dvoid**) &col_name, (ub4 *) &len, (ub4) OCI_ATTR_NAME,
-                                    ehp));
-            if(r.fn_ret != SUCCESS) goto error_exit;
+                                    errhp));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIAttrGet(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
+				goto error_exit;
+			}
             char * column_name = new char[len+1];
 			SPRINT(column_name, len+1, "%.*s", len, col_name);
             (*coldef_append)(column_name, data_type, cur_clm->dlen, column_list);
@@ -367,62 +421,71 @@ intf_ret oci_exec_sql(const void *svchp, void ** stmt_handle, const unsigned cha
 
             /* Increment counter and get next descriptor, if there is one */
             if(OCI_SUCCESS != OCIDescriptorFree(mypard, OCI_DTYPE_PARAM)) {
+				REMOTE_LOG("failed OCIDescriptorFree(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
                 r.fn_ret = FAILURE;
                 goto error_exit;
             }
             smtctx->num_cols++;
-            parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, ehp, (dvoid **)&mypard,
+            parm_status = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,
                                       (ub4) smtctx->num_cols);
         }
         --smtctx->num_cols;
 
-        if(r.fn_ret != SUCCESS)
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCIDescriptorFree(%.*s) from session %p for %s\n", query_str_len, (char*)query_str, sessctx->svchp, r.gerrbuf);
             goto error_exit;
-        REMOTE_LOG("Port: Returning Column(s)\n");
+		}
+
+        //REMOTE_LOG("Port: Returning Column(s)\n");
     } else {
         if(stmthp != NULL) {
-            checkerr(&r, OCIStmtRelease(stmthp, ehp, NULL, 0, OCI_DEFAULT));
+            checkerr(&r, OCIStmtRelease(stmthp, errhp, NULL, 0, OCI_DEFAULT));
             if(r.fn_ret != SUCCESS) goto error_exit;
         }
-        REMOTE_LOG("Port: Executed non-select statement!\n");
+        //REMOTE_LOG("Port: Executed non-select statement!\n");
     }
 
-	REMOTE_LOG("Executing \"%.*s;\"\n", query_str_len, query_str);
+	//REMOTE_LOG("Executing \"%.*s;\"\n", query_str_len, query_str);
 
 error_exit:
-    return r;
+	return r;
 }
 
-intf_ret oci_produce_rows(void * stmt_handle
-						   , void * row_list
-						   , void (*string_append)(const char * string, void * list)
-						   , void (*list_append)(const void * sub_list, void * list)
-						   , unsigned int (*sizeof_resp)(void * resp)
-                           , int maxrowcount)
+intf_ret oci_close_statement(void * stmt_handle)
 {
 	intf_ret r;
-
-	// private error structure for each statement
-	OCIError * ehp = NULL;
-	r.handle = envhp;
-	checkenv(&r, OCIHandleAlloc(envhp,				/* environment handle */
-                                (void **) &ehp,		/* returned err handle */
-                                OCI_HTYPE_ERROR,	/* typ of handle to allocate */
-                                (size_t) 0,			/* optional extra memory size */
-                                (void **) NULL));	/* returned extra memeory */
-    if(r.fn_ret != SUCCESS)
-        return r;
-
-	// from this point on regular ehp will do
-	r.handle = ehp;
-
-	r.fn_ret = FAILURE;
-
 	stmt_ctx *smtctx = (stmt_ctx *)stmt_handle;
 	OCIStmt *stmthp	= smtctx->stmthp;
 
-    if (smtctx->columns == NULL || stmthp == NULL)
-        return r;
+	free(smtctx->columns);
+	r.handle = errhp;
+    checkerr(&r, OCIStmtRelease(stmthp, errhp, (OraText *) NULL, 0, OCI_DEFAULT));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCIStmtRelease %s\n", r.gerrbuf);
+		return r;
+	}
+
+	REMOTE_LOG("closed statement %p\n", stmthp);
+	return r;
+}
+
+intf_ret oci_produce_rows(void * stmt_handle
+						 , void * row_list
+						 , void (*string_append)(const char * string, void * list)
+						 , void (*list_append)(const void * sub_list, void * list)
+						 , unsigned int (*sizeof_resp)(void * resp)
+                         , int maxrowcount)
+{
+	intf_ret r;
+	stmt_ctx *smtctx = (stmt_ctx *)stmt_handle;
+	OCIStmt *stmthp	= smtctx->stmthp;
+
+	r.handle = errhp;
+	r.fn_ret = FAILURE;
+	if (smtctx->columns == NULL || stmthp == NULL) {
+		REMOTE_LOG("invalid statement handle(%p) or no columns %p\n", stmthp, smtctx->columns);
+        goto error_exit;
+	}
 
 	r.fn_ret = SUCCESS;
     sword res = OCI_NO_DATA;
@@ -445,22 +508,28 @@ intf_ret oci_produce_rows(void * stmt_handle
     /* Bind appropriate variables for data based on the column type */
     for (i = 0; i < smtctx->num_cols; ++i)
         switch (smtctx->columns[i].dtype) {
-		case SQLT_DAT: 
-					   {
+		case SQLT_DAT:
+		{
             data_row[i] = (text *) malloc((smtctx->columns[i].dlen + 1) * sizeof(text));
-            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), ehp, i+1, (dvoid *) (data_row[i]),
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *) (data_row[i]),
 										(sword) smtctx->columns[i].dlen + 1, SQLT_DAT, &(smtctx->columns[i].indp), (ub2 *)0,
                                         (ub2 *)0, OCI_DEFAULT));
-            if(r.fn_ret != SUCCESS) return r;
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_DAT)\n", stmthp, i);
+				goto error_return;
+			}
         }
-        break;//*/
+        break;
         case SQLT_NUM:
         case SQLT_CHR: {
             data_row[i] = (text *) malloc((smtctx->columns[i].dlen + 1) * sizeof(text));
-            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), ehp, i+1, (dvoid *) (data_row[i]),
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *) (data_row[i]),
                                         (sword) smtctx->columns[i].dlen + 1, SQLT_STR, &(smtctx->columns[i].indp), (ub2 *)0,
                                         (ub2 *)0, OCI_DEFAULT));
-            if(r.fn_ret != SUCCESS) return r;
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_DAT)\n", stmthp, i);
+				goto error_return;
+			}
         }
         break;
         default:
@@ -468,16 +537,17 @@ intf_ret oci_produce_rows(void * stmt_handle
         }
 
     /* Fetch data by row */
-	//REMOTE_LOG("OCI: Fetching rows\n");
 
 	unsigned long int total_est_row_size = 0;
     do {
         ++num_rows;
 		//if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);
-        res = OCIStmtFetch(stmthp, ehp, 1, 0, 0);
+        res = OCIStmtFetch(stmthp, errhp, 1, 0, 0);
 		checkerr(&r, res);
-	    if(r.fn_ret != SUCCESS)
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCIStmtFetch for %p row %d reason %s\n", stmthp, num_rows, r.gerrbuf);
 		    goto error_return;
+		}
 
         row = NULL;
 
@@ -507,27 +577,34 @@ intf_ret oci_produce_rows(void * stmt_handle
     } while (res != OCI_NO_DATA
 			&& num_rows < maxrowcount
 			&& total_est_row_size < MAX_RESP_SIZE);
-	//REMOTE_LOG("OCI: Row fetch and erlang term building complete with %ul rows of %d bytes\n", num_rows, total_est_row_size); //, GetTickCount() - startTime
 
     /* cleanup only if data fetch is finished */
-    if (res == OCI_NO_DATA)
-        checkerr(&r, OCIStmtRelease(stmthp, ehp, (OraText *) NULL, 0, OCI_DEFAULT));
+	if (res == OCI_NO_DATA)
+		oci_close_statement(smtctx);
 
     free(defnhp);
 
-    if(r.fn_ret != SUCCESS)
-        return r;
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("this should never happen reason %s\n", r.gerrbuf);
+        goto error_return;
+	}
 
     //REMOTE_LOG("Port: Returning Rows...\n");
-	if(res != OCI_NO_DATA) r.fn_ret = MORE; else r.fn_ret = DONE;
+	if(res != OCI_NO_DATA)
+		r.fn_ret = MORE;
+	else
+		r.fn_ret = DONE;
 
 error_return:
     /* Release the bound variables memeory */
-    for (i = 0; i < smtctx->num_cols; ++i)
+	for (i = 0; i < smtctx->num_cols; ++i) {
         if(data_row[i] != NULL)
             free(data_row[i]);
+	}
+
     free(data_row);
 
+error_exit:
     return r;
 }
 
@@ -643,6 +720,7 @@ void checkerr0(intf_ret *r, ub4 htype, sword status, const char * function_name,
 		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NEED_DATA\n", function_name, line_no);
         break;
     case OCI_NO_DATA:
+		r->fn_ret = SUCCESS;
 		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NO_DATA\n", function_name, line_no);
         break;
     case OCI_ERROR:
