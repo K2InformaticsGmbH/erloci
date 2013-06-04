@@ -17,6 +17,9 @@
 
 -include("oci.hrl").
 
+% TODO convert to eunit
+-export([ run/2 ]).
+
 %% API
 -export([
     start_link/1,
@@ -39,8 +42,7 @@
 
 -record(state, {
     port,
-    logging = ?DBG_FLAG_OFF,
-    refs = ets:new(oci_refs, [])
+    logging = ?DBG_FLAG_OFF
 }).
 
 -define(log(__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Format, __Args); true -> ok end).
@@ -84,17 +86,12 @@ exec_sql(Sql, Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(
     R = gen_server:call(PortPid, {port_call, {?EXEC_SQL, SessionId, Sql, Opts}}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
-        {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, StmtId}, {cols, Clms}};
+        {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, StmtId}, Clms};
         R -> R
     end.
 
 get_rows(Count, {?MODULE, PortPid, StmtId}) ->
-    {{rows, Rows}, F} = gen_server:call(PortPid, {port_call, {?FETCH_ROWS, StmtId, Count}}, ?PORT_TIMEOUT),
-    {{rows, flip(Rows)}, F}.
-
-flip(Rows) -> flip(Rows,[]).
-flip([],Acc) -> Acc;
-flip([Row|Rows],Acc) -> flip(Rows, [lists:reverse(Row)|Acc]).
+    gen_server:call(PortPid, {port_call, {?FETCH_ROWS, StmtId, Count}}, ?PORT_TIMEOUT).
 
 %% Callbacks
 init([Logging, ListenPort]) ->
@@ -168,14 +165,15 @@ log(Sock) ->
 
 handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     Cmd = list_to_tuple([From|tuple_to_list(Msg)]),
-    CmdBin = term_to_binary(Cmd),
+    %CmdBin = term_to_binary(Cmd),
     %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
     %?Debug(" ~p", [Cmd]),
     true = port_command(Port, term_to_binary(Cmd)),
     %io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
     {noreply, State}. %% we will reply inside handle_info_result
 
-handle_cast(_Msg, State) ->
+handle_cast(Msg, State) ->
+    error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
@@ -271,3 +269,138 @@ signal_str(33) -> {'SIGLWP',        ignore, "Virtual Interprocessor Interrupt fo
 signal_str(34) -> {'SIGAIO',        ignore, "Asynchronous I/O"};
 signal_str(N)  -> {udefined,        ignore, N}.
 
+
+%
+% Eunit tests
+%
+
+-include_lib("eunit/include/eunit.hrl").
+-define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
+
+run(Threads, InsertCount) when is_integer(Threads), is_integer(InsertCount) ->
+    OciSession = connect_db(),
+    This = self(),
+    [(fun(Idx) ->
+        Table = "erloci_table_"++Idx,
+        try
+            create_table(OciSession, Table),            
+            spawn(fun() -> insert_select(OciSession, Table, InsertCount, This) end)
+        catch
+            Class:Reason -> oci_logger:log(lists:flatten(io_lib:format("~p:~p~n", [Class,Reason])))
+        end
+    end)(integer_to_list(I))
+    || I <- lists:seq(1,Threads)],
+    receive_all(Threads).
+
+receive_all(Count) -> receive_all(Count, []).
+receive_all(0, Acc) ->
+    [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime) ->
+        InsRate = erlang:trunc(InsertCount / InsertTime),
+        SelRate = erlang:trunc(SelectCount / SelectTime),
+        io:format(user, "~p insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
+    end)(T, Ic, It, Sc, St)
+    || {T, Ic, It, Sc, St} <- Acc];
+receive_all(Count, Acc) ->
+    receive
+        {T, Ic, It, Sc, St} ->
+            receive_all(Count-1, [{T, Ic, It, Sc, St}|Acc])
+    after
+        (100*1000) ->
+            io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
+            receive_all(0, Acc)
+    end.
+
+connect_db() ->
+    OciPort = oci_port:start_link([{logging, true}]),
+    OciPool = OciPort:create_sess_pool(
+                <<"(DESCRIPTION=
+                    (ADDRESS_LIST=
+                        (ADDRESS=(PROTOCOL=tcp)
+                            (HOST=80.67.144.206)
+                            (PORT=1521)
+                        )
+                    )
+                    (CONNECT_DATA=(SERVICE_NAME=XE))
+                )">>,
+                <<"bikram">>,
+                <<"abcd123">>,
+                <<>>),
+    %OciPool = OciPort:create_sess_pool(
+    %            <<"(DESCRIPTION=
+    %                (ADDRESS=(PROTOCOL=tcp)
+    %                    (HOST=192.168.1.69)
+    %                    (PORT=1521)
+    %                )
+    %                (CONNECT_DATA=(SERVICE_NAME=SBS0.k2informatics.ch))
+    %            )">>,
+    %            <<"SBS0">>,
+    %            <<"sbs0sbs0_4dev">>,
+    %            <<>>),
+    throw_if_error(undefined, OciPool, "pool creation failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Pool ~p~n", [OciPool]))),
+
+    OciSession = OciPort:get_session(),
+    throw_if_error(undefined, OciSession, "get session failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Session ~p~n", [OciSession]))),
+    OciSession.
+
+create_table(OciSession, Table) ->
+    Res = OciSession:exec_sql(list_to_binary(["drop table ",Table]), []),
+    print_if_error(Res, "drop failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI drop ~p~n", [Res]))),
+    Res0 = OciSession:exec_sql(list_to_binary(["create table ",Table,"(pkey number,
+                                       publisher varchar2(100),
+                                       rank number,
+                                       hero varchar2(100),
+                                       real varchar2(100),
+                                       votes number,
+                                       createdate date default sysdate,
+                                       votes_first_rank number)"]), []),
+%                                       createtime timestamp default systimestamp,
+    throw_if_error(undefined, Res0, "create "++Table++" failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res0]))).
+
+insert_select(OciSession, Table, InsertCount, Parent) ->
+    try
+        InsertStart = ?NowMs,
+        [(fun(I) ->
+            Qry = erlang:list_to_binary([
+                    "insert into ", Table, " (pkey,publisher,rank,hero,real,votes,votes_first_rank) values (",
+                    I,
+                    ", 'publisher"++I++"',",
+                    I,
+                    ", 'hero"++I++"'",
+                    ", 'real"++I++"',",
+                    I,
+                    ",",
+                    I,
+                    ")"]),
+            oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Qry]))),
+            Res = OciSession:exec_sql(Qry, []),
+            throw_if_error(Parent, Res, "insert "++Table++" failed"),
+            if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
+          end)(integer_to_list(Idx))
+        || Idx <- lists:seq(1, InsertCount)],
+        InsertEnd = ?NowMs,
+        {Statement, Cols} = OciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
+        throw_if_error(Parent, Statement, "select "++Table++" failed"),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
+        {{rows, Rows}, _} = RowResp = Statement:get_rows(100),
+        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,RowResp]))),
+        SelectEnd = ?NowMs,
+        InsertTime = (InsertEnd - InsertStart)/1000000,
+        SelectTime = (SelectEnd - InsertEnd)/1000000,
+        Parent ! {Table, InsertCount, InsertTime, length(Rows), SelectTime}
+    catch
+        Class:Reason ->
+            if is_pid(Parent) -> Parent ! {{Table,Class,Reason}, 0, 1, 0, 1}; true -> ok end,
+            oci_logger:log(lists:flatten(io_lib:format(" ~p:~p~n", [Class,Reason])))
+    end.
+
+print_if_error({error, Error}, Msg) -> oci_logger:log(lists:flatten(io_lib:format("___________----- continue after ~p ~p~n", [Msg,Error])));
+print_if_error(_, _) -> ok.
+
+throw_if_error(Parent, {error, Error}, Msg) ->
+    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
+    throw({Msg, Error});
+throw_if_error(_,_,_) -> ok.

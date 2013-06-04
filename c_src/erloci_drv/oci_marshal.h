@@ -98,7 +98,7 @@ extern bool ProcessCommand(void *);
 extern unsigned int calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
-extern void append_string_to_list(const char * string, void * list);
+extern void append_string_to_list(const char * string, int len, void * list);
 extern void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list);
 
 #define MAX_FORMATTED_STR_LEN 1024

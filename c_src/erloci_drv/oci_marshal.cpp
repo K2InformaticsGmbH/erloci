@@ -221,7 +221,7 @@ void append_int_to_list(const int integer, void * list)
     (*(ETERM**)list) = container_list;
 }
 
-void append_string_to_list(const char * string, void * list)
+void append_string_to_list(const char * string, int len, void * list)
 {
     if (list==NULL)
         return;
@@ -230,7 +230,8 @@ void append_string_to_list(const char * string, void * list)
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-    container_list = erl_cons(erl_format((char*)"~s", string), container_list);
+	ETERM *binstr = erl_mk_binary(string, len);
+    container_list = erl_cons(erl_format((char*)"~w", binstr), container_list);
     (*(ETERM**)list) = container_list;
 }
 
@@ -243,7 +244,8 @@ void append_coldef_to_list(const char * col_name, const char * data_type, const 
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-    container_list = erl_cons(erl_format((char*)"{~s,~a,~i}", col_name, data_type, max_len), container_list);
+	ETERM *cname = erl_mk_binary(col_name, strlen(col_name));
+    container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
 
     (*(ETERM**)list) = container_list;
 }

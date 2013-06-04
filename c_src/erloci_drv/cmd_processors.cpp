@@ -369,7 +369,7 @@ bool cmd_fetch_rows(ETERM * command)
 			intf_ret r = oci_produce_rows(statement_handle, &rows, append_string_to_list, append_list_to_list, calculate_resp_size, rowcount);
 			if (r.fn_ret == MORE || r.fn_ret == DONE) {
                 if (rows != NULL) {
-                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FETCH_ROWS, rows, (r.fn_ret == MORE ? "more" : "done"));
+                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FETCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
 					//erl_free_compound(rows);
                     if(write_resp(resp) < 0) goto error_exit;
                 } else {

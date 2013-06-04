@@ -352,7 +352,8 @@ intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
         smtctx->columns = NULL;
         while (parm_status == OCI_SUCCESS) {
             smtctx->columns = (column_info *)realloc(smtctx->columns, smtctx->num_cols * sizeof(column_info));
-            column_info * cur_clm = &(smtctx->columns[smtctx->num_cols-1]);
+
+			column_info * cur_clm = &(smtctx->columns[smtctx->num_cols-1]);
 
 			/* Retrieve the data size attribute */
             len = 0;
@@ -398,6 +399,15 @@ intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsign
                 break;
             case SQLT_FLT:
                 data_type = (char*)"double";
+                break;
+            case SQLT_TIMESTAMP:
+            case SQLT_TIMESTAMP_TZ:
+            case SQLT_TIMESTAMP_LTZ:
+                data_type = (char*)"timestamp";
+                break;
+            case SQLT_INTERVAL_YM:
+            case SQLT_INTERVAL_DS:
+                data_type = (char*)"interval";
                 break;
             default:
                 data_type = (char*)"undefined";
@@ -471,7 +481,7 @@ intf_ret oci_close_statement(void * stmt_handle)
 
 intf_ret oci_produce_rows(void * stmt_handle
 						 , void * row_list
-						 , void (*string_append)(const char * string, void * list)
+						 , void (*string_append)(const char * string, int len, void * list)
 						 , void (*list_append)(const void * sub_list, void * list)
 						 , unsigned int (*sizeof_resp)(void * resp)
                          , int maxrowcount)
@@ -508,6 +518,111 @@ intf_ret oci_produce_rows(void * stmt_handle
     /* Bind appropriate variables for data based on the column type */
     for (i = 0; i < smtctx->num_cols; ++i)
         switch (smtctx->columns[i].dtype) {
+        case SQLT_TIMESTAMP:
+		{
+			/* Allocate the descriptor (storage) for the datatype */
+			data_row[i] = NULL;
+			r.handle = envhp;
+			checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(data_row[i]), OCI_DTYPE_TIMESTAMP, 0, (dvoid **)0));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDescriptorAlloc for %p column %d(SQLT_TIMESTAMP)\n", stmthp, i);
+				goto error_return;
+			}
+			r.handle = errhp;
+
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *)(data_row[i]),
+										(sword) smtctx->columns[i].dlen + 1, SQLT_TIMESTAMP, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_TIMESTAMP)\n", stmthp, i);
+				goto error_return;
+			}
+        }
+		break;
+        case SQLT_TIMESTAMP_TZ:
+		{
+			/* Allocate the descriptor (storage) for the datatype */
+			data_row[i] = NULL;
+			r.handle = envhp;
+			checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(data_row[i]), OCI_DTYPE_TIMESTAMP_TZ, 0, (dvoid **)0));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDescriptorAlloc for %p column %d(SQLT_TIMESTAMP_TZ)\n", stmthp, i);
+				goto error_return;
+			}
+			r.handle = errhp;
+
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *)(data_row[i]),
+										(sword) smtctx->columns[i].dlen + 1, SQLT_TIMESTAMP_TZ, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_TIMESTAMP_TZ)\n", stmthp, i);
+				goto error_return;
+			}
+        }
+		break;
+        case SQLT_TIMESTAMP_LTZ:
+		{
+			/* Allocate the descriptor (storage) for the datatype */
+			data_row[i] = NULL;
+			r.handle = envhp;
+			checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(data_row[i]), OCI_DTYPE_TIMESTAMP_LTZ, 0, (dvoid **)0));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDescriptorAlloc for %p column %d(SQLT_TIMESTAMP_LTZ)\n", stmthp, i);
+				goto error_return;
+			}
+			r.handle = errhp;
+
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *)(data_row[i]),
+										(sword) smtctx->columns[i].dlen + 1, SQLT_TIMESTAMP_LTZ, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_TIMESTAMP_LTZ)\n", stmthp, i);
+				goto error_return;
+			}
+        }
+        break;
+        case SQLT_INTERVAL_YM:
+		{
+			/* Allocate the descriptor (storage) for the datatype */
+			data_row[i] = NULL;
+			r.handle = envhp;
+			checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(data_row[i]), OCI_DTYPE_INTERVAL_YM, 0, (dvoid **)0));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDescriptorAlloc for %p column %d(SQLT_INTERVAL_YM)\n", stmthp, i);
+				goto error_return;
+			}
+			r.handle = errhp;
+
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *)(data_row[i]),
+										(sword) smtctx->columns[i].dlen + 1, SQLT_INTERVAL_YM, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_INTERVAL_YM)\n", stmthp, i);
+				goto error_return;
+			}
+        }
+		break;
+        case SQLT_INTERVAL_DS:
+		{
+			/* Allocate the descriptor (storage) for the datatype */
+			data_row[i] = NULL;
+			r.handle = envhp;
+			checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(data_row[i]), OCI_DTYPE_INTERVAL_DS, 0, (dvoid **)0));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDescriptorAlloc for %p column %d(SQLT_INTERVAL_DS)\n", stmthp, i);
+				goto error_return;
+			}
+			r.handle = errhp;
+
+            checkerr(&r, OCIDefineByPos(stmthp, &(defnhp[i]), errhp, i+1, (dvoid *)(data_row[i]),
+										(sword) smtctx->columns[i].dlen + 1, SQLT_INTERVAL_DS, &(smtctx->columns[i].indp), (ub2 *)0,
+                                        (ub2 *)0, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIDefineByPos for %p column %d(SQLT_INTERVAL_DS)\n", stmthp, i);
+				goto error_return;
+			}
+        }
+        break;
 		case SQLT_DAT:
 		{
             data_row[i] = (text *) malloc((smtctx->columns[i].dlen + 1) * sizeof(text));
@@ -554,6 +669,19 @@ intf_ret oci_produce_rows(void * stmt_handle
 		if (res != OCI_NO_DATA) {
 			for (i = 0; i < smtctx->num_cols; ++i)
 					switch (smtctx->columns[i].dtype) {
+					case SQLT_TIMESTAMP:
+					case SQLT_TIMESTAMP_TZ:
+					case SQLT_TIMESTAMP_LTZ: {
+						r.handle = envhp;
+						ub1 *dtarry = NULL;
+						ub4 len;
+						checkerr(&r, OCIDateTimeToArray(envhp, errhp, (CONST OCIDateTime *)(data_row[i]),
+                                        (CONST OCIInterval *)NULL, dtarry, &len, (ub1)0xFF));
+						r.handle = errhp; }
+						break;
+					/*case SQLT_INTERVAL_YM:
+					case SQLT_INTERVAL_DS:
+						break;*/
 					case SQLT_DAT: {
 						char date_buf[15];
 						sprintf(date_buf, "%02d%02d%02d%02d%02d%02d%02d",
@@ -564,11 +692,12 @@ intf_ret oci_produce_rows(void * stmt_handle
 							((char*)data_row[i])[4],		 // 24HH
 							((char*)data_row[i])[5],		 // MM
 							((char*)data_row[i])[6]);		 // DD
-						(*string_append)(date_buf, &row); }
+//						(*string_append)(date_buf, strlen(date_buf), &row); }
+						(*string_append)((char*)data_row[i], 7, &row); }
 						break;
 					case SQLT_NUM:
 					case SQLT_CHR:
-						(*string_append)((char*)data_row[i], &row);
+						(*string_append)((char*)data_row[i], strlen((char*)data_row[i]), &row);
 						break;
 					}
 			total_est_row_size += (*sizeof_resp)(&row);
