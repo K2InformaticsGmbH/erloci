@@ -489,6 +489,13 @@ intf_ret oci_produce_rows(void * stmt_handle
 	intf_ret r;
 	stmt_ctx *smtctx = (stmt_ctx *)stmt_handle;
 	OCIStmt *stmthp	= smtctx->stmthp;
+	unsigned long int total_est_row_size = 0;
+    unsigned int num_rows = 0;
+    void * row = NULL;
+    ub4 i = 0;
+    sword res = OCI_NO_DATA;
+    OCIDefine **defnhp = NULL;
+    void ** data_row = NULL;
 
 	r.handle = errhp;
 	r.fn_ret = FAILURE;
@@ -498,10 +505,8 @@ intf_ret oci_produce_rows(void * stmt_handle
 	}
 
 	r.fn_ret = SUCCESS;
-    sword res = OCI_NO_DATA;
 
-    OCIDefine **defnhp = (OCIDefine **)malloc(smtctx->num_cols * sizeof(OCIDefine *));
-    void ** data_row = NULL;
+    defnhp = (OCIDefine **)malloc(smtctx->num_cols * sizeof(OCIDefine *));
     data_row = (void **) calloc(smtctx->num_cols, sizeof(void *));
 
     // overdrive preventation
@@ -511,9 +516,6 @@ intf_ret oci_produce_rows(void * stmt_handle
     /*
      * Fetch the data
      */
-    unsigned int num_rows = 0;
-    ub4 i = 0;
-    void * row = NULL;
 
     /* Bind appropriate variables for data based on the column type */
     for (i = 0; i < smtctx->num_cols; ++i)
@@ -653,7 +655,6 @@ intf_ret oci_produce_rows(void * stmt_handle
 
     /* Fetch data by row */
 
-	unsigned long int total_est_row_size = 0;
     do {
         ++num_rows;
 		//if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);

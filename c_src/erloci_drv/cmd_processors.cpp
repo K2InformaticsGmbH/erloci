@@ -132,6 +132,7 @@ bool cmd_get_session(ETERM * command)
     ETERM **args = new ETERM*[CMD_ARGS_COUNT(GET_SESSION)];
 	ETERM *resp;
     void * conn_handle = NULL;
+    intf_ret r;
 
     MAP_ARGS(command, args);
 
@@ -141,7 +142,7 @@ bool cmd_get_session(ETERM * command)
 	    goto error_exit;
 	}
 
-	intf_ret r = oci_get_session_from_pool(&conn_handle);
+	r = oci_get_session_from_pool(&conn_handle);
 	if (r.fn_ret == SUCCESS) {
         REMOTE_LOG("connection from session pool %lu\n", (unsigned long long)conn_handle);
 		resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSION, erl_mk_ulonglong((unsigned long long)conn_handle));
@@ -212,6 +213,7 @@ bool cmd_free_ssn_pool(ETERM * command)
     bool ret = false;
     ETERM **args = new ETERM*[CMD_ARGS_COUNT(FREE_SESSION_POOL)];
     ETERM *resp = NULL;
+    intf_ret r;
 
     MAP_ARGS(command, args);
 
@@ -222,7 +224,7 @@ bool cmd_free_ssn_pool(ETERM * command)
         goto error_exit;
 	}
 
-	intf_ret r = oci_free_session_pool();
+	r = oci_free_session_pool();
 	if (r.fn_ret == SUCCESS)
         resp = erl_format((char*)"{~w,~i}", args[0], FREE_SESSION_POOL);
     else {
@@ -294,6 +296,7 @@ bool cmd_exec_sql(ETERM * command)
 	            REMOTE_LOG("CONTINUE_WITH_ERROR \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
 			case FAILURE:
+            default:
                 {
 					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
 					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, r.gerrbuf);
