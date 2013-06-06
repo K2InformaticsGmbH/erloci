@@ -95,7 +95,11 @@ get_rows(Count, {?MODULE, PortPid, StmtId}) ->
 
 %% Callbacks
 init([Logging, ListenPort]) ->
-    case os:find_executable(?EXE_NAME, "./priv/") of
+    PrivDir = case code:priv_dir(erloci) of
+        {error,_} -> "./priv/";
+        PDir -> PDir
+    end,
+    case os:find_executable(?EXE_NAME, PrivDir) of
         false ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
                 false -> {stop, bad_executable};
