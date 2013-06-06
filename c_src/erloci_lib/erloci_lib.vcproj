@@ -63,7 +63,7 @@
 			<Tool
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
-				AdditionalDependencies="wsock32.lib oci.lib"
+				AdditionalDependencies="wsock32.lib oci.lib  oraocci11.lib"
 				OutputFile="$(ProjectDir)..\..\priv\$(ProjectName).lib"
 				AdditionalLibraryDirectories="&quot;$(ProjectDir)..\lib\instantclient&quot;"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
@@ -112,7 +112,8 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				PreprocessorDefinitions="WIN32;NDEBUG;_LIB"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\lib\instantclient\include&quot;"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;__WIN32__"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -130,6 +131,10 @@
 			/>
 			<Tool
 				Name="VCLibrarianTool"
+				AdditionalDependencies="wsock32.lib oci.lib  oraocci11.lib"
+				OutputFile="$(ProjectDir)..\..\priv\$(ProjectName).lib"
+				AdditionalLibraryDirectories="&quot;$(ProjectDir)..\lib\instantclient&quot;"
+				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 			/>
 			<Tool
 				Name="VCALinkTool"

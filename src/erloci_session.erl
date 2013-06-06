@@ -54,8 +54,8 @@ start_link(Tns,Usr,Pswd,Opts,PortOptions) ->
 exec_sql(Sql, Opts, {?MODULE, ErlOciSession}) when is_binary(Sql); is_list(Opts) ->
     gen_server:call(ErlOciSession, {exec_sql, Sql, Opts}, ?PORT_TIMEOUT).
 
-get_rows(Count, StmtId, {?MODULE, ErlOciSession}) ->
-    gen_server:call(ErlOciSession, {get_rows, Count, StmtId}, ?PORT_TIMEOUT).
+get_rows(Count, Stmt, {?MODULE, ErlOciSession}) ->
+    gen_server:call(ErlOciSession, {get_rows, Count, Stmt}, ?PORT_TIMEOUT).
 
 %
 % gen_server interfaces
@@ -83,7 +83,7 @@ handle_call({exec_sql, Sql, Opts}, _From, #state{ociSess=OciSession} = State) ->
         R -> R
     end,
     {reply, Resp, State};
-handle_call({get_rows, Count, StmtId}, _From, #state{ociSess=OciSession} = State) ->
+handle_call({get_rows, Count, #stmtResult{stmtRef = StmtId} = Stmt}, _From, #state{ociSess=OciSession} = State) ->
     {Mod,PortPid,_} = OciSession,
     Statement = {Mod, PortPid, StmtId},
     {{rows, Rows}, F} = Statement:get_rows(Count),
@@ -223,11 +223,11 @@ insert_select(ErlOciSession, Table, InsertCount, Parent) ->
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
-        #stmtResult{stmtRef = StmtId, stmtCols = Cols} = ErlOciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
-        throw_if_error(Parent, StmtId, "select "++Table++" failed"),
+        #stmtResult{stmtCols = Cols} = Stmt = ErlOciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
+        throw_if_error(Parent, Stmt, "select "++Table++" failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
-        {Rows, _} = RowResp = ErlOciSession:get_rows(100, StmtId),
-        %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,RowResp]))),
+        {Rows, _} = RowResp = ErlOciSession:get_rows(100, Stmt),
+        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,RowResp]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
         SelectTime = (SelectEnd - InsertEnd)/1000000,

@@ -44,7 +44,6 @@
 				AdditionalOptions="/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP"
 				Optimization="0"
 				AdditionalIncludeDirectories="&quot;D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(SolutionDir)erloci_lib&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -120,9 +119,11 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
+				AdditionalOptions="/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
-				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
+				AdditionalIncludeDirectories="&quot;D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(SolutionDir)erloci_lib&quot;"
+				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
@@ -140,7 +141,11 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="ei_md.lib erl_interface_md.lib wsock32.lib erloci_lib.lib"
+				OutputFile="$(ProjectDir)..\..\priv\erloci.exe"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories="&quot;D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(ProjectDir)..\..\priv&quot;"
+				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"

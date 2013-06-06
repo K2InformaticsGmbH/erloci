@@ -17,8 +17,12 @@
 #include <string.h>
 #include <stdlib.h>
 
-#include "oci.h"
+#include <oci.h>
+#include <occi.h>
 #include "oci_lib_intf.h"
+
+using namespace std;
+using namespace oracle::occi;
 
 #ifdef __WIN32__
 #define	SPRINT sprintf_s
@@ -112,6 +116,36 @@ intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect
 
     poolNameLen = 0;
 	ub4	stmt_cachesize = 0;
+
+/////////////////////////////////////////////////////////////////////////////////////////////
+	unsigned char *constr = new unsigned char[connect_str_len+1];
+	unsigned char *uname = new unsigned char[user_name_len+1];
+	unsigned char *pswd = new unsigned char[password_len+1];
+
+	try {
+		Environment *env = Environment::createEnvironment(Environment::THREADED_MUTEXED);
+		REMOTE_LOG("Environment::createEnvironment\n");
+
+		sprintf((char*)constr, "%.*s", connect_str_len, connect_str);
+		sprintf((char*)uname, "%.*s", user_name_len, user_name);
+		sprintf((char*)pswd, "%.*s", password_len, password);
+		
+		REMOTE_LOG("env->createConnection -- %s %s %s\n", uname, pswd, constr);
+		Connection *conn = env->createConnection((char*)uname, (char*)pswd, (char*)constr);
+
+		REMOTE_LOG("env->createConnection\n");
+	} catch (std::exception const & ex) {
+		REMOTE_LOG("failed Environment::createEnvironment for %s\n", ex.what());
+	} catch (std::string const & ex) {
+		REMOTE_LOG("failed Environment::createEnvironment for %s\n", ex);
+	} catch (...) {
+		// ...
+	}
+
+	delete constr;
+	delete uname;
+	delete pswd;
+/////////////////////////////////////////////////////////////////////////////////////////////
 
 	if((r = oci_free_session_pool()).fn_ret != SUCCESS) {
 		REMOTE_LOG("failed oci_free_session_pool for %s\n", r.gerrbuf);

@@ -13,6 +13,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_drv", "erloci_drv\er
 		{7C2A067E-4DE0-41B3-98BA-05B971CCF708} = {7C2A067E-4DE0-41B3-98BA-05B971CCF708}
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "occidemo", "occidemo\occidemo.vcproj", "{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Mixed Platforms = Debug|Mixed Platforms
@@ -53,6 +55,18 @@ Global
 		{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}.Release|Win32.ActiveCfg = Release|x64
 		{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}.Release|x64.ActiveCfg = Release|x64
 		{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}.Release|x64.Build.0 = Release|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Debug|Mixed Platforms.ActiveCfg = Debug|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Debug|Mixed Platforms.Build.0 = Debug|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Debug|Win32.ActiveCfg = Debug|Win32
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Debug|Win32.Build.0 = Debug|Win32
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Debug|x64.ActiveCfg = Debug|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Debug|x64.Build.0 = Debug|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Release|Mixed Platforms.ActiveCfg = Release|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Release|Mixed Platforms.Build.0 = Release|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Release|Win32.ActiveCfg = Release|Win32
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Release|Win32.Build.0 = Release|Win32
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Release|x64.ActiveCfg = Release|x64
+		{F9F03DE4-C821-450D-BA2E-FADCB090AF9C}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

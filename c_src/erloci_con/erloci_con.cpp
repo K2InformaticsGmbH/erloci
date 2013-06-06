@@ -9,9 +9,9 @@ void append_coldef_to_list(const char * col_name, const char * data_type, const 
 	printf("\t%s\n", col_name);
 }
 
-void string_append(const char * string, void * list)
+void string_append(const char * string, int len, void * list)
 {
-	printf("%s\t", string);
+	printf("%.*s\t", len, string);
 }
 
 void list_append(const void * sub_list, void * list)

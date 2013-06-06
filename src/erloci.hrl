@@ -19,3 +19,74 @@
                   , sortSpec = []                   ::list()
                   }
        ).
+
+-define(TYPEMAP, [
+                    %-----------------------------------------------------------
+                    % type      db to erlang                erlang to db
+                    %-----------------------------------------------------------
+                    {number,
+                                fun(R)->
+                                    binary_to_integer(R)
+                                end,
+                                                            fun(R)->
+                                                                integer_to_binary(R)
+                                                            end
+                    },
+                    {string,
+                                fun(R)->
+                                    binary_to_list(R)
+                                end,
+                                                            fun(R)->
+                                                                list_to_binary(R)
+                                                            end
+                    },
+                    {integer,
+                                fun(R)->
+                                    binary_to_integer(R)
+                                end,
+                                                            fun(R)->
+                                                                integer_to_binary(R)
+                                                            end
+                    },
+                    {date,
+                                fun(R)->
+                                    R
+                                end,
+                                                            fun(R)->
+                                                                R
+                                                            end
+                    },
+                    {double,
+                                fun(R)->
+                                    R
+                                end,
+                                                            fun(R)->
+                                                                R
+                                                            end
+                    },
+                    {timestamp,
+                                fun(R)->
+                                    R
+                                end,
+                                                            fun(R)->
+                                                                R
+                                                            end
+                    },
+                    {interval,
+                                fun(R)->
+                                    R
+                                end,
+                                                            fun(R)->
+                                                                R
+                                                            end
+                    },
+                    {undefined,
+                                fun(R)->
+                                    R
+                                end,
+                                                            fun(R)->
+                                                                R
+                                                            end
+                    }
+                    %-----------------------------------------------------------
+]).

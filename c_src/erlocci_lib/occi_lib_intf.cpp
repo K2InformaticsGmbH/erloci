@@ -12,26 +12,27 @@ int main(void)
 	const char* password = "abcd123";
 	const char* connectString = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))";
 	const char* sql = "SELECT * FROM ALL_TABLES";
+    int i = 0;
 
 	try {
 		Environment *env = Environment::createEnvironment(Environment::THREADED_MUTEXED);
 		Connection *conn = env->createConnection((char*)userName, (char*)password, (char*)connectString);
 
-        for (int i=1000; i>0; --i) {
+        for (i=1000; i>0; --i) {
             int rows = 0;
 		    Statement *stmt = conn->createStatement(sql);
 		    ResultSet *rs = stmt->executeQuery();
             vector<MetaData> listOfColumns = rs->getColumnListMetaData();
             cout << i << " columns " << listOfColumns.size() << endl;
-            for (int i=0; i < listOfColumns.size(); i++) {
+            for (i=0; i < listOfColumns.size(); i++) {
                 MetaData columnObj=listOfColumns[i];
                 //cout << (columnObj.getString(MetaData::ATTR_NAME))
                 //     << "(" << (columnObj.getInt(MetaData::ATTR_DATA_TYPE)) << "), ";
             }
             while(rs->next()) {
                 ++rows;
-                for (int j=0; j < listOfColumns.size(); j++)
-                    string str = rs->getString(j+1);
+                for (i=0; i < listOfColumns.size(); i++)
+                    string str = rs->getString(i+1);
                     //cout << rs->getString(j+1) << ", ";
                 //cout << endl;
             }
