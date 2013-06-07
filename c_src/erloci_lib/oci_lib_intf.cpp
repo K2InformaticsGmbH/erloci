@@ -13,6 +13,8 @@
  * limitations under the License.
  */ 
 
+#ifndef OCCI
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -68,8 +70,6 @@ void checkerr0(intf_ret *, ub4, sword, const char * function_name, int line_no);
 #define checkerr(errhp, status) checkerr0((errhp), OCI_HTYPE_ERROR, (status), __FUNCTION__, __LINE__)
 #define checkenv(envhp, status) checkerr0((envhp), OCI_HTYPE_ENV, (status), __FUNCTION__, __LINE__)
 
-static INTF_RET function_success = SUCCESS;
-
 void oci_init(void)
 {
 	intf_ret r;
@@ -117,6 +117,7 @@ intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect
     poolNameLen = 0;
 	ub4	stmt_cachesize = 0;
 
+#if 0
 /////////////////////////////////////////////////////////////////////////////////////////////
 	unsigned char *constr = new unsigned char[connect_str_len+1];
 	unsigned char *uname = new unsigned char[user_name_len+1];
@@ -146,6 +147,7 @@ intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect
 	delete uname;
 	delete pswd;
 /////////////////////////////////////////////////////////////////////////////////////////////
+#endif
 
 	if((r = oci_free_session_pool()).fn_ret != SUCCESS) {
 		REMOTE_LOG("failed oci_free_session_pool for %s\n", r.gerrbuf);
@@ -914,3 +916,5 @@ void checkerr0(intf_ret *r, ub4 htype, sword status, const char * function_name,
         break;
     }
 }
+
+#endif //OCCI

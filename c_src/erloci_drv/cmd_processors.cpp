@@ -164,6 +164,7 @@ error_exit:
 
 bool cmd_release_conn(ETERM * command)
 {
+    intf_ret r;
     bool ret = false;
     ETERM **args = new ETERM*[CMD_ARGS_COUNT(RELEASE_SESSION)];
     ETERM * resp;
@@ -173,20 +174,11 @@ bool cmd_release_conn(ETERM * command)
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(RELEASE_SESSION))
         goto error_exit;
 
-	if(
-#ifdef __WIN32__
-    ERL_IS_INTEGER(args[1])
-#else
-    (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-#endif
-	) {
+	if(ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) {
 
-#ifdef __WIN32__
-		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
-#else
-		void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
-#endif
-		intf_ret r = oci_return_connection_to_pool(conn_handle);
+		void * conn_handle = (void *) (ERL_IS_INTEGER(args[1]) ? ERL_INT_VALUE(args[1]) : ERL_LL_UVALUE(args[1]));
+
+		r = oci_return_connection_to_pool(conn_handle);
         if (r.fn_ret == SUCCESS)
             resp = erl_format((char*)"{~w,~i,ok}", args[0], RELEASE_SESSION);
         else {
@@ -253,22 +245,13 @@ bool cmd_exec_sql(ETERM * command)
         goto error_exit_pre;
 
     // Args: Conn Handle, Sql Statement
-    if(
-#ifdef __WIN32__
-    ERL_IS_INTEGER(args[1]) &&
-#else
-    (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
-#endif
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
        ERL_IS_BINARY(args[2]) &&
        ERL_IS_LIST(args[3])) {
 
         LOG_ARGS(ARG_COUNT(command), args, "Execute SQL");
 
-#ifdef __WIN32__
-		void * conn_handle = (void *)ERL_INT_VALUE(args[1]);
-#else
-		void * conn_handle = (void *)ERL_LL_UVALUE(args[1]);
-#endif
+		void * conn_handle = (void *)(ERL_IS_INTEGER(args[1]) ? ERL_INT_VALUE(args[1]) : ERL_LL_UVALUE(args[1]));
         inp_t * bind_args = map_to_bind_args(args[3]);
         void * statement_handle = NULL;
 
@@ -282,6 +265,7 @@ bool cmd_exec_sql(ETERM * command)
 				else if (columns == NULL && bind_args == NULL)
 					resp = erl_format((char*)"{~w,~i,{executed,no_ret}}", args[0], EXEC_SQL);
 				else {
+		            REMOTE_LOG("statement handle %lu\n", (unsigned long long)statement_handle);
 					resp = erl_format((char*)"{~w,~i,{{stmt,~w},{cols,~w}}}", args[0], EXEC_SQL, erl_mk_ulonglong((unsigned long long)statement_handle), columns);
 				}
 				if(write_resp(resp) < 0) goto error_exit;
@@ -348,20 +332,9 @@ bool cmd_fetch_rows(ETERM * command)
         goto error_exit_pre;
 
     // Args: Connection Handle, Statement Handle, Rowcount
-    if(
-#ifdef __WIN32__
-    ERL_IS_INTEGER(args[1]) &&
-#else
-    (ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
-#endif
-    ERL_IS_INTEGER(args[2])
-    ) {
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) && ERL_IS_INTEGER(args[2])) {
 
-#ifdef __WIN32__
-		void * statement_handle = (void *)ERL_INT_VALUE(args[1]);
-#else
-        void * statement_handle = (void *)ERL_LL_UVALUE(args[1]);
-#endif
+		void * statement_handle = (void *)(ERL_IS_INTEGER(args[1]) ? ERL_INT_VALUE(args[1]) : ERL_LL_UVALUE(args[1]));
         int rowcount = ERL_INT_VALUE(args[2]);
 
         //inp_t * bind_args = map_to_bind_args(args[4]);
@@ -373,10 +346,10 @@ bool cmd_fetch_rows(ETERM * command)
 			if (r.fn_ret == MORE || r.fn_ret == DONE) {
                 if (rows != NULL) {
                     resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FETCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
-					//erl_free_compound(rows);
                     if(write_resp(resp) < 0) goto error_exit;
+					erl_free_compound(rows);
                 } else {
-                    resp = erl_format((char*)"{~w,~i,{{rows,[]},done}}", args[0], FETCH_ROWS);
+                    resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FETCH_ROWS);
                     if(write_resp(resp) < 0) goto error_exit;
                 }
             }

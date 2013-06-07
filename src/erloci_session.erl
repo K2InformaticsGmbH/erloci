@@ -152,7 +152,7 @@ receive_all(Count, Acc) ->
         {T, Ic, It, Sc, St} ->
             receive_all(Count-1, [{T, Ic, It, Sc, St}|Acc])
     after
-        (100*1000) ->
+        (1000*1000) ->
             io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
             receive_all(0, Acc)
     end.
@@ -216,8 +216,8 @@ insert_select(ErlOciSession, Table, InsertCount, Parent) ->
                     ",",
                     I,
                     ")"]),
-            oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Qry]))),
             Res = ErlOciSession:exec_sql(Qry, []),
+            oci_logger:log(lists:flatten(io_lib:format("_[~s]_ ~s -> ~p~n", [Table,I,Res]))),
             throw_if_error(Parent, Res, "insert "++Table++" failed"),
             if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
           end)(integer_to_list(Idx))
@@ -226,8 +226,8 @@ insert_select(ErlOciSession, Table, InsertCount, Parent) ->
         #stmtResult{stmtCols = Cols} = Stmt = ErlOciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
         throw_if_error(Parent, Stmt, "select "++Table++" failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
-        {Rows, _} = RowResp = ErlOciSession:get_rows(100, Stmt),
-        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,RowResp]))),
+        Rows = get_all_rows(ErlOciSession, Stmt, 10, []),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ rows ~p~n", [Table, Rows]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
         SelectTime = (SelectEnd - InsertEnd)/1000000,
@@ -236,6 +236,12 @@ insert_select(ErlOciSession, Table, InsertCount, Parent) ->
         Class:Reason ->
             if is_pid(Parent) -> Parent ! {{Table,Class,Reason}, 0, 1, 0, 1}; true -> ok end,
             oci_logger:log(lists:flatten(io_lib:format(" ~p:~p~n", [Class,Reason])))
+    end.
+
+get_all_rows(ErlOciSession, Stmt, Chunk, Rows) ->
+    case ErlOciSession:get_rows(Chunk, Stmt) of
+        {Rs, false} -> get_all_rows(ErlOciSession, Stmt, Chunk, Rows ++ Rs);
+        {Rs, true} -> Rows ++ Rs
     end.
 
 print_if_error({error, Error}, Msg) -> oci_logger:log(lists:flatten(io_lib:format("___________----- continue after ~p ~p~n", [Msg,Error])));
