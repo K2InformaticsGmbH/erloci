@@ -123,7 +123,7 @@
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
 				AdditionalIncludeDirectories="&quot;D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(SolutionDir)erloci_lib&quot;"
-				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
+				PreprocessorDefinitions="OCCI"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				UsePrecompiledHeader="0"
