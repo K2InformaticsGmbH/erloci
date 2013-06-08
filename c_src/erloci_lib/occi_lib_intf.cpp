@@ -112,6 +112,7 @@ intf_ret oci_create_tns_seesion_pool(const char * connect_str, const int connect
                                                   StatelessConnectionPool::HOMOGENEOUS);
 	} catch (SQLException const & ex) {
 	    r.fn_ret = FAILURE;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
     	REMOTE_LOG("create pool error: %s\n", r.gerrbuf);
         return r;
@@ -150,6 +151,7 @@ intf_ret oci_free_session_pool(void)
         env->terminateStatelessConnectionPool(pool);
 	} catch (SQLException const & ex) {
 	    r.fn_ret = FAILURE;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
     	REMOTE_LOG("terminate pool error: %s\n", r.gerrbuf);
         return r;
@@ -183,6 +185,7 @@ intf_ret oci_get_session_from_pool(void **conn_handle)
         conn = pool->getAnyTaggedConnection("");
 	} catch (SQLException const & ex) {
 	    r.fn_ret = FAILURE;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
     	REMOTE_LOG("get connection error: %s\n", r.gerrbuf);
         return r;
@@ -218,6 +221,7 @@ intf_ret oci_return_connection_to_pool(void * conn_handle)
         pool->releaseConnection(conn, "");
 	} catch (SQLException const & ex) {
 	    r.fn_ret = FAILURE;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
     	REMOTE_LOG("release connection error: %s\n", r.gerrbuf);
         return r;
@@ -259,6 +263,28 @@ intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle,
 	try {
         stmt = conn->createStatement();
         stmt->setSQL(qstr);
+#if 1
+        switch(stmt->status()) {
+            case Statement::UNPREPARED:
+    	        REMOTE_LOG("Statement UNPREPARED\n");
+                break;
+            case Statement::PREPARED:
+    	        REMOTE_LOG("Statement PREPARED\n");
+                break;
+            case Statement::RESULT_SET_AVAILABLE:
+    	        REMOTE_LOG("Statement RESULT_SET_AVAILABLE\n");
+                break;
+            case Statement::UPDATE_COUNT_AVAILABLE:
+    	        REMOTE_LOG("Statement UPDATE_COUNT_AVAILABLE\n");
+                break;
+            case Statement::NEEDS_STREAM_DATA:
+    	        REMOTE_LOG("Statement NEEDS_STREAM_DATA\n");
+                break;
+            default:
+    	        REMOTE_LOG("Statement %d\n", stmt->status());
+                break;
+        }
+#endif
         stmt->execute();
         delete qstr;
         qstr = NULL;
@@ -278,24 +304,27 @@ intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle,
             return r;
         }
 	} catch (SQLException const & ex) {
-	    r.fn_ret = FAILURE;
+        if (stmt)
+            oci_close_statement(stmt);
+	    r.fn_ret = CONTINUE_WITH_ERROR;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
-    	REMOTE_LOG("release connection error: %s\n", r.gerrbuf);
+    	REMOTE_LOG("exec sql error: %s\n", r.gerrbuf);
         return r;
 	} catch (exception const & ex) {
 	    r.fn_ret = FAILURE;
         std::strcpy(r.gerrbuf,ex.what());
-    	REMOTE_LOG("release connection error: %s\n", r.gerrbuf);
+    	REMOTE_LOG("exec sql error: %s\n", r.gerrbuf);
         return r;
 	} catch (string const & ex) {
 	    r.fn_ret = FAILURE;
         std::strcpy(r.gerrbuf,ex.c_str());
-    	REMOTE_LOG("release connection error: %s\n", r.gerrbuf);
+    	REMOTE_LOG("exec sql error: %s\n", r.gerrbuf);
         return r;
 	} catch (...) {
 	    r.fn_ret = FAILURE;
         std::strcpy(r.gerrbuf,"unknown");
-    	REMOTE_LOG("release connection with unknown error\n");
+    	REMOTE_LOG("exec sql with unknown error\n");
         return r;
 	}
 
@@ -352,7 +381,10 @@ intf_ret oci_produce_rows(void * stmt_handle
             }
 		}
 	} catch (SQLException const & ex) {
-	    r.fn_ret = FAILURE;
+        if (stmt)
+            oci_close_statement(stmt);
+	    r.fn_ret = CONTINUE_WITH_ERROR;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
     	REMOTE_LOG("rows error: %s\n", r.gerrbuf);
         return r;
@@ -387,6 +419,7 @@ intf_ret oci_close_statement(void * stmt_handle)
 		conn->terminateStatement(stmt);
 	} catch (SQLException const & ex) {
 	    r.fn_ret = FAILURE;
+        r.gerrcode = ex.getErrorCode();
         std::strcpy(r.gerrbuf,ex.getMessage().c_str());
     	REMOTE_LOG("close statement error: %s\n", r.gerrbuf);
         return r;

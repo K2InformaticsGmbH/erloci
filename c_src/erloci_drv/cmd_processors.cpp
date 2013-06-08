@@ -60,13 +60,13 @@ bool change_log_flag(ETERM * command)
             REMOTE_LOG("Enabled logging...\n");
             break;
         default:
-            resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], R_DEBUG_MSG);
+            resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], R_DEBUG_MSG);
 			REMOTE_LOG("ERROR badarg %d\n", log);
             break;
         }
     } else {
 error_exit:
-        resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], R_DEBUG_MSG);
+        resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], R_DEBUG_MSG);
 		REMOTE_LOG("ERROR badarg\n");
     }
 
@@ -108,12 +108,12 @@ bool cmd_create_tns_ssn_pool(ETERM * command)
             resp = erl_format((char*)"{~w,~i,ok}", args[0], CREATE_SESSION_POOL);
         else {
 			REMOTE_LOG("CMD: Connect ERROR - %s", r.gerrbuf);
-			resp = erl_format((char*)"{~w,~i,error,~s}", args[0], CREATE_SESSION_POOL, r.gerrbuf);
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CREATE_SESSION_POOL, r.gerrcode, r.gerrbuf);
         }
     } else {
 error_exit:
 		REMOTE_LOG("ERROR badarg\n");
-        resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], CREATE_SESSION_POOL);
+        resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CREATE_SESSION_POOL);
     }
 
     if(write_resp(resp) < 0)
@@ -137,7 +137,7 @@ bool cmd_get_session(ETERM * command)
     MAP_ARGS(command, args);
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSION)) {
-	    resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], GET_SESSION);
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], GET_SESSION);
 		REMOTE_LOG("ERROR badarg\n");
 	    goto error_exit;
 	}
@@ -149,7 +149,7 @@ bool cmd_get_session(ETERM * command)
 	}
     else {
 		REMOTE_LOG("ERROR %s\n", r.gerrbuf);
-        resp = erl_format((char*)"{~w,~i,error,~s}", args[0], GET_SESSION, r.gerrbuf);
+        resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}", args[0], GET_SESSION, r.gerrcode, r.gerrbuf);
     }
 
 error_exit:
@@ -183,7 +183,7 @@ bool cmd_release_conn(ETERM * command)
             resp = erl_format((char*)"{~w,~i,ok}", args[0], RELEASE_SESSION);
         else {
 			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
-            resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], RELEASE_SESSION, r.gerrbuf);
+            resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], RELEASE_SESSION, r.gerrcode, r.gerrbuf);
         }
     } else {
 error_exit:
@@ -221,7 +221,7 @@ bool cmd_free_ssn_pool(ETERM * command)
         resp = erl_format((char*)"{~w,~i}", args[0], FREE_SESSION_POOL);
     else {
 		REMOTE_LOG("CMD: free session pool ERROR - %s", r.gerrbuf);
-        resp = erl_format((char*)"{~w,~i,error,~s}", args[0], FREE_SESSION_POOL, r.gerrbuf);
+        resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FREE_SESSION_POOL, r.gerrcode, r.gerrbuf);
     }
 
 error_exit:
@@ -273,8 +273,8 @@ bool cmd_exec_sql(ETERM * command)
 				break;
 			case CONTINUE_WITH_ERROR:
                 {
-					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
-					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, r.gerrbuf);
+					REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_SQL, r.gerrcode, r.gerrbuf);
 					write_resp(resp);
 				}
 	            REMOTE_LOG("CONTINUE_WITH_ERROR \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
@@ -283,7 +283,7 @@ bool cmd_exec_sql(ETERM * command)
             default:
                 {
 					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
-					resp = erl_format((char*)"{~w,~i,{error,~s}}", args[0], EXEC_SQL, r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_SQL, r.gerrcode, r.gerrbuf);
 					write_resp(resp);
 					goto error_exit;
 				}

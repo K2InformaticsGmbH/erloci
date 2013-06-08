@@ -18,7 +18,7 @@
 -include("erloci.hrl").
 
 % TODO convert to eunit
--export([run/2]).
+-export([run/2, run0/0]).
 
 %% API
 -export([
@@ -83,7 +83,7 @@ handle_call({exec_sql, Sql, Opts}, _From, #state{ociSess=OciSession} = State) ->
         R -> R
     end,
     {reply, Resp, State};
-handle_call({get_rows, Count, #stmtResult{stmtRef = StmtId} = Stmt}, _From, #state{ociSess=OciSession} = State) ->
+handle_call({get_rows, Count, #stmtResult{stmtRef = StmtId}}, _From, #state{ociSess=OciSession} = State) ->
     {Mod,PortPid,_} = OciSession,
     Statement = {Mod, PortPid, StmtId},
     {{rows, Rows}, F} = Statement:get_rows(Count),
@@ -124,13 +124,30 @@ flip([Row|Rows],Acc) -> flip(Rows, [lists:reverse(Row)|Acc]).
 -include_lib("eunit/include/eunit.hrl").
 -define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
 
+run0() ->
+    ErlOciSession = connect_db(),
+    Res0 = ErlOciSession:exec_sql(<<"drop table bikram_test">>, []),
+    io:format(user, "drop bikram_test ~p~n", [Res0]),
+    Res1 = ErlOciSession:exec_sql(list_to_binary(["create table bikram_test(pkey number,
+                                       publisher varchar2(100),
+                                       rank number,
+                                       hero varchar2(100),
+                                       real varchar2(100),
+                                       votes number,
+                                       createdate date default sysdate,
+                                       createtime timestamp default systimestamp,
+                                       votes_first_rank number)"]), []),
+    io:format(user, "create bikram_test ~p~n", [Res1]),
+    Res2 = ErlOciSession:exec_sql(<<"insert into bikram_test (pkey,publisher,rank,hero,real,votes,votes_first_rank) values (:1,:2,:3,:4,:5,:6,:7)">>, []),
+    io:format("insert statement ~p~n", [Res2]).
+
 run(Threads, InsertCount) when is_integer(Threads), is_integer(InsertCount) ->
     ErlOciSession = connect_db(),
     This = self(),
     [(fun(Idx) ->
         Table = "erloci_table_"++Idx,
         try
-            create_table(ErlOciSession, Table),            
+            create_table(ErlOciSession, Table),
             spawn(fun() -> insert_select(ErlOciSession, Table, InsertCount, This) end)
         catch
             Class:Reason -> oci_logger:log(lists:flatten(io_lib:format("~p:~p~n", [Class,Reason])))
@@ -144,7 +161,7 @@ receive_all(0, Acc) ->
     [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime) ->
         InsRate = erlang:trunc(InsertCount / InsertTime),
         SelRate = erlang:trunc(SelectCount / SelectTime),
-        io:format(user, "~p insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
+        io:format(user, "_[~s]_ insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
     end)(T, Ic, It, Sc, St)
     || {T, Ic, It, Sc, St} <- Acc];
 receive_all(Count, Acc) ->
@@ -196,8 +213,8 @@ create_table(ErlOciSession, Table) ->
                                        real varchar2(100),
                                        votes number,
                                        createdate date default sysdate,
+                                       createtime timestamp default systimestamp,
                                        votes_first_rank number)"]), []),
-%                                       createtime timestamp default systimestamp,
     throw_if_error(undefined, Res0, "create "++Table++" failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res0]))).
 
@@ -219,15 +236,15 @@ insert_select(ErlOciSession, Table, InsertCount, Parent) ->
             Res = ErlOciSession:exec_sql(Qry, []),
             oci_logger:log(lists:flatten(io_lib:format("_[~s]_ ~s -> ~p~n", [Table,I,Res]))),
             throw_if_error(Parent, Res, "insert "++Table++" failed"),
-            if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
+            if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~s]_ ~p~n", [Table,Res]))); true -> ok end
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
         #stmtResult{stmtCols = Cols} = Stmt = ErlOciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
         throw_if_error(Parent, Stmt, "select "++Table++" failed"),
-        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
+        oci_logger:log(lists:flatten(io_lib:format("_[~s]_ columns ~p~n", [Table,Cols]))),
         Rows = get_all_rows(ErlOciSession, Stmt, 10, []),
-        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ rows ~p~n", [Table, Rows]))),
+        oci_logger:log(lists:flatten(io_lib:format("_[~s]_ rows ~p~n", [Table, Rows]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
         SelectTime = (SelectEnd - InsertEnd)/1000000,
