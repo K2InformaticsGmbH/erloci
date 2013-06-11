@@ -32,17 +32,43 @@ typedef enum _ERL_DEBUG {
     DBG_FLAG_ON		= 1,
 } ERL_DEBUG;
 
+
+/* MUST use conteneous and monotonically
+ * increasing number codes for new commands
+ * MUST match with oci.hrl
+ */
 typedef enum _ERL_CMD {
     CREATE_SESSION_POOL	= 0,
-    GET_SESSION			= 1,
-    RELEASE_SESSION		= 2,
-    EXEC_SQL			= 3,
-    FETCH_ROWS			= 4,
-    R_DEBUG_MSG			= 5,
-    FREE_SESSION_POOL	= 6,
-    QUIT				= 7,
+    FREE_SESSION_POOL	= 1,
+
+    GET_SESSION			= 2,
+    RELEASE_SESSION		= 3,
+
+    PREP_STMT           = 4,
+    BIND_STMT           = 5,
+    EXEC_STMT           = 6,
+    FETCH_ROWS          = 7,
+
+    R_DEBUG_MSG			= 8,
+    QUIT				= 9,
 } ERL_CMD;
 extern const char *cmdnames[];
+#define ERLOCI_CMD_DESC \
+{\
+    {CREATE_SESSION_POOL,	5, "Create TNS session pool"},\
+    {FREE_SESSION_POOL,		1, "Release Session Pool"},\
+\
+    {GET_SESSION,			1, "Get a session from the TNS session pool"},\
+    {RELEASE_SESSION,		2, "Return a previously allocated connection back to the pool"},\
+\
+    {PREP_STMT,				3, "Prepare a SQL statement from SQL string"},\
+    {BIND_STMT,				3, "Bind variables into a prepared SQL statement"},\
+    {EXEC_STMT,				3, "Execute a SQL statement"},\
+    {FETCH_ROWS,			3, "Fetches the rows of a previously executed SELECT query"},\
+\
+    {R_DEBUG_MSG,			2, "Remote debugging turning on/off"},\
+    {QUIT,					1, "Exit the port process"},\
+}
 
 #include "../erloci_lib/oci_lib_intf.h"
 
@@ -52,6 +78,7 @@ extern const char *cmdnames[];
 
 extern bool init_marshall(void);
 extern inp_t * map_to_bind_args(void *);
+extern void free_bind_args(inp_t *);
 extern void * build_term_from_bind_args(inp_t *);
 extern void * read_cmd(void);
 extern int write_resp(void * resp_term);

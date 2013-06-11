@@ -82,8 +82,8 @@ logging(enable, {?MODULE, PortPid}) ->
 logging(disable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, {?R_DEBUG_MSG, ?DBG_FLAG_OFF}}, ?PORT_TIMEOUT).
 
-exec_sql(Sql, Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(Opts) ->
-    R = gen_server:call(PortPid, {port_call, {?EXEC_SQL, SessionId, Sql, Opts}}, ?PORT_TIMEOUT),
+exec_sql(Sql, _Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(_Opts) ->
+    R = gen_server:call(PortPid, {port_call, {?PREP_STMT, SessionId, Sql}}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, StmtId}, Clms};

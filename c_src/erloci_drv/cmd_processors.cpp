@@ -19,16 +19,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-static const struct cmdtable g_cmdtable[] = {
-    {CREATE_SESSION_POOL,	5, "Create TNS session pool"},
-    {GET_SESSION,			1, "Get a session from the TNS session pool"},
-    {RELEASE_SESSION,		2, "Return a previously allocated connection back to the pool"},
-    {EXEC_SQL,				4, "Execute a SQL query"},
-    {FETCH_ROWS,			3, "Fetches the rows of a previously executed SELECT query"},
-    {R_DEBUG_MSG,			2, "Remote debugging turning on/off"},
-    {FREE_SESSION_POOL,		1, "Release Session Pool"},
-    {QUIT,					1, "Exit the port process"},
-};
+static const struct cmdtable g_cmdtable[] = ERLOCI_CMD_DESC;
 
 #define CMD_ARGS_COUNT(_cmd) g_cmdtable[_cmd].arg_count
 
@@ -234,47 +225,38 @@ error_exit:
 	return ret;
 }
 
-bool cmd_exec_sql(ETERM * command)
+bool cmd_prepare_statement(ETERM * command)
 {
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(EXEC_SQL)];
+    ETERM **args = new ETERM*[CMD_ARGS_COUNT(PREP_STMT)];
     ETERM * resp;
 
     MAP_ARGS(command, args);
 
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_SQL))
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(PREP_STMT))
         goto error_exit_pre;
 
-    // Args: Conn Handle, Sql Statement
+    // Args: Conn Handle, Sql String
     if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
-       ERL_IS_BINARY(args[2]) &&
-       ERL_IS_LIST(args[3])) {
+       ERL_IS_BINARY(args[2])
+       ) {
 
-        LOG_ARGS(ARG_COUNT(command), args, "Execute SQL");
+        LOG_ARGS(ARG_COUNT(command), args, "Execute SQL statement");
 
 		void * conn_handle = (void *)(ERL_IS_INTEGER(args[1]) ? ERL_INT_VALUE(args[1]) : ERL_LL_UVALUE(args[1]));
-        inp_t * bind_args = map_to_bind_args(args[3]);
         void * statement_handle = NULL;
 
-        /* Transfer the columns */
-        ETERM *columns = NULL;
-		intf_ret r = oci_exec_sql(conn_handle, &statement_handle, ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), bind_args, &columns, append_coldef_to_list);
+		intf_ret r = oci_prepare_stmt(conn_handle, &statement_handle, ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]));
 		switch(r.fn_ret) {
 			case SUCCESS:
-				if (columns == NULL && bind_args != NULL)
-					resp = erl_format((char*)"{~w,~i,{executed,~w}}", args[0], EXEC_SQL, build_term_from_bind_args(bind_args));
-				else if (columns == NULL && bind_args == NULL)
-					resp = erl_format((char*)"{~w,~i,{executed,no_ret}}", args[0], EXEC_SQL);
-				else {
-		            REMOTE_LOG("statement handle %lu\n", (unsigned long long)statement_handle);
-					resp = erl_format((char*)"{~w,~i,{{stmt,~w},{cols,~w}}}", args[0], EXEC_SQL, erl_mk_ulonglong((unsigned long long)statement_handle), columns);
-				}
+		        REMOTE_LOG("statement handle %lu\n", (unsigned long long)statement_handle);
+				resp = erl_format((char*)"{~w,~i,{stmt,~w}}", args[0], PREP_STMT, erl_mk_ulonglong((unsigned long long)statement_handle));
 				if(write_resp(resp) < 0) goto error_exit;
 	            //REMOTE_LOG("SUCCESS \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
 				break;
 			case CONTINUE_WITH_ERROR:
                 {
 					REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
-					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_SQL, r.gerrcode, r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
 					write_resp(resp);
 				}
 	            REMOTE_LOG("CONTINUE_WITH_ERROR \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
@@ -283,7 +265,7 @@ bool cmd_exec_sql(ETERM * command)
             default:
                 {
 					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
-					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_SQL, r.gerrcode, r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
 					write_resp(resp);
 					goto error_exit;
 				}
@@ -292,7 +274,7 @@ bool cmd_exec_sql(ETERM * command)
         }
     } else {
 error_exit_pre:
-        resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], EXEC_SQL);
+        resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], EXEC_STMT);
 		REMOTE_LOG("ERROR badarg %d\n", ERL_TYPE(args[1]));
 
 #if 0
@@ -309,6 +291,126 @@ error_exit_pre:
 
 		if(write_resp(resp) < 0) goto error_exit;
     }
+    erl_free_compound(command);
+    delete args;
+    return false;
+
+error_exit:
+    erl_free_compound(command);
+    delete args;
+    return true;
+}
+
+bool cmd_bind_statement(ETERM * command)
+{
+    ETERM **args = new ETERM*[CMD_ARGS_COUNT(BIND_STMT)];
+    ETERM * resp;
+    inp_t * bind_args = NULL;
+
+    MAP_ARGS(command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_STMT))
+        goto error_exit;
+
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+    && ERL_IS_LIST(args[2])) {
+        bind_args = map_to_bind_args(args[2]);
+        void * statement_handle = (void *)(ERL_IS_INTEGER(args[1]) ? ERL_INT_VALUE(args[1]) : ERL_LL_UVALUE(args[1]));
+		intf_ret r = oci_bind_stmt(statement_handle, bind_args);
+		switch(r.fn_ret) {
+			case SUCCESS:
+		        REMOTE_LOG("bind agrs %lu\n", (unsigned long long)bind_args);
+				resp = erl_format((char*)"{~w,~i,~w}", args[0], BIND_STMT, erl_mk_ulonglong((unsigned long long)bind_args ));
+				if(write_resp(resp) < 0) goto error_exit;
+				break;
+			case CONTINUE_WITH_ERROR:
+				REMOTE_LOG("continue error, statement bind failed (%lu -> %s)\n", (unsigned long long)statement_handle, r.gerrbuf);
+				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_STMT, r.gerrcode, r.gerrbuf);
+				write_resp(resp);
+                delete bind_args;
+				break;
+			case FAILURE:
+            default:
+				REMOTE_LOG("ERROR bind statement %lu -> %s\n", (unsigned long long)statement_handle, r.gerrbuf);
+				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_STMT, r.gerrcode, r.gerrbuf);
+				write_resp(resp);
+                delete bind_args;
+				goto error_exit;
+				break;
+        }
+    }
+    erl_free_compound(command);
+    delete args;
+    return false;
+
+error_exit:
+    erl_free_compound(command);
+    delete args;
+    return true;
+}
+
+bool cmd_exec_stmt(ETERM * command)
+{
+    ETERM **args = new ETERM*[CMD_ARGS_COUNT(EXEC_STMT)];
+    ETERM * resp;
+    inp_t * bind_args = NULL;
+
+    MAP_ARGS(command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT))
+        goto error_exit_pre;
+
+    // Args: Statement Handle, bind variable linked list head pointer
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+      || (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))) {
+
+        LOG_ARGS(ARG_COUNT(command), args, "Execute SQL statement");
+
+        void * statement_handle = (void *)(ERL_IS_INTEGER(args[1]) ? ERL_INT_VALUE(args[1]) : ERL_LL_UVALUE(args[1]));
+        bind_args = (inp_t *)(ERL_IS_INTEGER(args[2]) ? ERL_INT_VALUE(args[2]) : ERL_LL_UVALUE(args[2]));
+
+        /* Transfer the columns */
+        ETERM *columns = NULL;
+		intf_ret r = oci_exec_stmt(statement_handle, bind_args, &columns, append_coldef_to_list);
+		switch(r.fn_ret) {
+			case SUCCESS:
+				if (columns == NULL && bind_args != NULL)
+					resp = erl_format((char*)"{~w,~i,{executed,~w}}", args[0], EXEC_STMT, build_term_from_bind_args(bind_args));
+				else if (columns == NULL && bind_args == NULL)
+					resp = erl_format((char*)"{~w,~i,{executed,no_ret}}", args[0], EXEC_STMT);
+				else {
+		            REMOTE_LOG("statement handle %lu\n", (unsigned long long)statement_handle);
+					resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
+				}
+				if(write_resp(resp) < 0) goto error_exit;
+	            //REMOTE_LOG("SUCCESS \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
+				break;
+			case CONTINUE_WITH_ERROR:
+                {
+					REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
+					write_resp(resp);
+				}
+	            REMOTE_LOG("CONTINUE_WITH_ERROR \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
+				break;
+			case FAILURE:
+            default:
+                {
+					REMOTE_LOG("ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+					resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
+					write_resp(resp);
+					goto error_exit;
+				}
+	            REMOTE_LOG("FAILURE \"%.*s;\"\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]));
+				break;
+        }
+    } else {
+error_exit_pre:
+        resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], EXEC_STMT);
+		REMOTE_LOG("ERROR badarg %d\n", ERL_TYPE(args[1]));
+
+		if(write_resp(resp) < 0) goto error_exit;
+    }
 
     erl_free_compound(command);
 
@@ -318,6 +420,8 @@ error_exit_pre:
 error_exit:
     erl_free_compound(command);
     delete args;
+    if(bind_args)
+        free_bind_args(bind_args);
     return true;
 }
 
@@ -372,7 +476,7 @@ error_exit:
     return true;
 }
 
-//#define PRINTCMD
+#define PRINTCMD
 
 #ifdef PRINTCMD
 static FILE *tfp = NULL;
@@ -396,12 +500,17 @@ bool cmd_processor(void * param)
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
         case CREATE_SESSION_POOL:	return cmd_create_tns_ssn_pool(command);
+        case FREE_SESSION_POOL:		return cmd_free_ssn_pool(command);
+
         case GET_SESSION:			return cmd_get_session(command);
         case RELEASE_SESSION:		return cmd_release_conn(command);
-        case EXEC_SQL:				return cmd_exec_sql(command);
+
+        case PREP_STMT:             return cmd_prepare_statement(command);
+        case BIND_STMT:             return cmd_bind_statement(command);
+        case EXEC_STMT:				return cmd_exec_stmt(command);
         case FETCH_ROWS:			return cmd_fetch_rows(command);
+
         case R_DEBUG_MSG:			return change_log_flag(command);
-        case FREE_SESSION_POOL:		return cmd_free_ssn_pool(command);
         case QUIT:
         default:
             break;

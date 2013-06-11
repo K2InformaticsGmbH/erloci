@@ -10,5 +10,6 @@ occi_lib_intf.o: c_src/erloci_lib/occi_lib_intf.cpp c_src/erloci_lib/oci_lib_int
 	g++ $(CXXFLAGS) -Ic_src/erloci_lib -c c_src/erloci_lib/occi_lib_intf.cpp
 
 clean:
+	rm -rf c_src/erloci_drv/*.o
 	rm -rf c_src/erloci_lib/*.o
 	rm -rf priv/*.a

@@ -245,10 +245,8 @@ intf_ret oci_return_connection_to_pool(void * conn_handle)
     return r;
 }
 
-intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle,
-                      const unsigned char * query_str, int query_str_len,
-                      inp_t *params_head, void * column_list,
-                      void (*coldef_append)(const char *, const char *, const unsigned int, void *))
+intf_ret oci_prepare_stmt(const void * conn_handle, void ** stmt_handle, 
+                          const unsigned char * query_str, int query_str_len)
 {
     unsigned int i;
 	intf_ret r;
@@ -285,9 +283,93 @@ intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle,
                 break;
         }
 #endif
-        stmt->execute();
         delete qstr;
         qstr = NULL;
+        if(stmt->status() != Statement::PREPARED) {
+            r = oci_close_statement(stmt);
+            if(r.fn_ret == SUCCESS) {
+	            r.fn_ret = CONTINUE_WITH_ERROR;
+                std::strcpy(r.gerrbuf,"Unable to prepare statement");
+    	        REMOTE_LOG("prepare stmt error: %s\n", r.gerrbuf);
+            }
+            return r;
+        }
+	} catch (SQLException const & ex) {
+        if (stmt)
+            oci_close_statement(stmt);
+	    r.fn_ret = CONTINUE_WITH_ERROR;
+        r.gerrcode = ex.getErrorCode();
+        std::strcpy(r.gerrbuf,ex.getMessage().c_str());
+    	REMOTE_LOG("prapare stmt error: %s\n", r.gerrbuf);
+        return r;
+	} catch (exception const & ex) {
+	    r.fn_ret = FAILURE;
+        std::strcpy(r.gerrbuf,ex.what());
+    	REMOTE_LOG("prapare stmt error: %s\n", r.gerrbuf);
+        return r;
+	} catch (string const & ex) {
+	    r.fn_ret = FAILURE;
+        std::strcpy(r.gerrbuf,ex.c_str());
+    	REMOTE_LOG("prapare stmt error: %s\n", r.gerrbuf);
+        return r;
+	} catch (...) {
+	    r.fn_ret = FAILURE;
+        std::strcpy(r.gerrbuf,"unknown");
+    	REMOTE_LOG("prapare stmt with unknown error\n");
+        return r;
+	}
+
+    *stmt_handle = stmt;
+
+    if(qstr)
+        delete qstr;
+
+    return r;
+}
+
+intf_ret oci_bind_stmt(const void * stmt_handle, inp_t *params_head)
+{
+    unsigned int i;
+	intf_ret r;
+	r.fn_ret = SUCCESS;
+    Statement * stmt = (Statement *)stmt;
+
+    return r;
+}
+
+intf_ret oci_exec_stmt(const void * stmt_handle,
+                      inp_t *params_head, void * column_list,
+                      void (*coldef_append)(const char *, const char *, const unsigned int, void *))
+{
+    unsigned int i;
+	intf_ret r;
+	r.fn_ret = SUCCESS;
+    Statement * stmt = (Statement *)stmt_handle;
+
+	try {
+        stmt->execute();
+#if 1
+        switch(stmt->status()) {
+            case Statement::UNPREPARED:
+    	        REMOTE_LOG("Statement UNPREPARED\n");
+                break;
+            case Statement::PREPARED:
+    	        REMOTE_LOG("Statement PREPARED\n");
+                break;
+            case Statement::RESULT_SET_AVAILABLE:
+    	        REMOTE_LOG("Statement RESULT_SET_AVAILABLE\n");
+                break;
+            case Statement::UPDATE_COUNT_AVAILABLE:
+    	        REMOTE_LOG("Statement UPDATE_COUNT_AVAILABLE\n");
+                break;
+            case Statement::NEEDS_STREAM_DATA:
+    	        REMOTE_LOG("Statement NEEDS_STREAM_DATA\n");
+                break;
+            default:
+    	        REMOTE_LOG("Statement %d\n", stmt->status());
+                break;
+        }
+#endif
         if(stmt->status() == Statement::RESULT_SET_AVAILABLE) {
 		    ResultSet *rs = stmt->getResultSet();
             vector<MetaData> listOfColumns = rs->getColumnListMetaData();
@@ -327,11 +409,6 @@ intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle,
     	REMOTE_LOG("exec sql with unknown error\n");
         return r;
 	}
-
-    *stmt_handle = stmt;
-
-    if(qstr)
-        delete qstr;
 
     return r;
 }
