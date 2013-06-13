@@ -409,7 +409,7 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         InsertEnd = ?NowMs,
         Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" failed"),
-        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,'TBD']))),
         {{rows, Rows}, _} = _RowResp = Statement:get_rows(100),
         %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,_RowResp]))),
         SelectEnd = ?NowMs,
