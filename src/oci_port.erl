@@ -27,7 +27,9 @@
     logging/2,
     create_sess_pool/5,
     get_session/1,
-    exec_sql/3,
+    prep_sql/2,
+    bind_stmt/3,
+    exec_stmt/1,
     get_rows/2
 ]).
 
@@ -82,11 +84,27 @@ logging(enable, {?MODULE, PortPid}) ->
 logging(disable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, {?R_DEBUG_MSG, ?DBG_FLAG_OFF}}, ?PORT_TIMEOUT).
 
-exec_sql(Sql, _Opts, {?MODULE, PortPid, SessionId}) when is_binary(Sql); is_list(_Opts) ->
+prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     R = gen_server:call(PortPid, {port_call, {?PREP_STMT, SessionId, Sql}}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
-        {{stmt,StmtId}, {cols, Clms}} -> {{?MODULE, PortPid, StmtId}, Clms};
+        {stmt,StmtId} -> {statement, ?MODULE, PortPid, StmtId};
+        R -> R
+    end.
+
+bind_stmt(Sql, BindArgs, {statement, ?MODULE, PortPid, StmtId}) when is_binary(Sql); is_list(BindArgs) ->
+    R = gen_server:call(PortPid, {port_call, {?BIND_STMT, StmtId, BindArgs}}, ?PORT_TIMEOUT),
+    timer:sleep(100), % Port driver breaks on faster pipe access
+    case R of
+        {stmt,StmtId} -> {?MODULE, PortPid, StmtId};
+        R -> R
+    end.
+
+exec_stmt({statement, ?MODULE, PortPid, StmtId}) ->
+    R = gen_server:call(PortPid, {port_call, {?EXEC_STMT, StmtId}}, ?PORT_TIMEOUT),
+    timer:sleep(100), % Port driver breaks on faster pipe access
+    case R of
+        {stmt,StmtId} -> {?MODULE, PortPid, StmtId};
         R -> R
     end.
 
@@ -184,7 +202,7 @@ handle_cast(Msg, State) ->
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
     Resp = binary_to_term(Data),
     %?Info("RX ~p bytes", [byte_size(Data)]),
-    %?Debug(" ~p", [Resp]),
+    %?Info("<<<<<<<<<<<< RX ~p", [Resp]),
     case handle_result(State#state.logging, Resp) of
         {undefined, Result} ->
             ?Info("no reply for ~p", [Result]);
@@ -348,20 +366,22 @@ connect_db() ->
     OciSession.
 
 create_table(OciSession, Table) ->
-    Res = OciSession:exec_sql(list_to_binary(["drop table ",Table]), []),
+    Res = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
     print_if_error(Res, "drop failed"),
+    Res0 = OciSession:exec_stmt(),
+    print_if_error(Res0, "drop failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI drop ~p~n", [Res]))),
-    Res0 = OciSession:exec_sql(list_to_binary(["create table ",Table,"(pkey number,
+    Res1 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
                                        publisher varchar2(100),
                                        rank number,
                                        hero varchar2(100),
                                        real varchar2(100),
                                        votes number,
                                        createdate date default sysdate,
-                                       votes_first_rank number)"]), []),
+                                       votes_first_rank number)"])),
 %                                       createtime timestamp default systimestamp,
-    throw_if_error(undefined, Res0, "create "++Table++" failed"),
-    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res0]))).
+    throw_if_error(undefined, Res1, "create "++Table++" failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res1]))).
 
 insert_select(OciSession, Table, InsertCount, Parent) ->
     try
@@ -379,17 +399,19 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                     I,
                     ")"]),
             oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Qry]))),
-            Res = OciSession:exec_sql(Qry, []),
+            Res = OciSession:prep_sql(Qry),
             throw_if_error(Parent, Res, "insert "++Table++" failed"),
+            Res0 = OciSession:exec_stmt(),
+            throw_if_error(Parent, Res0, "insert "++Table++" failed"),
             if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
-        {Statement, Cols} = OciSession:exec_sql(list_to_binary(["select * from ", Table]), []),
+        Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
-        {{rows, Rows}, _} = RowResp = Statement:get_rows(100),
-        %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,RowResp]))),
+        {{rows, Rows}, _} = _RowResp = Statement:get_rows(100),
+        %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,_RowResp]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
         SelectTime = (SelectEnd - InsertEnd)/1000000,

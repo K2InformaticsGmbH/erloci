@@ -43,6 +43,11 @@ using namespace oracle::occi;
 Environment             *env = NULL;
 StatelessConnectionPool *pool = NULL;
 
+typedef struct statement {
+    Statement   * stmt;
+    inp_t       * bind_head;
+} statement;
+
 void oci_init(void)
 {
 	try {
@@ -319,7 +324,9 @@ intf_ret oci_prepare_stmt(const void * conn_handle, void ** stmt_handle,
         return r;
 	}
 
-    *stmt_handle = stmt;
+    statement * stmt_priv = new statement;
+    stmt_priv->stmt = stmt;
+    *stmt_handle = stmt_priv;
 
     if(qstr)
         delete qstr;
@@ -332,7 +339,9 @@ intf_ret oci_bind_stmt(const void * stmt_handle, inp_t *params_head)
     unsigned int i;
 	intf_ret r;
 	r.fn_ret = SUCCESS;
-    Statement * stmt = (Statement *)stmt;
+    statement * stmt_priv = (statement *)stmt_handle;
+    stmt_priv->bind_head = params_head;
+    Statement * stmt = stmt_priv->stmt;
 
     return r;
 }
@@ -344,7 +353,8 @@ intf_ret oci_exec_stmt(const void * stmt_handle,
     unsigned int i;
 	intf_ret r;
 	r.fn_ret = SUCCESS;
-    Statement * stmt = (Statement *)stmt_handle;
+    statement * stmt_priv = (statement *)stmt_handle;
+    Statement * stmt = stmt_priv->stmt;
 
 	try {
         stmt->execute();
