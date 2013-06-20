@@ -72,10 +72,10 @@ void * build_term_from_bind_args(inp_t * bind_var_list_head)
         if(param->dir == DIR_OUT || param->dir == DIR_INOUT) {
             switch(param->dty) {
             case NUMBER:
-                resp_args = erl_cons(erl_mk_int(*(int*)param->valuep), resp_args);
+                resp_args = erl_cons(erl_mk_int(*(int*)param->vp), resp_args);
                 break;
             case STRING:
-                resp_args = erl_cons(erl_mk_string((char*)param->valuep), resp_args);
+                resp_args = erl_cons(erl_mk_string((char*)param->vp), resp_args);
                 break;
             }
         }
@@ -125,17 +125,17 @@ inp_t * map_to_bind_args(void * _args)
             case NUMBER:
                 if (!ERL_IS_INTEGER(arg)) error = true;
                 bind_var_t = (inp_t*) new unsigned char[sizeof(inp_t)+sizeof(int)];
-                bind_var_t->value_sz = sizeof(int);
-                bind_var_t->valuep = (((char *)bind_var_t) + sizeof(inp_t));
-                *(int*)(bind_var_t->valuep) = ERL_INT_VALUE(arg);
+                bind_var_t->vlen = sizeof(int);
+                bind_var_t->vp = (((char *)bind_var_t) + sizeof(inp_t));
+                *(int*)(bind_var_t->vp) = ERL_INT_VALUE(arg);
                 break;
             case STRING:
                 if (!ERL_IS_BINARY(arg)) error = true;
                 bind_var_t = (inp_t*) new unsigned char[sizeof(inp_t)+ERL_BIN_SIZE(arg)+1];
-                bind_var_t->value_sz = ERL_BIN_SIZE(arg) + 1;
-                bind_var_t->valuep = (((char *)bind_var_t) + sizeof(inp_t));
-                strncpy_s((char*)(bind_var_t->valuep), bind_var_t->value_sz, (const char *) ERL_BIN_PTR(arg), ERL_BIN_SIZE(arg));
-                ((char*)(bind_var_t->valuep))[ERL_BIN_SIZE(arg)] = '\0';
+                bind_var_t->vlen = ERL_BIN_SIZE(arg) + 1;
+                bind_var_t->vp = (((char *)bind_var_t) + sizeof(inp_t));
+                strncpy_s((char*)(bind_var_t->vp), bind_var_t->vlen, (const char *) ERL_BIN_PTR(arg), ERL_BIN_SIZE(arg));
+                ((char*)(bind_var_t->vp))[ERL_BIN_SIZE(arg)] = '\0';
                 break;
             default:
                 break;

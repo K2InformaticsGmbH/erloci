@@ -21,6 +21,10 @@
 -define(EXE_NAME, "erloci").
 
 %% Interface commands
+% pool commands
+% MUST use conteneous and monotonically
+% increasing number codes for new commands
+% MUST match with oci_marshal.h
 -define(CMD_UNKWN,  0).
 -define(GET_SESSN,  1).
 -define(PUT_SESSN,  2).

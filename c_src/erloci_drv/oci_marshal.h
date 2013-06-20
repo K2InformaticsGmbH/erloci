@@ -39,6 +39,11 @@ typedef enum _ERL_DEBUG {
     DBG_FLAG_ON		= 1,
 } ERL_DEBUG;
 
+
+/* MUST use conteneous and monotonically
+ * increasing number codes for new commands
+ * MUST match with oci.hrl
+ */
 typedef enum _ERL_CMD {
     GET_SESSN			= 1,
     PUT_SESSN			= 2,

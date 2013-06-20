@@ -197,7 +197,7 @@ handle_cast(Msg, State) ->
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
     Resp = binary_to_term(Data),
     %?Info("RX ~p bytes", [byte_size(Data)]),
-    %?Debug(" ~p", [Resp]),
+    %?Info("<<<<<<<<<<<< RX ~p", [Resp]),
     case handle_result(State#state.logging, Resp) of
         {undefined, Result} ->
             ?Info("no reply for ~p", [Result]);

@@ -69,85 +69,6 @@ error_exit:
 	return ret;
 }
 
-/*bool cmd_create_tns_ssn_pool(ETERM * command)
-{
-    bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(CREATE_SESSION_POOL)];
-    ETERM *resp;
-
-    MAP_ARGS(command, args);
-
-	if(ARG_COUNT(command) != CMD_ARGS_COUNT(CREATE_SESSION_POOL))
-        goto error_exit;
-
-    // Args : Connection String, User name, Password, Options
-    if(ERL_IS_BINARY(args[1]) &&
-       ERL_IS_BINARY(args[2]) &&
-       ERL_IS_BINARY(args[3]) &&
-       ERL_IS_BINARY(args[4])) {
-
-		LOG_ARGS(ARG_COUNT(command), args, "Create Pool");
-
-		intf_ret r = oci_create_tns_seesion_pool(
-                (char*)ERL_BIN_PTR(args[1]), ERL_BIN_SIZE(args[1]),		// Connect String
-                (char*)ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]),		// User Name String
-                (char*)ERL_BIN_PTR(args[3]), ERL_BIN_SIZE(args[3]),		// Password String
-                (char*)ERL_BIN_PTR(args[4]), ERL_BIN_SIZE(args[4]));	// Options String
-		if (r.fn_ret == SUCCESS)
-            resp = erl_format((char*)"{~w,~i,ok}", args[0], CREATE_SESSION_POOL);
-        else {
-			REMOTE_LOG("CMD: Connect ERROR - %s", r.gerrbuf);
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CREATE_SESSION_POOL, r.gerrcode, r.gerrbuf);
-        }
-    } else {
-error_exit:
-		REMOTE_LOG("ERROR badarg\n");
-        resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CREATE_SESSION_POOL);
-    }
-
-    if(write_resp(resp) < 0)
-        ret = true;
-
-    erl_free_compound(command);
-
-    delete args;
-
-	return ret;
-}
-bool cmd_free_ssn_pool(ETERM * command)
-{
-    bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(FREE_SESSION_POOL)];
-    ETERM *resp = NULL;
-    intf_ret r;
-
-    MAP_ARGS(command, args);
-
-	REMOTE_LOG("----- FREE POOL -----\n");
-	if(ARG_COUNT(command) != CMD_ARGS_COUNT(FREE_SESSION_POOL)) {
-        resp = erl_format((char*)"{~w,~i,error,badarg}", args[0], FREE_SESSION_POOL);
-		REMOTE_LOG("ERROR badarg\n");
-        goto error_exit;
-	}
-
-	r = oci_free_session_pool();
-	if (r.fn_ret == SUCCESS)
-        resp = erl_format((char*)"{~w,~i}", args[0], FREE_SESSION_POOL);
-    else {
-		REMOTE_LOG("CMD: free session pool ERROR - %s", r.gerrbuf);
-        resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FREE_SESSION_POOL, r.gerrcode, r.gerrbuf);
-    }
-
-error_exit:
-    if(write_resp(resp) < 0)
-        ret = true;
-
-    erl_free_compound(command);
-
-	delete args;
-	return ret;
-}*/
-
 bool cmd_get_session(ETERM * command)
 {
     bool ret = false;
@@ -264,11 +185,11 @@ bool cmd_prep_sql(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Conn Handle, Sql Statement
+    // Args: Conn Handle, Sql String
     if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) &&
        ERL_IS_BINARY(args[2])) {
 
-        LOG_ARGS(ARG_COUNT(command), args, "Execute SQL");
+        LOG_ARGS(ARG_COUNT(command), args, "Execute SQL statement");
 
 		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
 													? ERL_INT_VALUE(args[1])

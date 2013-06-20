@@ -56,10 +56,10 @@ typedef enum _DATA_DIR {
 typedef struct inp_t {
     struct inp_t * next;
     void		 * bndp;
-    int			value_sz;
     DATA_TYPES	dty;
     DATA_DIR	dir;
-    void		*valuep;
+    int			vlen;
+    void		*vp;
 } inp_t;
 
 typedef struct intf_ret {
@@ -77,19 +77,6 @@ extern bool	log_flag;
 //
 
 extern void log_remote(const char *, ...);
-
-//extern void		oci_init(void);
-//extern void		oci_cleanup(void);
-
-#if 0
-extern intf_ret	oci_create_tns_seesion_pool(const char *, const int,
-												const char *, const int,
-												const char *, const int,
-												const char *, const int);
-extern intf_ret	oci_free_session_pool(void);
-extern intf_ret	oci_get_session_from_pool(void **);
-extern intf_ret	oci_return_connection_to_pool(void *);
-#endif
 
 extern intf_ret oci_get_session(void **, const char *, const int, const char *, const int, const char *, const int);
 extern intf_ret oci_free_session(void *);
