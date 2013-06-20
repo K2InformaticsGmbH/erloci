@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "oci_lib_intf.h"
+#include "ocisession.h"
 
 #include "string.h"
 #include "stdarg.h"
@@ -9,51 +9,52 @@ void append_coldef_to_list(const char * col_name, const char * data_type, const 
 	printf("\t%s\n", col_name);
 }
 
-void string_append(const char * string, int len, void * list)
+void string_append(const char * string, size_t len, void * list)
 {
 	printf("%.*s\t", len, string);
 }
 
 void list_append(const void * sub_list, void * list)
 {
-	printf("\n");
+	printf("\t");
 }
 
-unsigned int sizeof_resp(void * resp)
+size_t sizeof_resp(void * resp)
 {
 	return 0;
 }
 
 int memory_leak_test(const char *tns, const char *usr, const char *pwd, const char *opt)
 {
-	void * conn_handle = NULL;
-	const char * qry = "SELECT * FROM ALL_TABLES";
-	void * statement_handle = NULL;
-	intf_ret r;
+	ocisession * ocisess = NULL;
+	ocistmt *stmt = NULL;
 
-	for(int j = 1; j>0; --j) {
-		r = oci_create_tns_seesion_pool(tns, strlen(tns),
-										usr, strlen(usr),
-										pwd, strlen(pwd),
-										opt, strlen(opt));
-		if(r.fn_ret != SUCCESS) {
-			printf("oci_create_tns_seesion_pool error... %s!\n", r.gerrbuf);
-			return -1;
+	const char * qry = "SELECT * FROM ALL_TABLES";
+
+	for(int i = 100; i>0; --i) {
+		try {
+			ocisess = new ocisession(tns, strlen(tns),
+									 usr, strlen(usr),
+									 pwd, strlen(pwd));
+		}
+		catch (intf_ret r) {
+			switch(r.fn_ret) {
+				case CONTINUE_WITH_ERROR:
+					printf("oci_get_session error... %s!\n", r.gerrbuf);
+					return -1;
+				case FAILURE:
+					printf("oci_get_session failed... %s!\n", r.gerrbuf);
+					return -1;
+			}
 		}
 
-		for(int i = 100; i>0; --i) {
-			r = oci_get_session_from_pool(&conn_handle);
-			if(r.fn_ret != SUCCESS) {
-				printf("oci_get_session_from_pool error... %s!\n", r.gerrbuf);
-				return -1;
-			}
-
-			printf("Columns:\n");
-			r = oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)qry, strlen(qry), NULL, NULL, append_coldef_to_list);
+		printf("Columns:\n");
+		try {
+			stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
+			stmt->execute(NULL, append_coldef_to_list);
+		}
+		catch (intf_ret r) {
 			switch(r.fn_ret) {
-				case SUCCESS:
-					printf("oci_exec_sql success...!\n");
-					break;
 				case CONTINUE_WITH_ERROR:
 					printf("oci_exec_sql error... %s!\n", r.gerrbuf);
 					return -1;
@@ -61,7 +62,26 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd, const ch
 					printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
 					return -1;
 			}
-			/*r = oci_close_statement(statement_handle);
+		}
+		
+		try {
+			stmt->rows(NULL, string_append, list_append, sizeof_resp, 100);
+		}
+		catch (intf_ret r) {
+			switch(r.fn_ret) {
+				case CONTINUE_WITH_ERROR:
+					printf("oci_produce_rows error... %s!\n", r.gerrbuf);
+					return -1;
+				case FAILURE:
+					printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
+					return -1;
+			}
+		}
+
+		try {
+			stmt->close();
+		}
+		catch (intf_ret r) {
 			switch(r.fn_ret) {
 				case SUCCESS:
 					printf("oci_close_statement success...!\n");
@@ -72,71 +92,70 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd, const ch
 				case FAILURE:
 					printf("oci_close_statement failed... %s!\n", r.gerrbuf);
 					return -1;
-			}//*/
-			
-			r = oci_produce_rows(statement_handle, NULL, string_append, list_append, sizeof_resp, 100);
-			switch(r.fn_ret) {
-				case SUCCESS:
-					printf("oci_produce_rows success...!\n");
-					break;
-				case CONTINUE_WITH_ERROR:
-					printf("oci_produce_rows error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-
-			r = oci_return_connection_to_pool(conn_handle);
-			if(r.fn_ret != SUCCESS) {
-				printf("oci_return_connection_to_pool error... %s!\n", r.gerrbuf);
-				return -1;
 			}
 		}
-		r = oci_free_session_pool();
-		if(r.fn_ret != SUCCESS) {
-			printf("oci_create_tns_seesion_pool error... %s!\n", r.gerrbuf);
-			return -1;
+
+		try {
+			delete ocisess;
+		}
+		catch (intf_ret r) {
+			switch(r.fn_ret) {
+				case SUCCESS:
+					//printf("oci_free_session success...!\n");
+					break;
+				case CONTINUE_WITH_ERROR:
+					printf("oci_free_session error... %s!\n", r.gerrbuf);
+					return -1;
+				case FAILURE:
+					printf("oci_free_session failed... %s!\n", r.gerrbuf);
+					return -1;
+			}
 		}
 	}
 }
 
+
 char modqry[1024];
 int drop_create_insert_select(const char *tns, const char *usr, const char *pwd, const char *opt, int tid)
 {
-	void * conn_handle = NULL;
-	void * statement_handle = NULL;
+	ocisession * ocisess = NULL;
+	ocistmt *stmt = NULL;
 	intf_ret r;
 
-	r = oci_create_tns_seesion_pool(tns, strlen(tns),
-									usr, strlen(usr),
-									pwd, strlen(pwd),
-									opt, strlen(opt));
-	if(r.fn_ret != SUCCESS) {
-		printf("oci_create_tns_seesion_pool error... %s!\n", r.gerrbuf);
-		return -1;
+	try {
+		ocisess = new ocisession(tns, strlen(tns),
+							     usr, strlen(usr),
+								 pwd, strlen(pwd));
 	}
-	r = oci_get_session_from_pool(&conn_handle);
-	if(r.fn_ret != SUCCESS) {
-		printf("oci_get_session_from_pool error... %s!\n", r.gerrbuf);
-		return -1;
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_get_session error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_get_session failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
 	}
 
 	// Drop can fail so ignoring the errors
 	sprintf(modqry, "drop table oci_test_table_%d", tid);
-	r = oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)modqry, strlen(modqry), NULL, NULL, append_coldef_to_list);
-	switch(r.fn_ret) {
-		case SUCCESS:
-			printf("oci_exec_sql success...!\n");
-			break;
-		case CONTINUE_WITH_ERROR:
-			printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-			break;
-		case FAILURE:
-			printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-			break;
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
+		stmt->execute(NULL, append_coldef_to_list);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				break;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				break;
+		}
 	}
 
+	// Create table
 	sprintf(modqry, "create table oci_test_table_%d(pkey number,\
                                        publisher varchar2(100),\
                                        rank number,\
@@ -144,26 +163,14 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
                                        real varchar2(100),\
                                        votes number,\
                                        votes_first_rank number)", tid);
-	r = oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)modqry, strlen(modqry), NULL, NULL, append_coldef_to_list);
-	switch(r.fn_ret) {
-		case SUCCESS:
-			printf("oci_exec_sql success...!\n");
-			break;
-		case CONTINUE_WITH_ERROR:
-			printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-			return -1;
-		case FAILURE:
-			printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-			return -1;
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
+		stmt->execute(NULL, append_coldef_to_list);
 	}
-
-	// insert rows
-	for(int i=10; i>0; --i) {
-		sprintf(modqry, "insert into oci_test_table_%d values (%d,'publisher%d',%d,'hero%d','real%d',%d,%d)", tid, i, i, i, i, i, i, i);
-		r = oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)modqry, strlen(modqry), NULL, NULL, append_coldef_to_list);
+	catch (intf_ret r) {
 		switch(r.fn_ret) {
 			case SUCCESS:
-				printf("oci_exec_sql success...!\n");
+				//printf("oci_exec_sql success...!\n");
 				break;
 			case CONTINUE_WITH_ERROR:
 				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
@@ -174,44 +181,88 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 		}
 	}
 
+	// insert some rows
+	for(int i=10; i>0; --i) {
+		sprintf(modqry, "insert into oci_test_table_%d values (%d,'publisher%d',%d,'hero%d','real%d',%d,%d)", tid, i, i, i, i, i, i, i);
+		try {
+			stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
+			stmt->execute(NULL, append_coldef_to_list);
+		}
+		catch (intf_ret r) {
+			switch(r.fn_ret) {
+				case CONTINUE_WITH_ERROR:
+					printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+					return -1;
+				case FAILURE:
+					printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+					return -1;
+			}
+		}
+	}
+
 	// read back rows
 	sprintf(modqry, "select * from oci_test_table_%d", tid);
-	r = oci_exec_sql(conn_handle, &statement_handle, (const unsigned char *)modqry, strlen(modqry), NULL, NULL, append_coldef_to_list);
-	switch(r.fn_ret) {
-		case SUCCESS:
-			printf("oci_exec_sql success...!\n");
-			break;
-		case CONTINUE_WITH_ERROR:
-			printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-			return -1;
-		case FAILURE:
-			printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-			return -1;
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
+		stmt->execute(NULL, append_coldef_to_list);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
 	}
 
-	r = oci_produce_rows(statement_handle, NULL, string_append, list_append, sizeof_resp, 100);
-	switch(r.fn_ret) {
-		case SUCCESS:
-			printf("oci_produce_rows success...!\n");
-			break;
-		case CONTINUE_WITH_ERROR:
-			printf("oci_produce_rows error... %s!\n", r.gerrbuf);
-			return -1;
-		case FAILURE:
-			printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
-			return -1;
+	try {
+		stmt->rows(NULL,string_append, list_append, sizeof_resp, 100);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_produce_rows error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+	
+	try {
+		stmt->close();
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				printf("oci_close_statement success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_close_statement error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_close_statement failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
 	}
 
-	r = oci_return_connection_to_pool(conn_handle);
-	if(r.fn_ret != SUCCESS) {
-		printf("oci_return_connection_to_pool error... %s!\n", r.gerrbuf);
-		return -1;
+	try {
+		delete ocisess;
 	}
-
-	r = oci_free_session_pool();
-	if(r.fn_ret != SUCCESS) {
-		printf("oci_create_tns_seesion_pool error... %s!\n", r.gerrbuf);
-		return -1;
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				//printf("oci_free_session success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_free_session error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_free_session failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
 	}
 }
 
@@ -224,31 +275,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		*opt = "";
 	intf_ret r;
 
-	// extra create and release pool to stabilize initial memory allocation
-	oci_init();
-
-	for(int j = 2; j>0; --j) {
-		r = oci_create_tns_seesion_pool(tns, strlen(tns),
-										usr, strlen(usr),
-										pwd, strlen(pwd),
-										opt, strlen(opt));
-		if(r.fn_ret != SUCCESS) {
-			printf("oci_create_tns_seesion_pool error... %s!\n", r.gerrbuf);
-			return -1;
-		}
-		r = oci_free_session_pool();
-		if(r.fn_ret != SUCCESS) {
-			printf("oci_create_tns_seesion_pool error... %s!\n", r.gerrbuf);
-			return -1;
-		}
-	}
-
 	// tests for memory leak detection
 	int ret;
-	//ret = memory_leak_test(tns, usr, pwd, opt);
-	ret = drop_create_insert_select(tns, usr, pwd, opt, 0);
-
-	oci_cleanup();
+	ret = memory_leak_test(tns, usr, pwd, opt);
+	//ret = drop_create_insert_select(tns, usr, pwd, opt, 0);
 
 	return ret;
 }

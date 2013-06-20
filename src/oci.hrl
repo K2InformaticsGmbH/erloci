@@ -21,25 +21,29 @@
 -define(EXE_NAME, "erloci").
 
 %% Interface commands
--define(CREATE_SESSION_POOL,    0).
--define(GET_SESSION,		    1).
--define(RELEASE_SESSION,        2).
--define(EXEC_SQL,			    3).
--define(FETCH_ROWS,			    4).
--define(R_DEBUG_MSG,		    5).
--define(RELEASE_SESSION_POOL,	6).
--define(QUIT,				    7).
+-define(CMD_UNKWN,  0).
+-define(GET_SESSN,  1).
+-define(PUT_SESSN,  2).
+-define(PREP_STMT,  3).
+-define(BIND_ARGS,  4).
+-define(EXEC_STMT,  5).
+-define(FTCH_ROWS,  6).
+-define(CLSE_STMT,  7).
+-define(RMOTE_MSG,  8).
+-define(OCIP_QUIT,  9).
 
 -define(CMDSTR(__CMD), (fun
-                            (?CREATE_SESSION_POOL)  -> "CREATE_SESSION_POOL";
-                            (?GET_SESSION)          -> "GET_SESSION";
-                            (?RELEASE_SESSION)      -> "RELEASE_SESSION";
-                            (?EXEC_SQL)             -> "EXEC_SQL";
-                            (?FETCH_ROWS)           -> "FETCH_ROWS";
-                            (?R_DEBUG_MSG)          -> "R_DEBUG_MSG";
-                            (?RELEASE_SESSION_POOL) -> "RELEASE_SESSION_POOL";
-                            (?QUIT)                 -> "QUIT";
-                            (__C)                   -> "UNKNOWN "++integer_to_list(__C)
+                            (?CMD_UNKWN)    -> "CMD_UNKWN";
+                            (?GET_SESSN)    -> "GET_SESSN";
+                            (?PUT_SESSN)    -> "PUT_SESSN";
+                            (?PREP_STMT)    -> "PREP_STMT";
+                            (?BIND_ARGS)    -> "BIND_ARGS";
+                            (?EXEC_STMT)    -> "EXEC_STMT";
+                            (?FTCH_ROWS)    -> "FTCH_ROWS";
+                            (?CLSE_STMT)    -> "CLSE_STMT";
+                            (?RMOTE_MSG)    -> "RMOTE_MSG";
+                            (?OCIP_QUIT)    -> "OCIP_QUIT";
+                            (__C)           -> "UNKNOWN "++integer_to_list(__C)
                         end)(__CMD)).
 
 % Argument Types

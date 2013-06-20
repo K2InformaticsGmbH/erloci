@@ -22,11 +22,5 @@
 // Flag to exit master loop
 extern bool exit_loop;
 
-struct cmdtable {
-    int cmd;
-    int arg_count;
-    const char * cmd_description;
-};
-
 // Externs
 extern bool cmd_processor(void *);

@@ -41,15 +41,25 @@ typedef union _pack_hdr {
     u_long len;
 } pkt_hdr;
 
-const char *cmdnames[] = {	"CREATE_SESSION_POOL",
-							"GET_SESSION",
-							"RELEASE_SESSION",
-							"EXEC_SQL",
-							"FETCH_ROWS",
-							"R_DEBUG_MSG",
-							"FREE_SESSION_POOL",
-							"QUIT",
-						 };
+const erlcmdtable cmdtbl[] = CMDTABLE;
+
+char * print_term(void *term)
+{
+	FILE *tfp = NULL;
+	long sz = 0;
+	char *termbuffer = NULL;
+
+	tfp = tmpfile();
+	erl_print_term(tfp, (ETERM*)term);
+	fseek(tfp, 0L, SEEK_END);
+	sz = ftell(tfp);
+	rewind(tfp);
+	termbuffer = new char[sz+1];
+	fread(termbuffer, 1, sz, tfp);
+	termbuffer[sz] = '\0';
+	fclose(tfp);
+	return termbuffer;
+}
 
 void * build_term_from_bind_args(inp_t * bind_var_list_head)
 {
@@ -161,9 +171,9 @@ inp_t * map_to_bind_args(void * _args)
     return bind_var_list_head;
 }
 
-unsigned int calculate_resp_size(void * resp)
+size_t calculate_resp_size(void * resp)
 {
-    return (unsigned int)erl_term_len(*(ETERM**)resp);
+    return (size_t)erl_term_len(*(ETERM**)resp);
 }
 
 #if DEBUG < DBG_5
@@ -221,7 +231,7 @@ void append_int_to_list(const int integer, void * list)
     (*(ETERM**)list) = container_list;
 }
 
-void append_string_to_list(const char * string, int len, void * list)
+void append_string_to_list(const char * string, size_t len, void * list)
 {
     if (list==NULL)
         return;
@@ -231,7 +241,7 @@ void append_string_to_list(const char * string, int len, void * list)
         container_list = erl_mk_empty_list();
 
 	ETERM *binstr = erl_mk_binary(string, len);
-    container_list = erl_cons(erl_format((char*)"~w", binstr), container_list);
+	container_list = erl_cons(erl_format((char*)"~w", binstr), container_list);
     (*(ETERM**)list) = container_list;
 }
 

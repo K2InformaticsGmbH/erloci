@@ -85,7 +85,6 @@ int main(int argc, char * argv[])
     if(threaded)
         REMOTE_LOG("Port: Thread pool created...\n");
 
-    oci_init();
     REMOTE_LOG("Port: Initialized Oracle OCI\n");
 
     while(!exit_loop && (cmd_tuple = (ETERM *)read_cmd()) != NULL) {
@@ -95,7 +94,6 @@ int main(int argc, char * argv[])
     }
 
     REMOTE_LOG("Port: Process oci terminating...\n");
-    oci_cleanup();
 	close_tcp();
 
     REMOTE_LOG("Port: Thread pool destroyed...\n");

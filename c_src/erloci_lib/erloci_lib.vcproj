@@ -169,6 +169,14 @@
 				RelativePath=".\oci_lib_intf.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\ocisession.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\ocistmt.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -177,6 +185,14 @@
 			>
 			<File
 				RelativePath=".\oci_lib_intf.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ocisession.h"
+				>
+			</File>
+			<File
+				RelativePath=".\ocistmt.h"
 				>
 			</File>
 		</Filter>

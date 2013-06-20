@@ -78,9 +78,10 @@ extern bool	log_flag;
 
 extern void log_remote(const char *, ...);
 
-extern void		oci_init(void);
-extern void		oci_cleanup(void);
+//extern void		oci_init(void);
+//extern void		oci_cleanup(void);
 
+#if 0
 extern intf_ret	oci_create_tns_seesion_pool(const char *, const int,
 												const char *, const int,
 												const char *, const int,
@@ -88,7 +89,16 @@ extern intf_ret	oci_create_tns_seesion_pool(const char *, const int,
 extern intf_ret	oci_free_session_pool(void);
 extern intf_ret	oci_get_session_from_pool(void **);
 extern intf_ret	oci_return_connection_to_pool(void *);
+#endif
+
+extern intf_ret oci_get_session(void **, const char *, const int, const char *, const int, const char *, const int);
+extern intf_ret oci_free_session(void *);
 
 extern intf_ret	oci_exec_sql(const void *, void **, const unsigned char *, int, inp_t *, void *, void (*)(const char *, const char *, const unsigned int, void *));
-extern intf_ret	oci_produce_rows(void *, void *, void (*)(const char *, int, void *), void (*)(const void *, void *), unsigned int (*)(void *), int);
+extern intf_ret	oci_produce_rows(void *, void *, void (*)(const char *, size_t, void *), void (*)(const void *, void *), size_t (*)(void *), int);
 extern intf_ret oci_close_statement(void *);
+
+/* Error checking functions and macros */
+#define checkerr(errhp, status) checkerr0((errhp), OCI_HTYPE_ERROR, (status), __FUNCTION__, __LINE__)
+#define checkenv(envhp, status) checkerr0((envhp), OCI_HTYPE_ENV, (status), __FUNCTION__, __LINE__)
+extern void checkerr0(intf_ret *, unsigned int, int, const char *, int);

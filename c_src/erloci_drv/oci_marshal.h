@@ -27,38 +27,74 @@
 
 #define DEBUG			DBG_5
 
+typedef struct _erlcmdtable {
+    int cmd;
+	const char * cmd_str;
+    int arg_count;
+    const char * cmd_description;
+} erlcmdtable;
+
 typedef enum _ERL_DEBUG {
     DBG_FLAG_OFF	= 0,
     DBG_FLAG_ON		= 1,
 } ERL_DEBUG;
 
 typedef enum _ERL_CMD {
-    CREATE_SESSION_POOL	= 0,
-    GET_SESSION			= 1,
-    RELEASE_SESSION		= 2,
-    EXEC_SQL			= 3,
-    FETCH_ROWS			= 4,
-    R_DEBUG_MSG			= 5,
-    FREE_SESSION_POOL	= 6,
-    QUIT				= 7,
+    GET_SESSN			= 1,
+    PUT_SESSN			= 2,
+    PREP_STMT			= 3,
+    BIND_ARGS			= 4,
+    EXEC_STMT			= 5,
+    FTCH_ROWS			= 6,
+    CLSE_STMT			= 7,
+    RMOTE_MSG			= 8,
+    OCIP_QUIT			= 9,
 } ERL_CMD;
-extern const char *cmdnames[];
 
-#include "../erloci_lib/oci_lib_intf.h"
+/*
+TODO: document communication interface here
+Must match with that or erlang side
+*/
+extern const erlcmdtable cmdtbl[];
+#define CMD_NAME_STR(_cmd)		cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].cmd_str
+#define CMD_ARGS_COUNT(_cmd)	cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].arg_count
+#define CMD_DESCIPTION(_cmd)	cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].cmd_description
+#define CMDTABLE \
+{\
+    {0,			"CMD_UNKWN",	0, "Unknown command"},\
+    {GET_SESSN,	"GET_SESSN",	4, "Get a OCI session"},\
+    {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
+    {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
+    {BIND_ARGS,	"BIND_ARGS",	4, "Bind parameters into prepared SQL statement"},\
+    {EXEC_STMT,	"EXEC_STMT",	2, "Execute a prepared statement"},\
+    {FTCH_ROWS,	"FTCH_ROWS",	3, "Fetch rows from statements producing rows"},\
+    {CLSE_STMT,	"CLSE_STMT",	2, "Close a statement"},\
+    {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\
+    {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"}\
+}
+
+extern char * print_term(void*);
+
+#include "oci_lib_intf.h"
 
 // Erlang Interface Macros
 #define ARG_COUNT(_command)				(erl_size(_command) - 1)
-#define MAP_ARGS(_command, _target)		{(_target)[0] = erl_element(1, _command); for(int _i=1;_i<ARG_COUNT(_command); ++_i)(_target)[_i] = erl_element(_i+2, _command);}
+#define MAP_ARGS(_command, _target) \
+{\
+	(_target)[0] = erl_element(1, _command);\
+	for(int _i=1;_i<ARG_COUNT(_command); ++_i)\
+	(_target)[_i] = erl_element(_i+2, _command);\
+}
 
 extern bool init_marshall(void);
-extern inp_t * map_to_bind_args(void *);
-extern void * build_term_from_bind_args(inp_t *);
 extern void * read_cmd(void);
 extern int write_resp(void * resp_term);
 extern void log_args(int, void *, const char *);
 extern char * connect_tcp(int);
 extern void close_tcp ();
 
+extern inp_t * map_to_bind_args(void *);
+extern void * build_term_from_bind_args(inp_t *);
 
 #ifdef REMOTE_LOG
 #undef REMOTE_LOG
@@ -86,19 +122,15 @@ extern void close_tcp ();
 extern bool lock_log();
 extern void unlock_log();
 
-extern char			gerrbuf[2048];
-extern int			gerrcode;
-extern char			session_pool_name[2048];
-
 // ThreadPool
 extern bool InitializeThreadPool(void);
 extern void CleanupThreadPool(void);
 extern bool ProcessCommand(void *);
 
-extern unsigned int calculate_resp_size(void * resp);
+extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
-extern void append_string_to_list(const char * string, int len, void * list);
+extern void append_string_to_list(const char * string, size_t len, void * list);
 extern void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list);
 
 #define MAX_FORMATTED_STR_LEN 1024
@@ -119,6 +151,3 @@ extern void append_coldef_to_list(const char * col_name, const char * data_type,
 #else
 #define LOG_DUMP(__len, __buf)
 #endif
-
-//		REMOTE_LOG("%03d,", (unsigned char)__buf[j]);		
-//     REMOTE_LOG("HEX DUMP ---->\n%s\n<----\n", _t);			
