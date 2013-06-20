@@ -176,10 +176,10 @@ void
 ProcessCommandCb(
 #ifdef __WIN32__
     PTP_CALLBACK_INSTANCE Instance,
-    PVOID                 Parameter,
+    PVOID                 arg,
     PTP_WORK              Work
 #else
-    void *job
+    void *arg
 #endif
 )
 {
@@ -189,18 +189,19 @@ ProcessCommandCb(
     UNREFERENCED_PARAMETER(Instance);
     //UNREFERENCED_PARAMETER(Parameter);
     UNREFERENCED_PARAMETER(Work);
+#endif
 
-    BOOL bRet = FALSE;
-#endif
-    void * cmd_tuple =
-#ifdef __WIN32__
-        (ETERM *)Parameter;
-#else
-        (ETERM *)job;
-#endif
-    //
-    // Do something when the work callback is invoked.
-    //
+	void * cmd_tuple = NULL;
+
+	int indx = 0;
+    //cmd_tuple = erl_decode((unsigned char*)arg);	
+    if (ei_decode_term((char*)arg, &indx, &cmd_tuple) < 0) {
+        // Term decoding failed
+        delete arg;
+        return;
+    }
+
+    if(NULL != arg) delete arg;
     exit_loop = cmd_processor(cmd_tuple);
 
     return;

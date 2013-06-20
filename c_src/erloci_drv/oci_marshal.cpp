@@ -61,6 +61,250 @@ char * print_term(void *term)
 	return termbuffer;
 }
 
+size_t calculate_resp_size(void * resp)
+{
+    return (size_t)erl_term_len(*(ETERM**)resp);
+}
+
+#if DEBUG < DBG_5
+void log_args(int argc, void * argv, const char * str)
+{
+    int sz = 0, idx = 0;
+    char *arg = NULL;
+    ETERM **args = (ETERM **)argv;
+    REMOTE_LOG("CMD: %s Args(\n", str);
+    for(idx=0; idx<argc; ++idx) {
+        if (ERL_IS_BINARY(args[idx])) {
+            sz = ERL_BIN_SIZE(args[idx]);
+            arg = new char[sz+1];
+            memcpy_s(arg, sz+1, ERL_BIN_PTR(args[idx]), sz);
+            arg[sz] = '\0';
+            REMOTE_LOG("%s,\n", arg);
+            if (arg != NULL) delete arg;
+        }
+		else if (ERL_IS_INTEGER(args[idx]))				{REMOTE_LOG("%d,",	ERL_INT_VALUE(args[idx])); }
+		else if (ERL_IS_UNSIGNED_INTEGER(args[idx]))	{REMOTE_LOG("%u,",	ERL_INT_UVALUE(args[idx]));}
+		else if (ERL_IS_FLOAT(args[idx]))				{REMOTE_LOG("%lf,",	ERL_FLOAT_VALUE(args[idx]));}
+		else if (ERL_IS_ATOM(args[idx]))				{REMOTE_LOG("%.*s,", ERL_ATOM_SIZE(args[idx]), ERL_ATOM_PTR(args[idx]));}
+    }
+    REMOTE_LOG(")\n");
+}
+#else
+void log_args(int argc, void * argv, const char * str) {}
+#endif
+
+void append_list_to_list(const void * sub_list, void * list)
+{
+    if (list == NULL || sub_list == NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+    container_list = erl_cons(erl_format((char*)"~w", (ETERM*)sub_list), container_list);
+    erl_free_compound((ETERM*)sub_list);
+
+    (*(ETERM**)list) = container_list;
+}
+
+void append_int_to_list(const int integer, void * list)
+{
+    if (list==NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+    container_list = erl_cons(erl_format((char*)"~i", integer), container_list);
+    (*(ETERM**)list) = container_list;
+}
+
+void append_string_to_list(const char * string, size_t len, void * list)
+{
+    if (list==NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+	ETERM *binstr = erl_mk_binary(string, len);
+	container_list = erl_cons(erl_format((char*)"~w", binstr), container_list);
+    (*(ETERM**)list) = container_list;
+}
+
+void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list)
+{
+    if (list==NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+	ETERM *cname = erl_mk_binary(col_name, strlen(col_name));
+    container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
+
+    (*(ETERM**)list) = container_list;
+}
+
+#ifdef __WIN32__
+static HANDLE write_mutex;
+static HANDLE log_mutex;
+#else
+static pthread_mutex_t write_mutex;
+static pthread_mutex_t log_mutex;
+#endif
+bool init_marshall(void)
+{
+#ifdef __WIN32__
+    write_mutex = CreateMutex(NULL, FALSE, NULL);
+    if (NULL == write_mutex) {
+        REMOTE_LOG("Write Mutex creation failed\n");
+        return false;
+    }
+    log_mutex = CreateMutex(NULL, FALSE, NULL);
+    if (NULL == log_mutex) {
+        REMOTE_LOG("Log Mutex creation failed\n");
+        return false;
+    }
+#else
+    if(pthread_mutex_init(&write_mutex, NULL) != 0) {
+        REMOTE_LOG("Write Mutex creation failed");
+        return false;
+    }
+    if(pthread_mutex_init(&log_mutex, NULL) != 0) {
+        REMOTE_LOG("Log Mutex creation failed");
+        return false;
+    }
+#endif
+    return true;
+}
+
+void * read_cmd(void)
+{
+    pkt_hdr hdr;
+    unsigned int rx_len;
+    char * rx_buf;
+
+    ENTRY();
+
+    // Read and convert the length to host Byle order
+    cin.read(hdr.len_buf, sizeof(hdr.len_buf));
+    if((unsigned)cin.gcount() < sizeof(hdr.len_buf)) {
+        EXIT();
+        return NULL;
+    }
+    rx_len = ntohl(hdr.len);
+
+    //REMOTE_LOG("RX Packet length %d\n", rx_len);
+
+	// allocate for the entire term
+	// to be freeded in the caller's scope
+    rx_buf = new char[rx_len];
+    if (rx_buf == NULL) {
+        EXIT();
+        return NULL;
+    }
+
+	// Read the Term binary
+    cin.read(rx_buf, rx_len);
+    if((unsigned int) cin.gcount() < rx_len) {
+        // Unable to get Term binary
+        delete rx_buf;
+        EXIT();
+        return NULL;
+    }
+
+	LOG_DUMP(rx_len, rx_buf);
+
+    EXIT();
+    return rx_buf;
+}
+
+int write_resp(void * resp_term)
+{
+    int tx_len;
+    int pkt_len = -1;
+    pkt_hdr *hdr;
+    unsigned char * tx_buf;
+    ETERM * resp = (ETERM *)resp_term;
+
+    if (resp == NULL) {
+        pkt_len = -1;
+        goto error_exit;
+    }
+
+    tx_len = erl_term_len(resp);				// Length of the required binary buffer
+    pkt_len = tx_len+PKT_LEN_BYTES;
+
+    //REMOTE_LOG("TX Packet length %d\n", tx_len);
+
+    // Allocate temporary buffer for transmission of the Term
+    tx_buf = new unsigned char[pkt_len];
+    hdr = (pkt_hdr *)tx_buf;
+    hdr->len = htonl(tx_len);		// Length adjusted to network byte order
+
+    erl_encode(resp, tx_buf+PKT_LEN_BYTES);			// Encode the Term into the buffer after the length field
+
+	LOG_DUMP(pkt_len, tx_buf);
+
+    if(
+#ifdef __WIN32__
+        WAIT_OBJECT_0 == WaitForSingleObject(write_mutex,INFINITE)
+#else
+        0 == pthread_mutex_lock(&write_mutex)
+#endif
+    ) {
+        cout.write((char *) tx_buf, pkt_len);
+        cout.flush();
+#ifdef __WIN32__
+        ReleaseMutex(write_mutex);
+#else
+        pthread_mutex_unlock(&write_mutex);
+#endif
+    }
+
+    // Free the temporary allocated buffer
+    delete tx_buf;
+
+    if (cout.fail()) {
+        pkt_len = -1;
+        goto error_exit;
+    }
+
+    EXIT();
+
+error_exit:
+    erl_free_compound(resp);
+    return pkt_len;
+}
+
+bool lock_log()
+{
+	if(
+#ifdef __WIN32__
+    WAIT_OBJECT_0 == WaitForSingleObject(log_mutex,INFINITE)
+#else
+    0 == pthread_mutex_lock(&log_mutex)
+#endif
+	)
+		return true;
+	else
+		return false;
+}
+
+void unlock_log()
+{
+#ifdef __WIN32__
+        ReleaseMutex(log_mutex);
+#else
+        pthread_mutex_unlock(&log_mutex);
+#endif
+}
+
 void * build_term_from_bind_args(inp_t * bind_var_list_head)
 {
     if (bind_var_list_head == NULL)
@@ -169,259 +413,4 @@ inp_t * map_to_bind_args(void * _args)
         bind_var_list_head = NULL;
     }
     return bind_var_list_head;
-}
-
-size_t calculate_resp_size(void * resp)
-{
-    return (size_t)erl_term_len(*(ETERM**)resp);
-}
-
-#if DEBUG < DBG_5
-void log_args(int argc, void * argv, const char * str)
-{
-    int sz = 0, idx = 0;
-    char *arg = NULL;
-    ETERM **args = (ETERM **)argv;
-    REMOTE_LOG("CMD: %s Args(\n", str);
-    for(idx=0; idx<argc; ++idx) {
-        if (ERL_IS_BINARY(args[idx])) {
-            sz = ERL_BIN_SIZE(args[idx]);
-            arg = new char[sz+1];
-            memcpy_s(arg, sz+1, ERL_BIN_PTR(args[idx]), sz);
-            arg[sz] = '\0';
-            REMOTE_LOG("%s,\n", arg);
-            if (arg != NULL) delete arg;
-        }
-		else if (ERL_IS_INTEGER(args[idx]))				{REMOTE_LOG("%d,",	ERL_INT_VALUE(args[idx])); }
-		else if (ERL_IS_UNSIGNED_INTEGER(args[idx]))	{REMOTE_LOG("%u,",	ERL_INT_UVALUE(args[idx]));}
-		else if (ERL_IS_FLOAT(args[idx]))				{REMOTE_LOG("%lf,",	ERL_FLOAT_VALUE(args[idx]));}
-		else if (ERL_IS_ATOM(args[idx]))				{REMOTE_LOG("%.*s,", ERL_ATOM_SIZE(args[idx]), ERL_ATOM_PTR(args[idx]));}
-    }
-    REMOTE_LOG(")\n");
-}
-#else
-void log_args(int argc, void * argv, const char * str) {}
-#endif
-
-void append_list_to_list(const void * sub_list, void * list)
-{
-    if (list == NULL || sub_list == NULL)
-        return;
-
-    ETERM *container_list = (ETERM *)(*(ETERM**)list);
-    if (container_list == NULL)
-        container_list = erl_mk_empty_list();
-
-    container_list = erl_cons(erl_format((char*)"~w", (ETERM*)sub_list), container_list);
-    erl_free_compound((ETERM*)sub_list);
-
-    (*(ETERM**)list) = container_list;
-}
-
-void append_int_to_list(const int integer, void * list)
-{
-    if (list==NULL)
-        return;
-
-    ETERM *container_list = (ETERM *)(*(ETERM**)list);
-    if (container_list == NULL)
-        container_list = erl_mk_empty_list();
-
-    container_list = erl_cons(erl_format((char*)"~i", integer), container_list);
-    (*(ETERM**)list) = container_list;
-}
-
-void append_string_to_list(const char * string, size_t len, void * list)
-{
-    if (list==NULL)
-        return;
-
-    ETERM *container_list = (ETERM *)(*(ETERM**)list);
-    if (container_list == NULL)
-        container_list = erl_mk_empty_list();
-
-	ETERM *binstr = erl_mk_binary(string, len);
-	container_list = erl_cons(erl_format((char*)"~w", binstr), container_list);
-    (*(ETERM**)list) = container_list;
-}
-
-void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list)
-{
-    if (list==NULL)
-        return;
-
-    ETERM *container_list = (ETERM *)(*(ETERM**)list);
-    if (container_list == NULL)
-        container_list = erl_mk_empty_list();
-
-	ETERM *cname = erl_mk_binary(col_name, strlen(col_name));
-    container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
-
-    (*(ETERM**)list) = container_list;
-}
-
-void * read_cmd(void)
-{
-    pkt_hdr hdr;
-    unsigned int rx_len;
-    ETERM *t;
-    char * rx_buf;
-
-    ENTRY();
-
-    // Read and convert the length to host Byle order
-    cin.read(hdr.len_buf, sizeof(hdr.len_buf));
-    if((unsigned)cin.gcount() < sizeof(hdr.len_buf)) {
-        EXIT();
-        return NULL;
-    }
-    rx_len = ntohl(hdr.len);
-
-    //REMOTE_LOG("RX Packet length %d\n", rx_len);
-
-    // Read the Term binary
-    rx_buf = new char[rx_len];
-    if (rx_buf == NULL) { // Memory allocation error
-        EXIT();
-        return NULL;
-    }
-
-    cin.read(rx_buf, rx_len);
-    if((unsigned int) cin.gcount() < rx_len) {
-        // Unable to get Term binary
-        delete rx_buf;
-        EXIT();
-        return NULL;
-    }
-
-	LOG_DUMP(rx_len, rx_buf);
-
-	int indx = 0;
-    //t = erl_decode((unsigned char*)rx_buf);	
-    if (ei_decode_term(rx_buf, &indx, &t) < 0) {
-        // Term de-marshaling failed
-        delete rx_buf;
-        EXIT();
-        return NULL;
-    }
-
-    if(NULL != rx_buf)
-        delete rx_buf;
-
-    EXIT();
-    return t;
-}
-
-#ifdef __WIN32__
-static HANDLE write_mutex;
-static HANDLE log_mutex;
-#else
-static pthread_mutex_t write_mutex;
-static pthread_mutex_t log_mutex;
-#endif
-bool init_marshall(void)
-{
-#ifdef __WIN32__
-    write_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == write_mutex) {
-        REMOTE_LOG("Write Mutex creation failed\n");
-        return false;
-    }
-    log_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == log_mutex) {
-        REMOTE_LOG("Log Mutex creation failed\n");
-        return false;
-    }
-#else
-    if(pthread_mutex_init(&write_mutex, NULL) != 0) {
-        REMOTE_LOG("Write Mutex creation failed");
-        return false;
-    }
-    if(pthread_mutex_init(&log_mutex, NULL) != 0) {
-        REMOTE_LOG("Log Mutex creation failed");
-        return false;
-    }
-#endif
-    return true;
-}
-
-int write_resp(void * resp_term)
-{
-    int tx_len;
-    int pkt_len = -1;
-    pkt_hdr *hdr;
-    unsigned char * tx_buf;
-    ETERM * resp = (ETERM *)resp_term;
-
-    if (resp == NULL) {
-        pkt_len = -1;
-        goto error_exit;
-    }
-
-    tx_len = erl_term_len(resp);				// Length of the required binary buffer
-    pkt_len = tx_len+PKT_LEN_BYTES;
-
-    //REMOTE_LOG("TX Packet length %d\n", tx_len);
-
-    // Allocate temporary buffer for transmission of the Term
-    tx_buf = new unsigned char[pkt_len];
-    hdr = (pkt_hdr *)tx_buf;
-    hdr->len = htonl(tx_len);		// Length adjusted to network byte order
-
-    erl_encode(resp, tx_buf+PKT_LEN_BYTES);			// Encode the Term into the buffer after the length field
-
-	LOG_DUMP(pkt_len, tx_buf);
-
-    if(
-#ifdef __WIN32__
-        WAIT_OBJECT_0 == WaitForSingleObject(write_mutex,INFINITE)
-#else
-        0 == pthread_mutex_lock(&write_mutex)
-#endif
-    ) {
-        cout.write((char *) tx_buf, pkt_len);
-        cout.flush();
-#ifdef __WIN32__
-        ReleaseMutex(write_mutex);
-#else
-        pthread_mutex_unlock(&write_mutex);
-#endif
-    }
-
-    // Free the temporary allocated buffer
-    delete tx_buf;
-
-    if (cout.fail()) {
-        pkt_len = -1;
-        goto error_exit;
-    }
-
-    EXIT();
-
-error_exit:
-    erl_free_compound(resp);
-    return pkt_len;
-}
-
-bool lock_log()
-{
-	if(
-#ifdef __WIN32__
-    WAIT_OBJECT_0 == WaitForSingleObject(log_mutex,INFINITE)
-#else
-    0 == pthread_mutex_lock(&log_mutex)
-#endif
-	)
-		return true;
-	else
-		return false;
-}
-
-void unlock_log()
-{
-#ifdef __WIN32__
-        ReleaseMutex(log_mutex);
-#else
-        pthread_mutex_unlock(&log_mutex);
-#endif
 }
