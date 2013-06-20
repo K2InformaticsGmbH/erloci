@@ -1,6 +1,7 @@
 {port_env, [
 	{"CXX", "g++"},
 	{"CC", "g++"},
+    {"CXXFLAGS", "-Ic_src/erloci_lib"},
 	{"LDFLAGS", "-Lc_src/lib/instantclient -Lpriv -locci -lclntsh -lnnz11 -lerloci -lpthread"}
 ]}.
 {port_specs, [{"priv/erloci",

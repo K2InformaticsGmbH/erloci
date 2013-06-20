@@ -1,6 +1,8 @@
 #include "ocistmt.h"
 #include "ocisession.h"
 
+#include<cstring>
+
 #include <oci.h>
 
 struct column {
@@ -374,7 +376,7 @@ ocistmt::~ocistmt(void)
     /* Release the bound variables memeory */
 	for (int i = 0; i < _columns.size(); ++i) {
 		if(_columns[i].rtype == LCL_DTYPE_NONE)
-			delete _columns[i].row_valp;
+			delete (char*)(_columns[i].row_valp);
 		else
 			(void) OCIDescriptorFree(_columns[i].row_valp, _columns[i].rtype);
 	}
