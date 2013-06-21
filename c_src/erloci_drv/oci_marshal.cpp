@@ -102,10 +102,11 @@ void append_list_to_list(const void * sub_list, void * list)
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-    container_list = erl_cons(erl_format((char*)"~w", (ETERM*)sub_list), container_list);
-    erl_free_compound((ETERM*)sub_list);
+    ETERM *new_container_list = erl_cons((ETERM*)sub_list, container_list);
+    erl_free_term((ETERM*)sub_list);
+	erl_free_term(container_list);
 
-    (*(ETERM**)list) = container_list;
+    (*(ETERM**)list) = new_container_list;
 }
 
 void append_int_to_list(const int integer, void * list)
@@ -117,8 +118,9 @@ void append_int_to_list(const int integer, void * list)
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-    container_list = erl_cons(erl_format((char*)"~i", integer), container_list);
-    (*(ETERM**)list) = container_list;
+    ETERM *new_container_list = erl_cons(erl_format((char*)"~i", integer), container_list);
+	erl_free_term(container_list);
+    (*(ETERM**)list) = new_container_list;
 }
 
 void append_string_to_list(const char * string, size_t len, void * list)
@@ -131,8 +133,10 @@ void append_string_to_list(const char * string, size_t len, void * list)
         container_list = erl_mk_empty_list();
 
 	ETERM *binstr = erl_mk_binary(string, len);
-	container_list = erl_cons(erl_format((char*)"~w", binstr), container_list);
-    (*(ETERM**)list) = container_list;
+	ETERM *new_container_list = erl_cons(binstr, container_list);
+    erl_free_term(binstr);
+    erl_free_term(container_list);
+	(*(ETERM**)list) = new_container_list;
 }
 
 void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list)
@@ -145,9 +149,11 @@ void append_coldef_to_list(const char * col_name, const char * data_type, const 
         container_list = erl_mk_empty_list();
 
 	ETERM *cname = erl_mk_binary(col_name, strlen(col_name));
-    container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
+    ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
+    erl_free_term(cname);
+    erl_free_term(container_list);
 
-    (*(ETERM**)list) = container_list;
+    (*(ETERM**)list) = new_container_list;
 }
 
 #ifdef __WIN32__

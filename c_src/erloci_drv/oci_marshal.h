@@ -84,11 +84,25 @@ extern char * print_term(void*);
 
 // Erlang Interface Macros
 #define ARG_COUNT(_command)				(erl_size(_command) - 1)
-#define MAP_ARGS(_command, _target) \
+#define MAP_ARGS(_cmdcnt, _command, _target) \
 {\
+	(_target) = new ETERM*[(_cmdcnt)];\
 	(_target)[0] = erl_element(1, _command);\
 	for(int _i=1;_i<ARG_COUNT(_command); ++_i)\
-	(_target)[_i] = erl_element(_i+2, _command);\
+		(_target)[_i] = erl_element(_i+2, _command);\
+}
+#define UNMAP_ARGS(_cmdcnt, _target) \
+{\
+	for(int _i=0;_i<(_cmdcnt); ++_i)\
+		erl_free_term((_target)[_i]);\
+	delete (_target);\
+}
+
+#define PRINT_ERL_ALLOC(_mark) \
+{\
+	unsigned long allocated, freed;\
+	erl_eterm_statistics(&allocated, &freed);\
+	REMOTE_LOG(_mark" eterm mem %lu, %lu\n", allocated, freed);\
 }
 
 extern bool init_marshall(void);

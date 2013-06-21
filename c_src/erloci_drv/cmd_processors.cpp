@@ -23,10 +23,10 @@
 bool change_log_flag(ETERM * command)
 {
     bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(RMOTE_MSG)];
     ETERM *resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), command, args);
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(RMOTE_MSG)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RMOTE_MSG);
@@ -63,8 +63,7 @@ error_exit:
         ret = true;
 
     erl_free_compound(command);
-
-    delete args;
+	UNMAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), args);
 
 	return ret;
 }
@@ -72,10 +71,10 @@ error_exit:
 bool cmd_get_session(ETERM * command)
 {
     bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(GET_SESSN)];
 	ETERM *resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), command, args);
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], GET_SESSN);
@@ -116,18 +115,18 @@ error_exit:
         ret = true;
 
     erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), args);
 
-	delete args;
 	return ret;
 }
 
 bool cmd_release_conn(ETERM * command)
 {
     bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(PUT_SESSN)];
     ETERM * resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), command, args);
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PUT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PUT_SESSN);
@@ -164,8 +163,8 @@ error_exit:
         ret = true;
 
     erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), args);
 
-    delete args;
 	return ret;
 }
 
@@ -173,10 +172,10 @@ error_exit:
 bool cmd_prep_sql(ETERM * command)
 {
 	bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(PREP_STMT)];
     ETERM * resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), command, args);
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PREP_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PREP_STMT);
@@ -222,17 +221,18 @@ error_exit:
         ret = true;
 
     erl_free_compound(command);
-    delete args;
-    return ret;
+	UNMAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), args);
+
+	return ret;
 }
 
 bool cmd_exec_stmt(ETERM * command)
 {
 	bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(EXEC_STMT)];
     ETERM * resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], EXEC_STMT);
@@ -278,8 +278,8 @@ error_exit:
         ret = true;
 
     erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), args);
 
-    delete args;
 	return ret;
 }
 
@@ -287,10 +287,10 @@ error_exit:
 bool cmd_fetch_rows(ETERM * command)
 {
 	bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(FTCH_ROWS)];
     ETERM * resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), command, args);
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(FTCH_ROWS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], FTCH_ROWS);
@@ -345,18 +345,18 @@ error_exit:
         ret = true;
 
 	erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
 
-    delete args;
     return ret;
 }
 
 bool cmd_close_stmt(ETERM * command)
 {
 	bool ret = false;
-    ETERM **args = new ETERM*[CMD_ARGS_COUNT(CLSE_STMT)];
     ETERM * resp;
 
-    MAP_ARGS(command, args);
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), command, args);
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CLSE_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CLSE_STMT);
@@ -394,8 +394,8 @@ error_exit:
         ret = true;
 
 	erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), args);
 
-    delete args;
     return ret;
 }
 
@@ -403,9 +403,12 @@ error_exit:
 
 bool cmd_processor(void * param)
 {
+	bool ret = false;
 	ETERM *command = (ETERM *)param;
-    ETERM *cmd = erl_element(2, (ETERM *)command);
 
+	//PRINT_ERL_ALLOC("start");
+
+	ETERM *cmd = erl_element(2, (ETERM *)command);
 #ifdef PRINTCMD
 	char * tmpbuf = print_term(command);
 	REMOTE_LOG("========================================\nCOMMAND : %s %s\n========================================\n",
@@ -416,17 +419,23 @@ bool cmd_processor(void * param)
 
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
-        case GET_SESSN:		return cmd_get_session(command);
-        case PUT_SESSN:		return cmd_release_conn(command);
-        case PREP_STMT:		return cmd_prep_sql(command);
-        case EXEC_STMT:		return cmd_exec_stmt(command);
-        case FTCH_ROWS:		return cmd_fetch_rows(command);
-        case CLSE_STMT:		return cmd_close_stmt(command);
-        case RMOTE_MSG:		return change_log_flag(command);
+        case GET_SESSN:	ret = cmd_get_session(command);		break;
+        case PUT_SESSN:	ret = cmd_release_conn(command);	break;
+        case PREP_STMT:	ret = cmd_prep_sql(command);		break;
+        case EXEC_STMT:	ret = cmd_exec_stmt(command);		break;
+        case FTCH_ROWS:	ret = cmd_fetch_rows(command);		break;
+        case CLSE_STMT:	ret = cmd_close_stmt(command);		break;
+        case RMOTE_MSG:	ret = change_log_flag(command);		break;
         case OCIP_QUIT:
         default:
+			ret = true;
             break;
         }
     }
-    return true;
+	erl_free_term(cmd);
+
+	PRINT_ERL_ALLOC("end");
+
+	erl_eterm_release();
+	return ret;
 }
