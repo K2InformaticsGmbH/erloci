@@ -94,7 +94,9 @@ bool cmd_get_session(ETERM * command)
 					(char*)ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]),		// User Name String
 					(char*)ERL_BIN_PTR(args[3]), ERL_BIN_SIZE(args[3]));	// Password String
 		        REMOTE_LOG("got connection %lu\n", (unsigned long long)conn_handle);
-				resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSN, erl_mk_ulonglong((unsigned long long)conn_handle));
+				ETERM *conh = erl_mk_ulonglong((unsigned long long)conn_handle);
+				resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSN, conh);
+				erl_free_term(conh);
 		   } catch (intf_ret r) {
 				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}", args[0], GET_SESSN, r.gerrcode, r.gerrbuf);
@@ -196,7 +198,9 @@ bool cmd_prep_sql(ETERM * command)
 		try {
 	        ocistmt * statement_handle = conn_handle->prepare_stmt(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]));
             //REMOTE_LOG("statement handle %lu\n", (unsigned long long)statement_handle);
-			resp = erl_format((char*)"{~w,~i,{stmt,~w}}", args[0], PREP_STMT, erl_mk_ulonglong((unsigned long long)statement_handle));
+			ETERM *stmth = erl_mk_ulonglong((unsigned long long)statement_handle);
+			resp = erl_format((char*)"{~w,~i,{stmt,~w}}", args[0], PREP_STMT, stmth);
+			erl_free_term(stmth);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], PREP_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
@@ -252,8 +256,10 @@ bool cmd_exec_stmt(ETERM * command)
 			// TODO : Also return bound return values from here
 			if (columns == NULL)
 				resp = erl_format((char*)"{~w,~i,{executed,no_ret}}", args[0], EXEC_STMT);
-			else
+			else {
 				resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
+				erl_free_term(columns);
+			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
@@ -316,8 +322,10 @@ bool cmd_fetch_rows(ETERM * command)
 											   calculate_resp_size,
 											   rowcount);
 			if (r.fn_ret == MORE || r.fn_ret == DONE) {
-                if (rows != NULL)
+				if (rows != NULL) {
                     resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
+					erl_free_term(rows);
+				}
                 else
                     resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
             }
