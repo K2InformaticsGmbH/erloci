@@ -100,7 +100,7 @@ extern char * print_term(void*);
 
 #define PRINT_ERL_ALLOC(_mark) \
 {\
-	unsigned long allocated, freed;\
+	unsigned long allocated=0, freed=0;\
 	erl_eterm_statistics(&allocated, &freed);\
 	REMOTE_LOG(_mark" eterm mem %lu, %lu\n", allocated, freed);\
 }
