@@ -1,3 +1,4 @@
+priv/
 c_src/*.txt
 c_src/lib/instantclient/include/*.h
 c_src/lib/instantclient/*.so

@@ -22,7 +22,7 @@
 
 %% API
 -export([
-    start_link/5,
+    start_link/4,
     exec_sql/3,
     get_rows/3
 ]).
@@ -44,8 +44,8 @@
 % external APIs
 %
 
-start_link(Tns,Usr,Pswd,Opts,PortOptions) ->
-    StartRes = gen_server:start_link(?MODULE, [Tns,Usr,Pswd,Opts,PortOptions], []),
+start_link(Tns,Usr,Pswd,PortOptions) ->
+    StartRes = gen_server:start_link(?MODULE, [Tns,Usr,Pswd,PortOptions], []),
     case StartRes of
         {ok, Pid} -> {?MODULE, Pid};
         Error -> throw({error, Error})
@@ -61,11 +61,9 @@ get_rows(Count, Stmt, {?MODULE, ErlOciSession}) ->
 % gen_server interfaces
 %
 
-init([Tns,Usr,Pswd,Opts,PortOptions]) ->
+init([Tns,Usr,Pswd,PortOptions]) ->
     OciPort = oci_port:start_link(PortOptions),
-    OciPool = OciPort:create_sess_pool(Tns,Usr,Pswd,Opts),
-    throw_if_error(OciPool, "pool creation failed"),
-    OciSession = OciPort:get_session(),
+    OciSession = OciPort:get_session(Tns,Usr,Pswd),
     throw_if_error(OciSession, "get session failed"),
     {ok, #state{ociSess=OciSession}}.
 
@@ -187,7 +185,6 @@ connect_db() ->
                 )">>,
                 <<"bikram">>,
                 <<"abcd123">>,
-                <<>>,
                 [{logging, true}]).
     %erloci_session:start_link(
     %            <<"(DESCRIPTION=

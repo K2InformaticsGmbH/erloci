@@ -53,7 +53,7 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
                                authp,									/* initialized authentication handle */                               
                                (OraText *) connect_str, connect_str_len,/* connect string */
                                NULL, 0, NULL, NULL, NULL,				/* session tagging parameters: optional */
-                               OCI_SESSGET_STMTCACHE));					/* modes */
+                               OCI_DEFAULT));					/* modes */
 	if(r.fn_ret != SUCCESS) {
 		REMOTE_LOG("failed OCISessionGet %s\n", r.gerrbuf);
         throw r;
