@@ -351,13 +351,14 @@ setup() ->
 teardown(_OciSession) -> ok.
 
 db_test_() ->
-    {
+    {timeout, 60, {
         setup,
         fun setup/0,
         fun teardown/1,
         {with, [
-            {timeout, 60, fun db_perf/1}
-        ]}}.
+            fun db_perf/1
+        ]}
+    }}.
 
 db_perf(OciSession) ->
     Threads = 1,
@@ -441,8 +442,11 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
+io:format(user, "-----------------~n", []),
+        timer:sleep(5000),
         Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" prep failed"),
+io:format(user, ".................~n", []),
         Cols = Statement:exec_stmt(),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
