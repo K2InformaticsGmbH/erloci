@@ -17,9 +17,6 @@
 
 -include("oci.hrl").
 
-% TODO convert to eunit
--export([ run/2 ]).
-
 %% API
 -export([
     start_link/1,
@@ -29,7 +26,8 @@
     prep_sql/2,
     exec_stmt/1,
     fetch_rows/2,
-    close/1
+    close/1,
+    inject_rowid/1
 ]).
 
 %% gen_server callbacks
@@ -86,8 +84,45 @@ close({?MODULE, PortPid, SessionId}) ->
 close({?MODULE, statement, PortPid, StmtId}) ->
     gen_server:call(PortPid, {port_call, {?CLSE_STMT, StmtId}}, ?PORT_TIMEOUT).
 
+inject_rowid(Sql) ->
+    {ok,{[{PT,_}],_}} = sqlparse:parsetree(Sql),
+    {NewSql, NewPT} = case PT of
+        {select, Args} ->
+            {fields, Flds} = lists:keyfind(fields, 1, Args),
+            {from, [FirstTable|_]=Forms} = lists:keyfind(from, 1, Args),
+            NewFields =
+                [list_to_binary(case FirstTable of
+                    {as, _, Alias} -> [Alias, ".ROWID"];
+                    Tab -> [Tab, ".ROWID"]
+                end) | lists:flatten([case F of
+                                        <<"*">> ->
+                                        lists:reverse(lists:foldl(
+                                            fun(T, AFields) ->
+                                                case T of
+                                                    {as, _, Alias} -> [list_to_binary([Alias,".*"]) | AFields];
+                                                    Tab -> [list_to_binary([Tab,".*"]) | AFields]
+                                                end
+                                            end,
+                                            [],
+                                            Forms));
+                                        _ -> F
+                                     end
+                                     || F <- Flds]
+                )],
+            NewArgs = lists:keyreplace(fields, 1, Args, {fields, NewFields}),
+            NPT = {select, NewArgs},
+            {sqlparse:fold(NPT), NPT};
+        _ -> {Sql, PT}
+    end,
+io:format(user, "~n________________________~nSQL ~p~n", [NewSql]),
+io:format(user, "Old SQL ~p~n", [Sql]),
+io:format(user, "Old parse tree ~p~n", [PT]),
+io:format(user, "New parse tree ~p~n________________________~n", [NewPT]),
+    NewSql.
+
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
-    R = gen_server:call(PortPid, {port_call, {?PREP_STMT, SessionId, Sql}}, ?PORT_TIMEOUT),
+    NewSql = inject_rowid(Sql),
+    R = gen_server:call(PortPid, {port_call, {?PREP_STMT, SessionId, NewSql}}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {stmt,StmtId} -> {?MODULE, statement, PortPid, StmtId};
@@ -289,12 +324,44 @@ signal_str(N)  -> {udefined,        ignore, N}.
 %
 % Eunit tests
 %
+-ifdef(TEST).
 
 -include_lib("eunit/include/eunit.hrl").
+
 -define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
 
-run(Threads, InsertCount) when is_integer(Threads), is_integer(InsertCount) ->
-    OciSession = connect_db(),
+setup() ->
+    OciPort = oci_port:start_link([{logging, true}]),
+    OciSession = OciPort:get_session(
+                <<"(DESCRIPTION="
+                  "  (ADDRESS_LIST="
+                  "      (ADDRESS=(PROTOCOL=tcp)"
+                  "          (HOST=127.0.0.1)"
+                  "          (PORT=1521)"
+                  "      )"
+                  "  )"
+                  "  (CONNECT_DATA=(SERVICE_NAME=XE))"
+                  ")">>,
+                <<"bikram">>,
+                <<"abcd123">>),
+    throw_if_error(undefined, OciSession, "session get failed"),
+    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Session ~p~n", [OciSession]))),
+    OciSession.
+
+teardown(_OciSession) -> ok.
+
+db_test_() ->
+    {
+        setup,
+        fun setup/0,
+        fun teardown/1,
+        {with, [
+            {timeout, 60, fun db_perf/1}
+        ]}}.
+
+db_perf(OciSession) ->
+    Threads = 1,
+    InsertCount = 1,
     This = self(),
     [(fun(Idx) ->
         Table = "erloci_table_"++Idx,
@@ -327,34 +394,6 @@ receive_all(OciSession, Count, Acc) ->
             receive_all(OciSession, 0, Acc)
     end.
 
-connect_db() ->
-    OciPort = oci_port:start_link([{logging, true}]),
-    OciSession = OciPort:get_session(
-                <<"(DESCRIPTION=
-                    (ADDRESS_LIST=
-                        (ADDRESS=(PROTOCOL=tcp)
-                            (HOST=80.67.144.206)
-                            (PORT=1521)
-                        )
-                    )
-                    (CONNECT_DATA=(SERVICE_NAME=XE))
-                )">>,
-                <<"bikram">>,
-                <<"abcd123">>),
-    %OciSession = OciPort:get_session(
-    %            <<"(DESCRIPTION=
-    %                (ADDRESS=(PROTOCOL=tcp)
-    %                    (HOST=192.168.1.69)
-    %                    (PORT=1521)
-    %                )
-    %                (CONNECT_DATA=(SERVICE_NAME=SBS0.k2informatics.ch))
-    %            )">>,
-    %            <<"SBS0">>,
-    %            <<"sbs0sbs0_4dev">>),
-    throw_if_error(undefined, OciSession, "session get failed"),
-    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Session ~p~n", [OciSession]))),
-    OciSession.
-
 create_table(OciSession, Table) ->
     Stmt = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
     print_if_error(Stmt, "drop prep failed"),
@@ -366,7 +405,7 @@ create_table(OciSession, Table) ->
                                        publisher varchar2(100),
                                        rank number,
                                        hero varchar2(100),
-                                       real varchar2(100),
+                                       reality varchar2(100),
                                        votes number,
                                        createdate date default sysdate,
                                        votes_first_rank number)"])),
@@ -382,12 +421,12 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         InsertStart = ?NowMs,
         [(fun(I) ->
             Qry = erlang:list_to_binary([
-                    "insert into ", Table, " (pkey,publisher,rank,hero,real,votes,votes_first_rank) values (",
+                    "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,votes_first_rank) values (",
                     I,
                     ", 'publisher"++I++"',",
                     I,
                     ", 'hero"++I++"'",
-                    ", 'real"++I++"',",
+                    ", 'reality"++I++"',",
                     I,
                     ",",
                     I,
@@ -427,3 +466,5 @@ throw_if_error(Parent, {error, Error}, Msg) ->
     if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
     throw({Msg, Error});
 throw_if_error(_,_,_) -> ok.
+
+-endif.

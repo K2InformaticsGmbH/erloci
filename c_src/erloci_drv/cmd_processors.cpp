@@ -442,7 +442,7 @@ bool cmd_processor(void * param)
     }
 	erl_free_term(cmd);
 
-	PRINT_ERL_ALLOC("end");
+//	PRINT_ERL_ALLOC("end");
 
 	erl_eterm_release();
 	return ret;

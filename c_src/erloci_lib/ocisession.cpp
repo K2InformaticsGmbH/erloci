@@ -61,7 +61,7 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
 
 	(void) OCIHandleFree(authp, OCI_HTYPE_AUTHINFO);
 
-	REMOTE_LOG("got session %p\n", _svchp);
+	REMOTE_LOG("got session %p %.*s user %.*s\n", _svchp, connect_str_len, connect_str, user_name_len, user_name);
 
 	_sessions.push_back(this);
 }

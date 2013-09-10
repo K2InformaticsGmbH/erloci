@@ -174,15 +174,16 @@ receive_all(Count, Acc) ->
 
 connect_db() ->
     erloci_session:start_link(
-                <<"(DESCRIPTION=
-                    (ADDRESS_LIST=
-                        (ADDRESS=(PROTOCOL=tcp)
-                            (HOST=80.67.144.206)
-                            (PORT=1521)
-                        )
-                    )
-                    (CONNECT_DATA=(SERVICE_NAME=XE))
-                )">>,
+                <<"(DESCRIPTION="
+                  "  (ADDRESS_LIST="
+                  "      (ADDRESS=(PROTOCOL=tcp)"
+                  %"          (HOST=80.67.144.206)"
+                  "          (HOST=192.168.1.37)"
+                  "          (PORT=1521)"
+                  "      )"
+                  "  )"
+                  "  (CONNECT_DATA=(SERVICE_NAME=XE))"
+                  ")">>,
                 <<"bikram">>,
                 <<"abcd123">>,
                 [{logging, true}]).
