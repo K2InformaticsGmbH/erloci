@@ -222,6 +222,15 @@ void ocistmt::execute(void * column_list,
 				OCIALLOC(OCI_DTYPE_INTERVAL_DS, "SQLT_INTERVAL_DS");
 				OCIDEF(SQLT_INTERVAL_DS, "SQLT_INTERVAL_DS");
                 break;
+			case SQLT_RDD:
+			case SQLT_RID:
+				cur_clm.dlen = 19;
+				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_STR, "SQLT_STR");
+                data_type = (char*)"rowid";
+                break;
+                break;
             default:
                 data_type = (char*)"undefined";
                 break;
@@ -337,6 +346,8 @@ intf_ret ocistmt::rows(void * row_list,
 						(*string_append)((char*)_columns[i].row_valp, 7, &row);
 						}
 						break;
+					case SQLT_RID:
+					case SQLT_RDD:
 					case SQLT_NUM:
 					case SQLT_CHR:
 						(*string_append)((char*)_columns[i].row_valp, strlen((char*)_columns[i].row_valp), &row);

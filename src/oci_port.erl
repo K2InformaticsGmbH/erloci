@@ -19,6 +19,8 @@
 
 %% API
 -export([
+    run/2,
+
     start_link/1,
     stop/1,
     logging/2,
@@ -45,6 +47,7 @@
 }).
 
 -define(log(__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Format, __Args); true -> ok end).
+-define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
 
 %% External API
 start_link(Options) ->
@@ -68,25 +71,25 @@ stop(PortPid) ->
 
 
 logging(enable, {?MODULE, PortPid}) ->
-    gen_server:call(PortPid, {port_call, {?RMOTE_MSG, ?DBG_FLAG_ON}}, ?PORT_TIMEOUT);
+    gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]}, ?PORT_TIMEOUT);
 logging(disable, {?MODULE, PortPid}) ->
-    gen_server:call(PortPid, {port_call, {?RMOTE_MSG, ?DBG_FLAG_OFF}}, ?PORT_TIMEOUT).
+    gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_OFF]}, ?PORT_TIMEOUT).
 
 get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
 when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
-    case gen_server:call(PortPid, {port_call, {?GET_SESSN, Tns, Usr, Pswd}}, ?PORT_TIMEOUT) of
+    case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd]}, ?PORT_TIMEOUT) of
         {error, Error} -> {error, Error};
         SessionId -> {?MODULE, PortPid, SessionId}
     end.
 
 close({?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, {?PUT_SESSN, SessionId}}, ?PORT_TIMEOUT);
+    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT);
 close({?MODULE, statement, PortPid, StmtId}) ->
-    gen_server:call(PortPid, {port_call, {?CLSE_STMT, StmtId}}, ?PORT_TIMEOUT).
+    gen_server:call(PortPid, {port_call, [?CLSE_STMT, StmtId]}, ?PORT_TIMEOUT).
 
 inject_rowid(Sql) ->
     {ok,{[{PT,_}],_}} = sqlparse:parsetree(Sql),
-    {NewSql, NewPT} = case PT of
+    {NewSql, _NewPT} = case PT of
         {select, Args} ->
             {fields, Flds} = lists:keyfind(fields, 1, Args),
             {from, [FirstTable|_]=Forms} = lists:keyfind(from, 1, Args),
@@ -111,18 +114,18 @@ inject_rowid(Sql) ->
                 )],
             NewArgs = lists:keyreplace(fields, 1, Args, {fields, NewFields}),
             NPT = {select, NewArgs},
-            {sqlparse:fold(NPT), NPT};
+            {list_to_binary(sqlparse:fold(NPT)), NPT};
         _ -> {Sql, PT}
     end,
-io:format(user, "~n________________________~nSQL ~p~n", [NewSql]),
-io:format(user, "Old SQL ~p~n", [Sql]),
-io:format(user, "Old parse tree ~p~n", [PT]),
-io:format(user, "New parse tree ~p~n________________________~n", [NewPT]),
+%io:format(user, "~n________________________~nSQL ~p~n", [NewSql]),
+%io:format(user, "Old SQL ~p~n", [Sql]),
+%io:format(user, "Old parse tree ~p~n", [PT]),
+%io:format(user, "New parse tree ~p~n________________________~n", [_NewPT]),
     NewSql.
 
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     NewSql = inject_rowid(Sql),
-    R = gen_server:call(PortPid, {port_call, {?PREP_STMT, SessionId, NewSql}}, ?PORT_TIMEOUT),
+    R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, NewSql]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {stmt,StmtId} -> {?MODULE, statement, PortPid, StmtId};
@@ -130,7 +133,7 @@ prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     end.
 
 exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
-    R = gen_server:call(PortPid, {port_call, {?EXEC_STMT, StmtId}}, ?PORT_TIMEOUT),
+    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {cols, Clms} -> {ok, Clms};
@@ -138,7 +141,7 @@ exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
     end.
 
 fetch_rows(Count, {?MODULE, statement, PortPid, StmtId}) ->
-    gen_server:call(PortPid, {port_call, {?FTCH_ROWS, StmtId, Count}}, ?PORT_TIMEOUT).
+    gen_server:call(PortPid, {port_call, [?FTCH_ROWS, StmtId, Count]}, ?PORT_TIMEOUT).
 
 
 %% Callbacks
@@ -216,11 +219,15 @@ log(Sock) ->
     end.
 
 handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
-    Cmd = list_to_tuple([From|tuple_to_list(Msg)]),
+    Cmd = [From | Msg],
     %CmdBin = term_to_binary(Cmd),
     %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
     %?Debug(" ~p", [Cmd]),
-    true = port_command(Port, term_to_binary(Cmd)),
+    %case Cmd of
+    %    [_,C,S|Args] -> ?Info("PORT CMD : ~s ~p\n~p", [?CMDSTR(C),S,Args]);
+    %    [_,C|Args] -> ?Info("PORT CMD : ~s\n~p", [?CMDSTR(C),Args])
+    %end,
+    true = port_command(Port, term_to_binary(list_to_tuple(Cmd))),
     %io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
     {noreply, State}. %% we will reply inside handle_info_result
 
@@ -322,13 +329,13 @@ signal_str(34) -> {'SIGAIO',        ignore, "Asynchronous I/O"};
 signal_str(N)  -> {udefined,        ignore, N}.
 
 %
-% Eunit tests
+%test stubs
 %
--ifdef(TEST).
 
--include_lib("eunit/include/eunit.hrl").
-
--define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
+run(Threads, InsertCount) ->
+    OciSession = setup(),
+    run_test(OciSession, Threads, InsertCount),
+    teardown(OciSession).
 
 setup() ->
     OciPort = oci_port:start_link([{logging, true}]),
@@ -350,19 +357,7 @@ setup() ->
 
 teardown(_OciSession) -> ok.
 
-db_test_() ->
-    {timeout, 60, {
-        setup,
-        fun setup/0,
-        fun teardown/1,
-        {with, [
-            fun db_perf/1
-        ]}
-    }}.
-
-db_perf(OciSession) ->
-    Threads = 1,
-    InsertCount = 1,
+run_test(OciSession, Threads, InsertCount) ->
     This = self(),
     [(fun(Idx) ->
         Table = "erloci_table_"++Idx,
@@ -376,24 +371,10 @@ db_perf(OciSession) ->
     || I <- lists:seq(1,Threads)],
     receive_all(OciSession, Threads).
 
-receive_all(OciSession, Count) -> receive_all(OciSession, Count, []).
-receive_all(OciSession, 0, Acc) ->
-    OciSession:close(),
-    [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime) ->
-        InsRate = erlang:trunc(InsertCount / InsertTime),
-        SelRate = erlang:trunc(SelectCount / SelectTime),
-        io:format(user, "~p insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
-    end)(T, Ic, It, Sc, St)
-    || {T, Ic, It, Sc, St} <- Acc];
-receive_all(OciSession, Count, Acc) ->
-    receive
-        {T, Ic, It, Sc, St} ->
-            receive_all(OciSession, Count-1, [{T, Ic, It, Sc, St}|Acc])
-    after
-        (100*1000) ->
-            io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
-            receive_all(OciSession, 0, Acc)
-    end.
+throw_if_error(Parent, {error, Error}, Msg) ->
+    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
+    throw({Msg, Error});
+throw_if_error(_,_,_) -> ok.
 
 create_table(OciSession, Table) ->
     Stmt = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
@@ -416,6 +397,25 @@ create_table(OciSession, Table) ->
     throw_if_error(undefined, Res, "create "++Table++" exec failed"),
     Stmt0:close(),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI create ~p~n", [Res]))).
+
+receive_all(OciSession, Count) -> receive_all(OciSession, Count, []).
+receive_all(OciSession, 0, Acc) ->
+    OciSession:close(),
+    [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime) ->
+        InsRate = erlang:trunc(InsertCount / InsertTime),
+        SelRate = erlang:trunc(SelectCount / SelectTime),
+        io:format(user, "~p insert ~p, ~p sec, ~p rows/sec    select ~p, ~p sec, ~p rows/sec~n", [Table,InsertCount, InsertTime, InsRate,SelectCount, SelectTime, SelRate])
+    end)(T, Ic, It, Sc, St)
+    || {T, Ic, It, Sc, St} <- Acc];
+receive_all(OciSession, Count, Acc) ->
+    receive
+        {T, Ic, It, Sc, St} ->
+            receive_all(OciSession, Count-1, [{T, Ic, It, Sc, St}|Acc])
+    after
+        (100*1000) ->
+            io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
+            receive_all(OciSession, 0, Acc)
+    end.
 
 insert_select(OciSession, Table, InsertCount, Parent) ->
     try
@@ -442,11 +442,9 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
-io:format(user, "-----------------~n", []),
-        timer:sleep(5000),
+        %timer:sleep(10000),
         Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" prep failed"),
-io:format(user, ".................~n", []),
         Cols = Statement:exec_stmt(),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
@@ -466,9 +464,25 @@ io:format(user, ".................~n", []),
 print_if_error({error, Error}, Msg) -> oci_logger:log(lists:flatten(io_lib:format("___________----- continue after ~p ~p~n", [Msg,Error])));
 print_if_error(_, _) -> ok.
 
-throw_if_error(Parent, {error, Error}, Msg) ->
-    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
-    throw({Msg, Error});
-throw_if_error(_,_,_) -> ok.
+%
+% Eunit tests
+%
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+db_test_() ->
+    {timeout, 60, {
+        setup,
+        fun setup/0,
+        fun teardown/1,
+        {with, [
+            fun db_perf/1
+        ]}
+    }}.
+
+db_perf(OciSession) ->
+    run_test(OciSession, 1, 1).
+
 
 -endif.
