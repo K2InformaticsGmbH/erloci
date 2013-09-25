@@ -14,6 +14,11 @@
  */ 
 #pragma once
 
+#include <iostream>
+#include <list>
+
+using namespace std;
+
 // Protocol spec
 #define PKT_LEN_BYTES	4
 
@@ -70,7 +75,7 @@ extern const erlcmdtable cmdtbl[];
     {GET_SESSN,	"GET_SESSN",	4, "Get a OCI session"},\
     {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
     {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
-    {BIND_ARGS,	"BIND_ARGS",	4, "Bind parameters into prepared SQL statement"},\
+    {BIND_ARGS,	"BIND_ARGS",	3, "Bind parameters into prepared SQL statement"},\
     {EXEC_STMT,	"EXEC_STMT",	2, "Execute a prepared statement"},\
     {FTCH_ROWS,	"FTCH_ROWS",	3, "Fetch rows from statements producing rows"},\
     {CLSE_STMT,	"CLSE_STMT",	2, "Close a statement"},\
@@ -112,8 +117,8 @@ extern void log_args(int, void *, const char *);
 extern char * connect_tcp(int);
 extern void close_tcp ();
 
-extern inp_t * map_to_bind_args(void *);
-extern void * build_term_from_bind_args(inp_t *);
+/*extern inp_t * map_to_bind_args(void *);
+extern void * build_term_from_bind_args(inp_t *);*/
 
 #ifdef REMOTE_LOG
 #undef REMOTE_LOG
@@ -151,6 +156,7 @@ extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
 extern void append_string_to_list(const char * string, size_t len, void * list);
 extern void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list);
+extern bool map_to_bind_args(void * _args, list<var> & vars);
 
 #define MAX_FORMATTED_STR_LEN 1024
 

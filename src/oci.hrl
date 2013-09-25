@@ -50,14 +50,15 @@
                             (__C)           -> "UNKNOWN "++integer_to_list(__C)
                         end)(__CMD)).
 
+%% Bind arg types
+% MUST match with enum VAR_TYPE ocistmt.h
+-define(NUMBER, 0).
+-define(STRING, 1).
+
 % Argument Types
 -define(ARG_DIR_IN,			0).
 -define(ARG_DIR_OUT,		1).
 -define(ARG_DIR_INOUT,		2).
-
-% Datatype Codes
--define(NUMBER,				0).
--define(STRING,				1).
 
 -define(APP_START_TIME, 	1000).
 

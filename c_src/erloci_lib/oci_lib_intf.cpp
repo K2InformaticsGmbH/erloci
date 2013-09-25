@@ -13,8 +13,6 @@
  * limitations under the License.
  */ 
 
-#ifndef OCCI
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -28,89 +26,74 @@
 #define	SPRINT snprintf
 #endif
 
-/* constants */
-#define POOL_MIN	0
-#define POOL_MAX	10
-#define POOL_INCR	0
-#define MAX_COLUMS	1000
-
-/* opaque types */
-typedef struct column_info {
-    ub2  dtype;
-    ub4	 dlen;
-	sb2  indp;
-} column_info;
-
-#include "ocisession.h"
-intf_ret oci_get_session(void **conn_handle,
-						 const char * connect_str, const int connect_str_len,
-						 const char * user_name, const int user_name_len,
-						 const char * password, const int password_len)
+/*
+ * checkerr0: This function prints a detail error report.
+ *			  Used to "warp" invocation of OCI calls.
+ * Parameters:
+ *	handle (IN)	- can be either an environment handle or an error handle.
+ *				  for OCI calls that take in an OCIError Handle:
+ *				  pass in an OCIError Handle
+ *
+ *				  for OCI calls that don't take an OCIError Handle,
+ *                pass in an OCIEnv Handle
+ *
+ * htype (IN)   - type of handle: OCI_HTYPE_ENV or OCI_HTYPE_ERROR
+ *
+ * status (IN)  - the status code returned from the OCI call
+ *
+ * Notes:
+ *				  Note that this "exits" on the first
+ *                OCI_ERROR/OCI_INVALID_HANDLE.
+ *				  CUSTOMIZE ACCORDING TO YOUR ERROR HANDLING REQUIREMNTS
+ */
+void checkerr0(intf_ret *r, ub4 htype, sword status, const char * function_name, int line_no)
 {
-	intf_ret r;
-	r.fn_ret = SUCCESS;
-	ocisession * ocisess = new ocisession(connect_str, connect_str_len, user_name, user_name_len, password, password_len);
+    /* a buffer to hold the error message */
+    r->gerrcode = 0;
+    r->fn_ret = FAILURE;
 
-	*conn_handle = ocisess;
-
-	return r;
-}
-
-intf_ret oci_free_session(void *conn_handle)
-{
-	intf_ret r;
-	r.fn_ret = SUCCESS;
-
-	ocisession * ocisess = (ocisession *)conn_handle;
-
-	delete ocisess;
-
-    return r;
-}
-
-intf_ret oci_exec_sql(const void *conn_handle, void ** stmt_handle, const unsigned char * query_str, int query_str_len
-					  , inp_t *params_head, void * column_list
-					  , void (*coldef_append)(const char *, const char *, const unsigned int, void *))
-{
-    intf_ret r;
-
-	r.fn_ret = SUCCESS;
-
-	ocisession * ocisess = (ocisession *)conn_handle;
-	ocistmt *stmt = ocisess->prepare_stmt((text*)query_str, query_str_len);
-	stmt->execute(column_list, coldef_append);
-
-	*stmt_handle = stmt;
-
-	return r;
-}
-
-intf_ret oci_close_statement(void * stmt_handle)
-{
-	intf_ret r;
-
-	r.fn_ret = SUCCESS;
-
-	ocistmt * stmt = (ocistmt *)stmt_handle;
-	stmt->close();
-
-	//REMOTE_LOG("closed statement %p\n", stmt);
-	return r;
-}
-
-intf_ret oci_produce_rows(void * stmt_handle
-						 , void * row_list
-						 , void (*string_append)(const char * string, size_t len, void * list)
-						 , void (*list_append)(const void * sub_list, void * list)
-						 , size_t (*sizeof_resp)(void * resp)
-                         , int maxrowcount)
-{
-	intf_ret r;
-
-	ocistmt *stmt = (ocistmt*)stmt_handle;
-	r = stmt->rows(row_list,string_append,list_append,sizeof_resp, maxrowcount);
-
-	return r;
+    switch (status) {
+    case OCI_SUCCESS:
+		r->fn_ret = SUCCESS;
+		//SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Ok - OCI_SUCCESS\n", function_name, line_no);
+        break;
+    case OCI_SUCCESS_WITH_INFO:
+		r->fn_ret = SUCCESS;
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_SUCCESS_WITH_INFO\n", function_name, line_no);
+        break;
+    case OCI_NEED_DATA:
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NEED_DATA\n", function_name, line_no);
+        break;
+    case OCI_NO_DATA:
+		r->fn_ret = SUCCESS;
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NO_DATA\n", function_name, line_no);
+        break;
+    case OCI_ERROR:
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_ERROR\n", function_name, line_no);
+        if (r->handle) {
+            OCIErrorGet(r->handle, 1, (text *) NULL, &(r->gerrcode),
+                               (OraText*)(r->gerrbuf), (ub4)sizeof(r->gerrbuf), htype);
+			r->fn_ret = CONTINUE_WITH_ERROR;
+        } else {
+			SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] NULL Handle\n", function_name, line_no);
+			SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Unable to extract detailed diagnostic information\n", function_name, line_no);
+	        r->fn_ret = FAILURE;
+        }
+        break;
+    case OCI_INVALID_HANDLE:
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_INVALID_HANDLE\n", function_name, line_no);
+        break;
+    case OCI_STILL_EXECUTING:
+		r->fn_ret = CONTINUE_WITH_ERROR;
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_STILL_EXECUTING\n", function_name, line_no);
+        break;
+    case OCI_CONTINUE:
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_CONTINUE\n", function_name, line_no);
+        break;
+    default:
+		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Unknown - %d\n", function_name, line_no, status);
+        break;
+    }
 }
 
 #if 0
@@ -187,75 +170,3 @@ REMOTE_LOG("..........................TRACE...\n");
 	return SUCCESS;
 }
 #endif
-
-/*
- * checkerr0: This function prints a detail error report.
- *			  Used to "warp" invocation of OCI calls.
- * Parameters:
- *	handle (IN)	- can be either an environment handle or an error handle.
- *				  for OCI calls that take in an OCIError Handle:
- *				  pass in an OCIError Handle
- *
- *				  for OCI calls that don't take an OCIError Handle,
- *                pass in an OCIEnv Handle
- *
- * htype (IN)   - type of handle: OCI_HTYPE_ENV or OCI_HTYPE_ERROR
- *
- * status (IN)  - the status code returned from the OCI call
- *
- * Notes:
- *				  Note that this "exits" on the first
- *                OCI_ERROR/OCI_INVALID_HANDLE.
- *				  CUSTOMIZE ACCORDING TO YOUR ERROR HANDLING REQUIREMNTS
- */
-void checkerr0(intf_ret *r, ub4 htype, sword status, const char * function_name, int line_no)
-{
-    /* a buffer to hold the error message */
-    r->gerrcode = 0;
-    r->fn_ret = FAILURE;
-
-    switch (status) {
-    case OCI_SUCCESS:
-		r->fn_ret = SUCCESS;
-		//SPRINT(gerrbuf, sizeof(gerrbuf), "[%s:%d] Ok - OCI_SUCCESS\n", function_name, line_no);
-        break;
-    case OCI_SUCCESS_WITH_INFO:
-		r->fn_ret = SUCCESS;
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_SUCCESS_WITH_INFO\n", function_name, line_no);
-        break;
-    case OCI_NEED_DATA:
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NEED_DATA\n", function_name, line_no);
-        break;
-    case OCI_NO_DATA:
-		r->fn_ret = SUCCESS;
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_NO_DATA\n", function_name, line_no);
-        break;
-    case OCI_ERROR:
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_ERROR\n", function_name, line_no);
-        if (r->handle) {
-            OCIErrorGet(r->handle, 1, (text *) NULL, &(r->gerrcode),
-                               (OraText*)(r->gerrbuf), (ub4)sizeof(r->gerrbuf), htype);
-			r->fn_ret = CONTINUE_WITH_ERROR;
-        } else {
-			SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] NULL Handle\n", function_name, line_no);
-			SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Unable to extract detailed diagnostic information\n", function_name, line_no);
-	        r->fn_ret = FAILURE;
-        }
-        break;
-    case OCI_INVALID_HANDLE:
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_INVALID_HANDLE\n", function_name, line_no);
-        break;
-    case OCI_STILL_EXECUTING:
-		r->fn_ret = CONTINUE_WITH_ERROR;
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_STILL_EXECUTING\n", function_name, line_no);
-        break;
-    case OCI_CONTINUE:
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Error - OCI_CONTINUE\n", function_name, line_no);
-        break;
-    default:
-		SPRINT(r->gerrbuf, sizeof(r->gerrbuf), "[%s:%d] Unknown - %d\n", function_name, line_no, status);
-        break;
-    }
-}
-
-#endif //OCCI

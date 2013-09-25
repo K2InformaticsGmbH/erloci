@@ -14,8 +14,6 @@
  */ 
 #include "stdafx.h"
 
-#include <iostream>
-
 #include "oci_marshal.h"
 #include "erl_interface.h"
 
@@ -24,8 +22,6 @@
 #else
 #include <pthread.h>
 #endif
-
-using namespace std;
 
 #if DEBUG <= DBG_1
 #define ENTRY()	{REMOTE_LOG("Entry\n");}
@@ -311,6 +307,7 @@ void unlock_log()
 #endif
 }
 
+/*
 void * build_term_from_bind_args(inp_t * bind_var_list_head)
 {
     if (bind_var_list_head == NULL)
@@ -336,87 +333,41 @@ void * build_term_from_bind_args(inp_t * bind_var_list_head)
 
     return resp_args;
 }
+*/
 
-inp_t * map_to_bind_args(void * _args)
+bool map_to_bind_args(void * _args, list<var> & vars)
 {
     ETERM * args = (ETERM *)_args;
     if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
         return NULL;
 
-    int num_vars = erl_length(args),
-        idx = 0;
-    inp_t * bind_var_list_head	= NULL,
-             * bind_var_cur		= NULL,
-                   * bind_var_t			= NULL;
+    int num_vars = erl_length(args);
+    var v;
 
     ETERM * item = NULL;
     ETERM * arg = NULL;
-    DATA_TYPES dty;
-    DATA_DIR dir;
+	size_t len = 0;
     do {
         if ((item = erl_hd(args)) == NULL	||
             !ERL_IS_TUPLE(item)				||
-            erl_size(item) != 3)
+            erl_size(item) != 2)
             break;
 
-        if ((arg = erl_element(1, item)) == NULL || !ERL_IS_INTEGER(arg))
+        if ((arg = erl_element(1, item)) == NULL || !ERL_IS_BINARY(arg))
             break;
-        dty = (DATA_TYPES)ERL_INT_VALUE(arg);
+		len = ERL_BIN_SIZE(arg);
+		v.name = new char[len+1];
+        strncpy(v.name, (char*)ERL_BIN_PTR(arg), len);
+		v.name[len]='\0';
 
         if ((arg = erl_element(2, item)) == NULL || !ERL_IS_INTEGER(arg))
             break;
-        dir = (DATA_DIR)ERL_INT_VALUE(arg);
+        v.type = (VAR_TYPE)ERL_INT_VALUE(arg);
 
-        if ((arg = erl_element(3, item)) == NULL)
-            break;
-        else {
-            bool error = false;
-            switch(dty) {
-            case NUMBER:
-                if (!ERL_IS_INTEGER(arg)) error = true;
-                bind_var_t = (inp_t*) new unsigned char[sizeof(inp_t)+sizeof(int)];
-                bind_var_t->vlen = sizeof(int);
-                bind_var_t->vp = (((char *)bind_var_t) + sizeof(inp_t));
-                *(int*)(bind_var_t->vp) = ERL_INT_VALUE(arg);
-                break;
-            case STRING:
-                if (!ERL_IS_BINARY(arg)) error = true;
-                bind_var_t = (inp_t*) new unsigned char[sizeof(inp_t)+ERL_BIN_SIZE(arg)+1];
-                bind_var_t->vlen = ERL_BIN_SIZE(arg) + 1;
-                bind_var_t->vp = (((char *)bind_var_t) + sizeof(inp_t));
-                strncpy_s((char*)(bind_var_t->vp), bind_var_t->vlen, (const char *) ERL_BIN_PTR(arg), ERL_BIN_SIZE(arg));
-                ((char*)(bind_var_t->vp))[ERL_BIN_SIZE(arg)] = '\0';
-                break;
-            default:
-                break;
-            };
-
-            if (!error && bind_var_t != NULL) {
-                bind_var_t->dty = dty;
-                bind_var_t->dir = dir;
-                bind_var_t->next = NULL;
-                if (idx == 0)
-                    bind_var_list_head = bind_var_cur = bind_var_t;
-                else {
-                    bind_var_cur->next = bind_var_t;
-                    bind_var_cur = bind_var_t;
-                }
-                bind_var_t = NULL;
-            } else
-                break;
-        }
+		vars.push_back(v);
 
         args = erl_tl(args);
-        ++idx;
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
 
-    if (idx != num_vars) {
-        while(bind_var_list_head != NULL) {
-            bind_var_t = bind_var_list_head;
-            bind_var_list_head = bind_var_list_head->next;
-            delete bind_var_t;
-        }
-        bind_var_list_head = NULL;
-    }
-    return bind_var_list_head;
+	return true;
 }

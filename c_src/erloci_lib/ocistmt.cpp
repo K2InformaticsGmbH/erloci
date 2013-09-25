@@ -1,7 +1,7 @@
 #include "ocistmt.h"
 #include "ocisession.h"
 
-#include<cstring>
+#include <cstring>
 
 #include <oci.h>
 
@@ -275,6 +275,11 @@ void ocistmt::execute(void * column_list,
 
         //REMOTE_LOG("Port: Returning Column(s)\n");
     }
+}
+
+void ocistmt::bind(list<var> & args)
+{
+	_args = args;
 }
 
 intf_ret ocistmt::rows(void * row_list,

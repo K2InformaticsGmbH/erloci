@@ -26,6 +26,7 @@
     logging/2,
     get_session/4,
     prep_sql/2,
+%    bind_vars/3,
     exec_stmt/1,
     fetch_rows/2,
     close/1,
@@ -139,6 +140,11 @@ exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
         {cols, Clms} -> {ok, Clms};
         R -> R
     end.
+
+bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
+    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, BindVars]}, ?PORT_TIMEOUT),
+    timer:sleep(100), % Port driver breaks on faster pipe access
+    R.
 
 fetch_rows(Count, {?MODULE, statement, PortPid, StmtId}) ->
     gen_server:call(PortPid, {port_call, [?FTCH_ROWS, StmtId, Count]}, ?PORT_TIMEOUT).

@@ -230,6 +230,70 @@ error_exit:
 	return ret;
 }
 
+bool cmd_bind_args(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_ARGS)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], BIND_ARGS);
+		REMOTE_LOG("ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Statement Handle, BindList
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& ERL_IS_LIST(args[2])) {
+
+		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[1])
+												? ERL_INT_VALUE(args[1])
+												: ERL_LL_UVALUE(args[1]));
+        int rowcount = ERL_INT_VALUE(args[2]);
+
+		ETERM *rows = NULL;
+		try {
+			intf_ret r = statement_handle->bind();
+			if (r.fn_ret == MORE || r.fn_ret == DONE) {
+				if (rows != NULL) {
+                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
+					erl_free_term(rows);
+				}
+                else
+                    resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
+            }
+		} catch (intf_ret r) {
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
+			if (r.fn_ret == CONTINUE_WITH_ERROR)
+				REMOTE_LOG("Continue with ERROR fetch STMT %s\n", r.gerrbuf);
+			else {
+				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				ret = true;
+			}
+		} catch (string str) {
+			REMOTE_LOG("ERROR %s\n", str);
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], FTCH_ROWS, str);
+			ret = true;
+		} catch (...) {
+			REMOTE_LOG("ERROR unknown\n");
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], FTCH_ROWS);
+			ret = true;
+		}
+    }
+
+error_exit:
+	if(write_resp(resp) < 0)
+        ret = true;
+
+	erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
+
+    return ret;
+}
+
 bool cmd_exec_stmt(ETERM * command)
 {
 	bool ret = false;
@@ -430,6 +494,7 @@ bool cmd_processor(void * param)
         case GET_SESSN:	ret = cmd_get_session(command);		break;
         case PUT_SESSN:	ret = cmd_release_conn(command);	break;
         case PREP_STMT:	ret = cmd_prep_sql(command);		break;
+        case BIND_ARGS:	ret = cmd_bind_args(command);		break;
         case EXEC_STMT:	ret = cmd_exec_stmt(command);		break;
         case FTCH_ROWS:	ret = cmd_fetch_rows(command);		break;
         case CLSE_STMT:	ret = cmd_close_stmt(command);		break;

@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <vector>
+#include <list>
 
 using namespace std;
 
@@ -22,17 +23,18 @@ private:
 	void *_svchp;
 	void *_stmthp;
 	void *_errhp;
-	void * _ocisess;
+	void *_ocisess;
 	unsigned int _iters;
 	unsigned int _stmt_typ;
 	vector<column> _columns;
+	list<var> _args;
 	~ocistmt(void);
 
 public:
 	ocistmt(void *ocisess, unsigned char *stmt, unsigned int stmt_len);
-	
-	void bind();
+
 	void execute(void * column_list, void (*coldef_append)(const char *, const char *, const unsigned int, void *));
+	void bind(list<var> & args);
 	intf_ret rows(void * row_list,
 				void (*string_append)(const char * string, size_t len, void * list),
 				void (*list_append)(const void * sub_list, void * list),
