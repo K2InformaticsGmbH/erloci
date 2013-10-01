@@ -457,7 +457,7 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         Cols = Statement:exec_stmt(),
 %io:format(user, "binding...~n", []),
 %        timer:sleep(10000),
-        Statement:bind_vars([{<<":col1">>, 1}, {<<":col2">>, 2}]),
+        Statement:bind_vars([{<<":col1">>, ?NUMBER}, {<<":col2">>, ?STRING}]),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = _RowResp = Statement:fetch_rows(100),
