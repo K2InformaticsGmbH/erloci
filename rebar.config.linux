@@ -2,8 +2,9 @@
 	{"CXX", "g++"},
 	{"CC", "g++"},
     {"CXXFLAGS", "-Ic_src/erloci_lib"},
-	{"LDFLAGS", "-Lc_src/lib/instantclient -Lpriv -locci -lclntsh -lnnz11 -lerloci -lpthread"}
+	{"LDFLAGS", "c_src/lib/instantclient/libocci.so.12.1 c_src/lib/instantclient/libnnz12.so c_src/lib/instantclient/libclntsh.so.12.1 -Lc_src/lib/instantclient -Lpriv -lerloci -lpthread"} %  -locci -lclntsh -lnnz11
 ]}.
+
 {port_specs, [{"priv/erloci",
 					[
 						"c_src/erloci_drv/e*.cpp",
@@ -15,3 +16,7 @@
 
 {pre_hooks, [{compile, "make -f c_src/Makefile"},
              {clean,   "make -f c_src/Makefile clean"}]}.
+
+{deps, [
+    {sqlparse, "1.0.1", {git, "git@github.com:k2informatics/sqlparse.git", master}}
+]}.
