@@ -156,7 +156,7 @@ extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
 extern void append_string_to_list(const char * string, size_t len, void * list);
 extern void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list);
-extern bool map_to_bind_args(void * _args, list<var> & vars);
+extern void map_to_bind_args(void *, list<var> &);
 
 #define MAX_FORMATTED_STR_LEN 1024
 

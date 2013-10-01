@@ -252,34 +252,21 @@ bool cmd_bind_args(ETERM * command)
 		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[1])
 												? ERL_INT_VALUE(args[1])
 												: ERL_LL_UVALUE(args[1]));
-        int rowcount = ERL_INT_VALUE(args[2]);
 
-		ETERM *rows = NULL;
 		try {
-			intf_ret r = statement_handle->bind();
-			if (r.fn_ret == MORE || r.fn_ret == DONE) {
-				if (rows != NULL) {
-                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
-					erl_free_term(rows);
-				}
-                else
-                    resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
-            }
+			map_to_bind_args(args[2], statement_handle->get_bind_args());
+            resp = erl_format((char*)"{~w,~i,ok", args[0], BIND_ARGS);
 		} catch (intf_ret r) {
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				REMOTE_LOG("Continue with ERROR fetch STMT %s\n", r.gerrbuf);
-			else {
-				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
-				ret = true;
-			}
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
+			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			ret = true;
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str);
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], FTCH_ROWS, str);
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], BIND_ARGS, str);
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], FTCH_ROWS);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], BIND_ARGS);
 			ret = true;
 		}
     }
@@ -289,7 +276,7 @@ error_exit:
         ret = true;
 
 	erl_free_compound(command);
-	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
+	UNMAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), args);
 
     return ret;
 }

@@ -335,11 +335,11 @@ void * build_term_from_bind_args(inp_t * bind_var_list_head)
 }
 */
 
-bool map_to_bind_args(void * _args, list<var> & vars)
+void map_to_bind_args(void * _args, list<var> & vars)
 {
     ETERM * args = (ETERM *)_args;
     if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
-        return NULL;
+        return;
 
     int num_vars = erl_length(args);
     var v;
@@ -368,6 +368,4 @@ bool map_to_bind_args(void * _args, list<var> & vars)
 
         args = erl_tl(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
-
-	return true;
 }

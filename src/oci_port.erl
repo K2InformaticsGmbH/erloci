@@ -26,7 +26,7 @@
     logging/2,
     get_session/4,
     prep_sql/2,
-%    bind_vars/3,
+    bind_vars/2,
     exec_stmt/1,
     fetch_rows/2,
     close/1,
@@ -124,6 +124,15 @@ inject_rowid(Sql) ->
 %io:format(user, "New parse tree ~p~n________________________~n", [_NewPT]),
     NewSql.
 
+% BindVars = [{<<":col1">>, 1}, {<<":col2">>, 2}]
+bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) when is_list(BindVars) ->
+    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, StmtId, BindVars]}, ?PORT_TIMEOUT),
+    timer:sleep(100), % Port driver breaks on faster pipe access
+    case R of
+        ok -> ok;
+        R -> R
+    end.
+
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     NewSql = inject_rowid(Sql),
     R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, NewSql]}, ?PORT_TIMEOUT),
@@ -140,11 +149,6 @@ exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
         {cols, Clms} -> {ok, Clms};
         R -> R
     end.
-
-bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
-    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, BindVars]}, ?PORT_TIMEOUT),
-    timer:sleep(100), % Port driver breaks on faster pipe access
-    R.
 
 fetch_rows(Count, {?MODULE, statement, PortPid, StmtId}) ->
     gen_server:call(PortPid, {port_call, [?FTCH_ROWS, StmtId, Count]}, ?PORT_TIMEOUT).
@@ -448,10 +452,12 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
           end)(integer_to_list(Idx))
         || Idx <- lists:seq(1, InsertCount)],
         InsertEnd = ?NowMs,
-        %timer:sleep(10000),
         Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" prep failed"),
         Cols = Statement:exec_stmt(),
+%io:format(user, "binding...~n", []),
+%        timer:sleep(10000),
+        Statement:bind_vars([{<<":col1">>, 1}, {<<":col2">>, 2}]),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = _RowResp = Statement:fetch_rows(100),

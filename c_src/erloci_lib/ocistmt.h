@@ -34,7 +34,7 @@ public:
 	ocistmt(void *ocisess, unsigned char *stmt, unsigned int stmt_len);
 
 	void execute(void * column_list, void (*coldef_append)(const char *, const char *, const unsigned int, void *));
-	void bind(list<var> & args);
+	list<var> & get_bind_args();
 	intf_ret rows(void * row_list,
 				void (*string_append)(const char * string, size_t len, void * list),
 				void (*list_append)(const void * sub_list, void * list),

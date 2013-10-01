@@ -277,9 +277,9 @@ void ocistmt::execute(void * column_list,
     }
 }
 
-void ocistmt::bind(list<var> & args)
+list<var> & ocistmt::get_bind_args()
 {
-	_args = args;
+	return _args;
 }
 
 intf_ret ocistmt::rows(void * row_list,
