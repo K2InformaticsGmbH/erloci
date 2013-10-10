@@ -1,31 +1,50 @@
 ERLOCI_LIB_PATH = c_src/erloci_lib
 ERLOCI_DRV_PATH = c_src/erloci_drv
 OCI_PATH = c_src/lib/instantclient
-CXXFLAGS = -I$(ERLANG_HOME)/lib/erl_interface-3.7.11/include -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_PATH)/include/
+
+ERLOCI_LIB_SRCS = 	$(ERLOCI_LIB_PATH)/ocisession.cpp	\
+				  	$(ERLOCI_LIB_PATH)/ocistmt.cpp		\
+					$(ERLOCI_LIB_PATH)/oci_lib_intf.cpp
+
+ERLOCI_LIB_OBJS =	$(ERLOCI_LIB_SRCS:.cpp=.o)
+
+ERLOCI_DRV_SRCS =	$(ERLOCI_DRV_PATH)/cmd_processors.cpp	\
+					$(ERLOCI_DRV_PATH)/cmd_thread_pool.cpp 	\
+					$(ERLOCI_DRV_PATH)/erloci_drv.cpp 		\
+					$(ERLOCI_DRV_PATH)/oci_logger.cpp 		\
+					$(ERLOCI_DRV_PATH)/oci_marshal.cpp 		\
+					$(ERLOCI_DRV_PATH)/stdafx.cpp 			\
+					$(ERLOCI_DRV_PATH)/threadpool.cpp
+
+ERLOCI_DRV_OBJS = $(ERLOCI_DRV_SRCS:.cpp=.o)
+
+CXXFLAGS = -Wall -I$(ERLANG_HOME)/lib/erl_interface-3.7.11/include -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_PATH)/sdk/include/
+
+all: priv/erloci
+	@echo "All compiled"
+
+priv/erloci: priv/liberloci.a $(ERLOCI_DRV_OBJS)
+	g++ -Wall $^ -o $@
+
+.cpp.o:
+	g++ $(CXXFLAGS) -c $< -o $@
 
 # Compiling the common library
-priv/liberloci.a: c_src/erloci_lib/ocisession.o c_src/erloci_lib/ocistmt.o c_src/erloci_lib/oci_lib_intf.o
-	ar rcs priv/liberloci.a c_src/erloci_lib/oci_lib_intf.o c_src/erloci_lib/ocisession.o c_src/erloci_lib/ocistmt.o
+$(ERLOCI_LIB_OBJS): %.o : %.h
 
-oci_lib_intf.o: c_src/erloci_lib/oci_lib_intf.cpp c_src/erloci_lib/oci_lib_intf.h
-	g++ $(CXXFLAGS) -c c_src/erloci_lib/oci_lib_intf.cpp
-
-ocisession.o: c_src/erloci_lib/ocisession.cpp c_src/erloci_lib/ocisession.h
-	g++ $(CXXFLAGS) -c c_src/erloci_lib/ocisession.cpp
-
-ocistmt.o: c_src/erloci_lib/ocistmt.cpp c_src/erloci_lib/ocistmt.h
-	g++ $(CXXFLAGS) -c c_src/erloci_lib/ocistmt.cpp
+priv/liberloci.a: $(ERLOCI_LIB_OBJS)
+	ar rcs priv/liberloci.a $(ERLOCI_LIB_OBJS)
 
 # Compiling the driver
-cmd_processors.o: c_src/erloci_drv/cmd_processors.cpp c_src/erloci_drv/cmd_processors.h
-	g++ $(CXXFLAGS) -c c_src/erloci_drv/cmd_processors.cpp
-
-#all:;echo "$(PATH) ----- erlang home = $(ERLANG_HOME)"
-
-all: priv/liberloci.a c_src/erloci_drv/cmd_processors.o
-	@echo "All compiled"
+$(ERLOCI_DRV_PATH)/stdafx.cpp : $(ERLOCI_DRV_PATH)/stdafx.h
+$(ERLOCI_DRV_PATH)/threadpool.cpp : $(ERLOCI_DRV_PATH)/threadpool.h
+$(ERLOCI_DRV_PATH)/erloci_drv.cpp : $(ERLOCI_DRV_PATH)/stdafx.h $(ERLOCI_DRV_PATH)/cmd_processors.h $(ERLOCI_DRV_PATH)/oci_marshal.h
+$(ERLOCI_DRV_PATH)/oci_marshal.cpp : $(ERLOCI_DRV_PATH)/stdafx.h $(ERLOCI_DRV_PATH)/oci_marshal.h
+$(ERLOCI_DRV_PATH)/cmd_processors.cpp : $(ERLOCI_DRV_PATH)/cmd_processors.h $(ERLOCI_DRV_PATH)/oci_marshal.h $(ERLOCI_LIB_PATH)/ocisession.h $(ERLOCI_LIB_PATH)/ocistmt.h $(ERLOCI_LIB_PATH)/oci_lib_intf.h
+$(ERLOCI_DRV_PATH)/cmd_thread_pool.cpp : $(ERLOCI_DRV_PATH)/stdafx.h $(ERLOCI_DRV_PATH)/cmd_processors.h $(ERLOCI_DRV_PATH)/oci_marshal.h $(ERLOCI_DRV_PATH)/threadpool.h
 
 clean:
 	rm -rf c_src/erloci_drv/*.o
 	rm -rf c_src/erloci_lib/*.o
 	rm -rf priv/*.a
+	rm -rf priv/erloci
