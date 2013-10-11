@@ -312,24 +312,16 @@ run(Threads, InsertCount) ->
     teardown(OciSession).
 
 setup() ->
+    application:start(erloci),
     OciPort = oci_port:start_link([{logging, true}]),
-    OciSession = OciPort:get_session(
-                <<"(DESCRIPTION="
-                  "  (ADDRESS_LIST="
-                  "      (ADDRESS=(PROTOCOL=tcp)"
-                  "          (HOST=127.0.0.1)"
-                  "          (PORT=1521)"
-                  "      )"
-                  "  )"
-                  "  (CONNECT_DATA=(SERVICE_NAME=XE))"
-                  ")">>,
-                <<"bikram">>,
-                <<"abcd123">>),
+    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    OciSession = OciPort:get_session(Tns, User, Pswd),
     throw_if_error(undefined, OciSession, "session get failed"),
     oci_logger:log(lists:flatten(io_lib:format("___________----- OCI Session ~p~n", [OciSession]))),
     OciSession.
 
-teardown(_OciSession) -> ok.
+teardown(_OciSession) ->
+    application:stop(erloci).
 
 run_test(OciSession, Threads, InsertCount) ->
     This = self(),
@@ -459,6 +451,4 @@ db_test_() ->
 
 db_perf(OciSession) ->
     run_test(OciSession, 1, 1).
-
-
 -endif.
