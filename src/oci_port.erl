@@ -1,4 +1,4 @@
-%% Copyright 2012 K2Informatics GmbH, Root Laengenbold, Switzerland
+%% Copyright 2012 K2Informatics GmbH, Root Längenbold, Switzerland
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -29,8 +29,7 @@
     bind_vars/2,
     exec_stmt/1,
     fetch_rows/2,
-    close/1,
-    inject_rowid/1
+    close/1
 ]).
 
 %% gen_server callbacks
@@ -88,42 +87,6 @@ close({?MODULE, PortPid, SessionId}) ->
 close({?MODULE, statement, PortPid, StmtId}) ->
     gen_server:call(PortPid, {port_call, [?CLSE_STMT, StmtId]}, ?PORT_TIMEOUT).
 
-inject_rowid(Sql) ->
-    {ok,{[{PT,_}],_}} = sqlparse:parsetree(Sql),
-    {NewSql, _NewPT} = case PT of
-        {select, Args} ->
-            {fields, Flds} = lists:keyfind(fields, 1, Args),
-            {from, [FirstTable|_]=Forms} = lists:keyfind(from, 1, Args),
-            NewFields =
-                [list_to_binary(case FirstTable of
-                    {as, _, Alias} -> [Alias, ".ROWID"];
-                    Tab -> [Tab, ".ROWID"]
-                end) | lists:flatten([case F of
-                                        <<"*">> ->
-                                        lists:reverse(lists:foldl(
-                                            fun(T, AFields) ->
-                                                case T of
-                                                    {as, _, Alias} -> [list_to_binary([Alias,".*"]) | AFields];
-                                                    Tab -> [list_to_binary([Tab,".*"]) | AFields]
-                                                end
-                                            end,
-                                            [],
-                                            Forms));
-                                        _ -> F
-                                     end
-                                     || F <- Flds]
-                )],
-            NewArgs = lists:keyreplace(fields, 1, Args, {fields, NewFields}),
-            NPT = {select, NewArgs},
-            {list_to_binary(sqlparse:fold(NPT)), NPT};
-        _ -> {Sql, PT}
-    end,
-%io:format(user, "~n________________________~nSQL ~p~n", [NewSql]),
-%io:format(user, "Old SQL ~p~n", [Sql]),
-%io:format(user, "Old parse tree ~p~n", [PT]),
-%io:format(user, "New parse tree ~p~n________________________~n", [_NewPT]),
-    NewSql.
-
 % BindVars = [{<<":col1">>, 1}, {<<":col2">>, 2}]
 bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) when is_list(BindVars) ->
     R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, StmtId, BindVars]}, ?PORT_TIMEOUT),
@@ -134,8 +97,7 @@ bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) when is_list(BindVars
     end.
 
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
-    NewSql = inject_rowid(Sql),
-    R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, NewSql]}, ?PORT_TIMEOUT),
+    R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {stmt,StmtId} -> {?MODULE, statement, PortPid, StmtId};
