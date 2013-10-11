@@ -11,14 +11,16 @@
   {env, [ {logging, debug}
         , {default_connect_param, 
             {<<"(DESCRIPTION="
-                  "  (ADDRESS_LIST="
-                  "      (ADDRESS=(PROTOCOL=tcp)"
-                  "          (HOST=127.0.0.1)"
-                  "          (PORT=1521)"
-                  "      )"
-                  "  )"
-                  "  (CONNECT_DATA=(SERVICE_NAME=XE))"
-                  ")">>, <<"bikram">>, <<"abcd123">>}
+               "  (ADDRESS_LIST="
+               "      (ADDRESS=(PROTOCOL=tcp)"
+               %"          (HOST=127.0.0.1)"
+               %"          (HOST=192.168.1.37)"
+               "          (HOST=192.168.1.157)"
+               "          (PORT=1521)"
+               "      )"
+               "  )"
+               "  (CONNECT_DATA=(SERVICE_NAME=XE))"
+               ")">>, <<"bikram">>, <<"abcd123">>}
           }
         ]}
  ]}.
