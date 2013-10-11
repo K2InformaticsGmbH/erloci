@@ -1,6 +1,7 @@
 ERLOCI_LIB_PATH = c_src/erloci_lib
 ERLOCI_DRV_PATH = c_src/erloci_drv
-OCI_PATH = c_src/lib/instantclient
+OCI_DIR = c_src/lib/instantclient
+ERL_INTERFACE_DIR = $(OTPROOT)/lib/erl_interface-3.7.11
 
 ERLOCI_LIB_SRCS = 	$(ERLOCI_LIB_PATH)/ocisession.cpp	\
 				  	$(ERLOCI_LIB_PATH)/ocistmt.cpp		\
@@ -18,13 +19,15 @@ ERLOCI_DRV_SRCS =	$(ERLOCI_DRV_PATH)/cmd_processors.cpp	\
 
 ERLOCI_DRV_OBJS = $(ERLOCI_DRV_SRCS:.cpp=.o)
 
-CXXFLAGS = -Wall -I$(ERLANG_HOME)/lib/erl_interface-3.7.11/include -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_PATH)/sdk/include/
+CXXFLAGS = -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_DIR)/sdk/include/
+LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -Lpriv -L$(OCI_DIR)
+LINKFLAGS = -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12
 
 all: priv/erloci
-	@echo "All compiled"
+	@echo "erloci compiled"
 
 priv/erloci: priv/liberloci.a $(ERLOCI_DRV_OBJS)
-	g++ -Wall $^ -o $@
+	g++ -Wall $(LINKDIRS) $^ $(LINKFLAGS) -o $@
 
 .cpp.o:
 	g++ $(CXXFLAGS) -c $< -o $@
