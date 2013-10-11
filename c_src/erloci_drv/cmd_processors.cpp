@@ -296,8 +296,9 @@ bool cmd_exec_stmt(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Conn Handle
-    if(ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) {
+    // Args: Conn Handle, Bind List
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+	   && ERL_IS_LIST(args[2])) {
 		ocistmt * statement_handle = (ocistmt *)(ERL_IS_INTEGER(args[1])
 													? ERL_INT_VALUE(args[1])
 													: ERL_LL_UVALUE(args[1]));

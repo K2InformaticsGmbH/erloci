@@ -143,7 +143,9 @@ prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     end.
 
 exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
-    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId]}, ?PORT_TIMEOUT),
+    exec_stmt([], {?MODULE, statement, PortPid, StmtId}).
+exec_stmt(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
+    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId, BindVars]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {cols, Clms} -> {ok, Clms};
@@ -457,7 +459,7 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         Cols = Statement:exec_stmt(),
 %io:format(user, "binding...~n", []),
 %        timer:sleep(10000),
-        Statement:bind_vars([{<<":col1">>, ?NUMBER}, {<<":col2">>, ?STRING}]),
+%        Statement:bind_vars([{<<":col1">>, ?NUMBER}, {<<":col2">>, ?STRING}]),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = _RowResp = Statement:fetch_rows(100),

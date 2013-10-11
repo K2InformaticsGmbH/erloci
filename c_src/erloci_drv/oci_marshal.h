@@ -76,7 +76,7 @@ extern const erlcmdtable cmdtbl[];
     {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
     {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
     {BIND_ARGS,	"BIND_ARGS",	3, "Bind parameters into prepared SQL statement"},\
-    {EXEC_STMT,	"EXEC_STMT",	2, "Execute a prepared statement"},\
+    {EXEC_STMT,	"EXEC_STMT",	3, "Execute a prepared statement"},\
     {FTCH_ROWS,	"FTCH_ROWS",	3, "Fetch rows from statements producing rows"},\
     {CLSE_STMT,	"CLSE_STMT",	2, "Close a statement"},\
     {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\

@@ -117,6 +117,7 @@ void ocistmt::execute(void * column_list,
         throw r;
 	}
 
+
 	if(_stmt_typ == OCI_STMT_SELECT) {
         OCIParam	*mypard;
         int num_cols = 1;
