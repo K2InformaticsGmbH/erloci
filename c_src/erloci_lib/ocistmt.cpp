@@ -36,7 +36,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 	}
 
 	// allocate the statement handle
-	checkenv(&r, OCIHandleAlloc(envhp,			/* environment handle */
+	checkenv(&r, OCIHandleAlloc(envhp,					/* environment handle */
                                 (void **) &_stmthp,		/* returned statement handle */
                                 OCI_HTYPE_STMT,			/* typ of handle to allocate */
                                 (size_t) 0,				/* optional extra memory size */

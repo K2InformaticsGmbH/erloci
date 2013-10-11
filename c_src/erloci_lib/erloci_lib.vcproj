@@ -42,7 +42,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\lib\instantclient\include&quot;"
+				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\lib\instantclient\sdk\include&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;__WIN32__"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
