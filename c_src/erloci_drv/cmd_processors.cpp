@@ -290,8 +290,8 @@ bool cmd_exec_stmt(ETERM * command)
     MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
-	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], EXEC_STMT);
-		REMOTE_LOG("ERROR badarg\n");
+	    resp = erl_format((char*)"{~w,~i,{error,badargcount,~i,~i}}", args[0], EXEC_STMT, ARG_COUNT(command), CMD_ARGS_COUNT(EXEC_STMT));
+		REMOTE_LOG("ERROR bad arguments count\n");
 		ret = true;
 	    goto error_exit;
 	}
