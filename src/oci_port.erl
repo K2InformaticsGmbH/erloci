@@ -343,12 +343,16 @@ throw_if_error(Parent, {error, Error}, Msg) ->
 throw_if_error(_,_,_) -> ok.
 
 create_table(OciSession, Table) ->
-    Stmt = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
-    print_if_error(Stmt, "drop prep failed"),
-    Res = Stmt:exec_stmt(),
-    print_if_error(Res, "drop exec failed"),
-    Stmt:close(),
-    oci_logger:log(lists:flatten(io_lib:format("___________----- OCI drop ~p~n", [Res]))),
+    try
+        Stmt = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
+        print_if_error(Stmt, "drop prep failed"),
+        Res0 = Stmt:exec_stmt(),
+        print_if_error(Res0, "drop exec failed"),
+        Stmt:close(),
+        oci_logger:log(lists:flatten(io_lib:format("___________----- OCI drop ~p~n", [Res0])))
+    catch
+        _:R -> ok % errors due to table doesn't exists bypassed
+    end,
     Stmt0 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
                                        publisher varchar2(100),
                                        rank number,
