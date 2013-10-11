@@ -351,7 +351,7 @@ create_table(OciSession, Table) ->
         Stmt:close(),
         oci_logger:log(lists:flatten(io_lib:format("___________----- OCI drop ~p~n", [Res0])))
     catch
-        _:R -> ok % errors due to table doesn't exists bypassed
+        _:_ -> ok % errors due to table doesn't exists bypassed
     end,
     Stmt0 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
                                        publisher varchar2(100),
