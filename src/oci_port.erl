@@ -83,7 +83,8 @@ when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
     end.
 
 close({?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT);
+    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT),
+    gen_server:call(PortPid, close, ?PORT_TIMEOUT);
 close({?MODULE, statement, PortPid, StmtId}) ->
     gen_server:call(PortPid, {port_call, [?CLSE_STMT, StmtId]}, ?PORT_TIMEOUT).
 
@@ -134,11 +135,9 @@ init([Logging, ListenPort]) ->
     end.
 
 start_exe(Executable, Logging, ListenPort) ->
-    case os:type() of
-	{unix,darwin} ->
-	    LibPath = "DYLD_LIBRARY_PATH";
-	_->
-	    LibPath = "LD_LIBRARY_PATH"
+    LibPath = case os:type() of
+	    {unix,darwin}   -> "DYLD_LIBRARY_PATH";
+	    _               -> "LD_LIBRARY_PATH"
     end,
     NewPath = case os:getenv(LibPath) of
         false -> "";
@@ -199,6 +198,13 @@ log(Sock) ->
         {error, closed} -> ok
     end.
 
+handle_call(close, _From, #state{port=Port} = State) ->
+    try
+        erlang:port_close(Port)
+    catch
+        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
+    end,
+    {stop, normal, ok, State};
 handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     Cmd = [From | Msg],
     %CmdBin = term_to_binary(Cmd),
