@@ -70,7 +70,7 @@ start_link(Options) ->
 stop(PortPid) ->
     gen_server:call(PortPid, stop).
 
-add_stmt_fsm(StmtRef, StmtFsm, {?MODULE, PortPid}) ->
+add_stmt_fsm(StmtRef, StmtFsm, {?MODULE, PortPid, _SessionId}) ->
     gen_server:call(PortPid, {add_stmt_fsm, StmtRef, StmtFsm}, ?PORT_TIMEOUT).
 
 logging(enable, {?MODULE, PortPid}) ->
