@@ -20,7 +20,6 @@
 %% API
 -export([
     run/2,
-
     start_link/1,
     stop/1,
     logging/2,
@@ -29,6 +28,7 @@
     bind_vars/2,
     exec_stmt/1,
     fetch_rows/2,
+    add_stmt_fsm/3,
     close/1
 ]).
 
@@ -42,6 +42,7 @@
     code_change/3]).
 
 -record(state, {
+    stmts = [],
     port,
     logging = ?DBG_FLAG_OFF
 }).
@@ -69,6 +70,8 @@ start_link(Options) ->
 stop(PortPid) ->
     gen_server:call(PortPid, stop).
 
+add_stmt_fsm(StmtRef, StmtFsm, {?MODULE, PortPid}) ->
+    gen_server:call(PortPid, {add_stmt_fsm, StmtRef, StmtFsm}, ?PORT_TIMEOUT).
 
 logging(enable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]}, ?PORT_TIMEOUT);
@@ -198,6 +201,10 @@ log(Sock) ->
         {error, closed} -> ok
     end.
 
+handle_call({add_stmt_fsm, StmtRef, {_, StmtFsmPid}}, _From, #state{stmts=Stmts} = State) ->
+    erlang:monitor(process, StmtFsmPid),
+    NStmts = lists:keystore(StmtRef, 1, Stmts, {StmtRef, StmtFsmPid}),
+    {reply,ok,State#state{stmts=NStmts}};
 handle_call(close, _From, #state{port=Port} = State) ->
     try
         erlang:port_close(Port)
@@ -222,6 +229,13 @@ handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
+% statement monitor events
+handle_info({'DOWN', Ref, process, StmtFsmPid, Reason}, #state{stmts=Stmts}=State) ->
+    [StmtRef|_] = [SR || {SR, DS} <- Stmts, DS =:= StmtFsmPid],
+    NewStmts = lists:keydelete(StmtRef, 1, Stmts),
+    true = demonitor(Ref, [flush]),
+    ?Debug("FSM ~p died with reason ~p for stmt ~p remaining ~p", [StmtFsmPid, Reason, StmtRef, [S || {S,_} <- NewStmts]]),
+    {noreply, State#state{stmts=NewStmts}};
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
     Resp = binary_to_term(Data),
