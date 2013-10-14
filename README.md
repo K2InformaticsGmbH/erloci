@@ -39,7 +39,7 @@ erloci
 │   │   │   │   │   ├── *.h     (header files from sdk/include)
 ```
 
-##### Mac OSX directory structure (currently not supported)
+##### Mac OSX directory structure
 ```
 erloci
 ├── c_src
