@@ -1,6 +1,8 @@
 # erloci - An Erlang wrapper for the Oracle Call Interface
 
 ### Setup the development system
+Create a environment variable OTPROOT pointing to erlang installation directory,
+e.g. - in linux (if installed from RPM) its usually /usr/lib/erlang.
 Download from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html) the following libraries (for correct target platfrom)
 1. instantclient-basic
 2. instantclient-sdk
