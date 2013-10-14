@@ -43,8 +43,10 @@ erloci
 ├── c_src
 │   ├── lib
 │   │   ├── instantclient
+│   │   │   ├── libclntsh.dylib -> libclntsh.dylib.11.1
 │   │   │   ├── libclntsh.dylib.11.1
 │   │   │   ├── libnnz11.dylib
+│   │   │   ├── libocci.dylib -> libocci.dylib.11.1
 │   │   │   ├── libocci.dylib.11.1
 │   │   │   ├── libociicus.dylib
 │   │   │   ├── libocijdbc11.dylib
@@ -52,7 +54,6 @@ erloci
 │   │   │   │   ├── include
 │   │   │   │   │   ├── *.h     (header files from sdk/include)
 ```
-
 
 ### Compiling
 We assume you have [rebar](https://github.com/basho/rebar) somewhere on your path. Rebar will take care of the Erlang and C++ sources.
