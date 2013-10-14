@@ -135,6 +135,10 @@ init([Logging, ListenPort]) ->
     end.
 
 start_exe(Executable, Logging, ListenPort) ->
+    PrivDir = case code:priv_dir(erloci) of
+        {error,_} -> "./priv/";
+        PDir -> PDir
+    end,
     LibPath = case os:type() of
 	    {unix,darwin}   -> "DYLD_LIBRARY_PATH";
 	    _               -> "LD_LIBRARY_PATH"
@@ -142,7 +146,7 @@ start_exe(Executable, Logging, ListenPort) ->
     NewPath = case os:getenv(LibPath) of
         false -> "";
         LdLibPath -> LdLibPath ++ ":"
-    end ++ "./c_src/lib/instantclient/",
+    end ++ PrivDir ++ "/../c_src/lib/instantclient/",
     ?Info("The new lib path: ~p", [NewPath]),
     PortOptions = [ {packet, 4}
                   , binary
