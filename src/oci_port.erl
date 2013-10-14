@@ -134,16 +134,23 @@ init([Logging, ListenPort]) ->
     end.
 
 start_exe(Executable, Logging, ListenPort) ->
-    NewPath = case os:getenv("LD_LIBRARY_PATH") of
+    case os:type() of
+	{unix,darwin} ->
+	    LibPath = "DYLD_LIBRARY_PATH";
+	_->
+	    LibPath = "LD_LIBRARY_PATH"
+    end,
+    NewPath = case os:getenv(LibPath) of
         false -> "";
-        LdLibPath -> LdLibPath
-    end ++ ":./c_src/lib/instantclient/",
+        LdLibPath -> LdLibPath ++ ":"
+    end ++ "./c_src/lib/instantclient/",
+    ?Info("The new lib path: ~p", [NewPath]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status
                   , use_stdio
                   , {args, ["true", integer_to_list(ListenPort)]}
-                  , {env, [{"LD_LIBRARY_PATH", NewPath}]}
+                  , {env, [{LibPath, NewPath}]}
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of
         {'EXIT', Reason} ->
