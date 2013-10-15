@@ -33,15 +33,19 @@
 #define REMOTE_LOG_SINGLE(_str, ...)	if (log_flag) log_remote((_str),__VA_ARGS__)
 #endif
 
-
 typedef enum _VAR_TYPE {
     NUMBER	= 0,
     STRING	= 1,
 } VAR_TYPE;
 
+#include <vector>
 typedef struct var {
 	char * name;
-	VAR_TYPE type;
+	unsigned short dty;
+	std::vector<void *> valuep;
+	std::vector<unsigned short> alen;
+	unsigned short value_sz;
+	void *ocibind;
 } var;
 
 typedef enum _INTF_RET {

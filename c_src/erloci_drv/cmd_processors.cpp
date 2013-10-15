@@ -254,8 +254,8 @@ bool cmd_bind_args(ETERM * command)
 												: ERL_LL_UVALUE(args[1]));
 
 		try {
-			map_to_bind_args(args[2], statement_handle->get_bind_args());
-            resp = erl_format((char*)"{~w,~i,ok", args[0], BIND_ARGS);
+			map_schema_to_bind_args(args[2], statement_handle->get_bind_args());
+			resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
 			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
@@ -304,6 +304,7 @@ bool cmd_exec_stmt(ETERM * command)
 													: ERL_LL_UVALUE(args[1]));
 		try {
 		    ETERM *columns = NULL;
+			map_value_to_bind_args(args[2], statement_handle->get_bind_args());
 			statement_handle->execute(&columns, append_coldef_to_list);
 			// TODO : Also return bound return values from here
 			if (columns == NULL)

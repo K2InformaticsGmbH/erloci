@@ -106,8 +106,33 @@ void ocistmt::execute(void * column_list,
 	ocisession * ocisess = (ocisession *)_ocisess;
 	OCIEnv *envhp = (OCIEnv *)ocisession::getenv();
 
-	/* execute the statement and commit */
 	r.handle = _errhp;
+
+	/* bind variables if any */
+	if (_args.size() > 0) {
+		_iters = _args.size();
+		ub2 dty;
+		for(int i = 0; i < _iters; ++i) {
+			switch(_args[i].dty) {
+				case NUMBER: dty = SQLT_INT; break;
+				case STRING: dty = SQLT_CHR; break;
+			}
+			checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_args[i].ocibind), (OCIError*)_errhp,
+										(text*)(_args[i].name), -1,
+										&(_args[i].valuep[0]), _args[i].value_sz,
+										dty,
+										(void*)NULL, &(_args[i].alen[0]),
+										(ub2*)NULL,0,
+										(ub4*)NULL, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIBindByName error %s\n", r.gerrbuf);
+				ocisess->release_stmt(this);
+				throw r;
+			}
+		}
+	}
+
+	/* execute the statement and commit */
     checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, _iters, 0,
                                 (OCISnapshot *)NULL, (OCISnapshot *)NULL,
                                 OCI_COMMIT_ON_SUCCESS));
@@ -116,7 +141,6 @@ void ocistmt::execute(void * column_list,
 		ocisess->release_stmt(this);
         throw r;
 	}
-
 
 	if(_stmt_typ == OCI_STMT_SELECT) {
         OCIParam	*mypard;
@@ -276,11 +300,6 @@ void ocistmt::execute(void * column_list,
 
         //REMOTE_LOG("Port: Returning Column(s)\n");
     }
-}
-
-list<var> & ocistmt::get_bind_args()
-{
-	return _args;
 }
 
 intf_ret ocistmt::rows(void * row_list,

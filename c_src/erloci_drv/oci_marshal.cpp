@@ -335,7 +335,7 @@ void * build_term_from_bind_args(inp_t * bind_var_list_head)
 }
 */
 
-void map_to_bind_args(void * _args, list<var> & vars)
+void map_schema_to_bind_args(void * _args, vector<var> & vars)
 {
     ETERM * args = (ETERM *)_args;
     if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
@@ -362,9 +362,71 @@ void map_to_bind_args(void * _args, list<var> & vars)
 
         if ((arg = erl_element(2, item)) == NULL || !ERL_IS_INTEGER(arg))
             break;
-        v.type = (VAR_TYPE)ERL_INT_VALUE(arg);
+        v.dty = (unsigned short)ERL_INT_VALUE(arg);
+
+		// Initialized, to be prepared later on first execute
+		v.value_sz = 0;
 
 		vars.push_back(v);
+
+        args = erl_tl(args);
+    } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
+}
+
+void map_value_to_bind_args(void * _args, vector<var> & vars)
+{
+    ETERM * args = (ETERM *)_args;
+    if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
+        return;
+
+    ETERM * item = NULL;
+    ETERM * arg = NULL;
+	void * tmp_arg = NULL;
+	size_t len = 0;
+	unsigned short arg_len = 0;
+	
+	// remove any old bind from the vars
+	for(int i=0; i < vars.size(); ++i) {
+		vars[i].valuep.clear();
+		vars[i].alen.clear();
+	}
+	
+	// loop through the list
+    do {
+        if ((item = erl_hd(args)) == NULL	||
+            !ERL_IS_TUPLE(item)				||
+			erl_size(item) != vars.size())
+            break;
+
+		len = erl_size(item);
+
+		// loop through each value of the list
+		for(int i=0; i<len; ++i) {
+			if ((arg = erl_element(i+1, item)) == NULL)
+		        break;
+			
+			switch(vars[i].dty) {
+				case NUMBER:
+					if(ERL_IS_INTEGER(arg)) {
+						tmp_arg = new int;
+						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
+						arg_len = sizeof(int);
+					}
+					break;
+				case STRING:
+					if(ERL_IS_BINARY(arg)) {
+						arg_len = ERL_BIN_SIZE(arg);
+						tmp_arg = new char[arg_len+1];
+						strncpy((char*)tmp_arg, (char*)ERL_BIN_PTR(arg), arg_len);
+						((char*)tmp_arg)[arg_len]='\0';
+					}
+					break;
+			}
+			vars[i].alen.push_back(arg_len);
+			if (arg_len > vars[i].value_sz)
+				vars[i].value_sz = arg_len;
+			vars[i].valuep.push_back(tmp_arg);
+		}
 
         args = erl_tl(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));

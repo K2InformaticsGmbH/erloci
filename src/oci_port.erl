@@ -27,6 +27,7 @@
     prep_sql/2,
     bind_vars/2,
     exec_stmt/1,
+    exec_stmt/2,
     fetch_rows/2,
     add_stmt_fsm/3,
     close/1
@@ -421,6 +422,34 @@ receive_all(OciSession, Count, Acc) ->
 insert_select(OciSession, Table, InsertCount, Parent) ->
     try
         InsertStart = ?NowMs,
+        BindQry = erlang:list_to_binary([
+                "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,votes_first_rank) values (",
+                ":pkey",
+                ", :publisher",
+                ", :rank",
+                ", :hero",
+                ", :reality",
+                ", :votes",
+                ", :votes_first_rank)"]),
+        oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,BindQry]))),
+        BoundStmt = OciSession:prep_sql(BindQry),
+        throw_if_error(Parent, BoundStmt, binary_to_list(BindQry)),
+io:format(user, "binding...~n", []),
+        Res0 = BoundStmt:bind_vars([ {<<":pkey">>, ?NUMBER}
+                            , {<<":publisher">>, ?STRING}
+                            , {<<":rank">>, ?NUMBER}
+                            , {<<":hero">>, ?STRING}
+                            , {<<":reality">>, ?STRING}
+                            , {<<":votes">>, ?NUMBER}
+                            , {<<":votes_first_rank">>, ?NUMBER}
+                            ]),
+        throw_if_error(Parent, Res0, "bind_vars"),
+io:format(user, "waiting...~n", []),
+        timer:sleep(10000),
+io:format(user, "executing...~n", []),
+        Res1 = BoundStmt:exec_stmt([{1,<<"pub1">>,2,<<"hero1">>, <<"reality1">>, 5, 7},{2,<<"pub3">>,4,<<"hero6">>, <<"reality7">>, 8, 9}]),
+        throw_if_error(Parent, Res1, "exec_stmt(bind_data)"),
+io:format(user, "executed...~n", []),
         [(fun(I) ->
             Qry = erlang:list_to_binary([
                     "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,votes_first_rank) values (",
@@ -446,9 +475,6 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" prep failed"),
         Cols = Statement:exec_stmt(),
-%io:format(user, "binding...~n", []),
-%        timer:sleep(10000),
-%        Statement:bind_vars([{<<":col1">>, ?NUMBER}, {<<":col2">>, ?STRING}]),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = _RowResp = Statement:fetch_rows(100),
