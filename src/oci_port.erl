@@ -114,7 +114,7 @@ exec_stmt(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
     R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId, BindVars]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
-        {cols, Clms} -> {ok, Clms};
+        {cols, Clms} -> {ok, lists:reverse(Clms)};
         R -> R
     end.
 
