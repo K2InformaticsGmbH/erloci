@@ -54,6 +54,7 @@
 % MUST match with enum VAR_TYPE ocistmt.h
 -define(NUMBER, 3).
 -define(STRING, 1).
+-define(DATE,   12).
 
 % Argument Types
 -define(ARG_DIR_IN,			0).
