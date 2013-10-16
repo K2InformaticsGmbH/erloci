@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="ASCII"?>
+
+<!--
+    Document   : oraaccess.xml
+
+    Description: Here is a sample for oraaccess.xml. Please modify the file 
+       appropriately before using it in your deployments.
+
+       The tags can also be prefixed with "oci:". For example <oci:prefetch>
+-->
+
+<oraaccess xmlns="http://xmlns.oracle.com/oci/oraaccess" 
+           xmlns:oci="http://xmlns.oracle.com/oci/oraaccess" 
+           schemaLocation="http://xmlns.oracle.com/oci/oraaccess
+                    http://xmlns.oracle.com/oci/oraaccess.xsd"> 
+
+    <default_parameters>
+        <prefetch>
+           <rows>50</rows>
+        </prefetch>
+        <statement_cache>
+           <size>100</size>
+        </statement_cache>
+        <auto_tune>
+           <enable>true</enable>
+           <!-- specify ram_threshol in percentage of total ram -->
+           <ram_threshold>2</ram_threshold>
+           <!-- Default unit for memory_traget is byte --> 
+           <!-- valid suffixes for unit are k/K/m/M -->
+           <memory_target>204800</memory_target>
+        </auto_tune>
+        <fan>
+          <!--only possible values are "trace" and "error" -->
+          <subscription_failure_action>
+            error
+          </subscription_failure_action>
+        </fan>
+<!-- Uncomment the "ons" section only if you wish to use ons feature -->
+
+           <!-- subscription_wait_timeout value is in seconds      -->
+           <!-- no need to mention any suffix to specify seconds.  -->
+           <!-- Default unit for thread_stack_size is byte.        --> 
+           <!-- Valid suffixes -  k/K/m/M can also be specified    -->
+<!--
+        <ons>
+           <subscription_wait_timeout>
+              5
+           </subscription_wait_timeout>
+           <auto_config>true</auto_config>
+           <thread_stack_size>100k</thread_stack_size>
+           <debug>true</debug>
+           <servers>
+              <address_list>
+                 <name>pacific</name>
+                 <max_connections> 3 </max_connections>
+                 <hosts>
+                 10.228.215.121:25293,
+                 10.228.215.122:25293
+                 </hosts>
+              </address_list>
+              <address_list>
+                 <name>Europe</name>
+                 <max_connections> 3 </max_connections>
+                 <hosts>
+                 myhost1.mydomain.com:25273,
+                 myhost2.mydomain.com:25298,
+                 myhost3.mydomain.com:30004
+                 </hosts>
+              </address_list>
+           </servers>
+        </ons>
+-->
+        <events>true</events>
+        <result_cache>
+            <max_rset_rows>100</max_rset_rows>
+            <max_rset_size>10K</max_rset_size>
+            <max_size>64M</max_size>
+        </result_cache>
+        <diag>
+           <adr_enabled>false</adr_enabled>
+           <dde_enabled>false</dde_enabled>
+           <adr_base>/foo/adr</adr_base>
+           <sighandler_enabled>false</sighandler_enabled>
+           <restricted>false</restricted>
+           <trace_events>
+             <trace_event>
+               <number>10883</number>
+               <level>5</level>
+             </trace_event>
+           </trace_events>
+        </diag>
+    </default_parameters>
+
+<!-- connection specific parameters -->
+    <config_descriptions>
+        <!-- configuration description and giving it an alias -->
+        <config_description>
+            <config_alias>bar</config_alias>
+            <parameters>
+                <statement_cache>
+                   <size>50</size>
+                </statement_cache>
+                <auto_tune>
+                   <ram_threshold>2</ram_threshold>
+                   <memory_target>200K</memory_target>
+                </auto_tune>
+<!-- Uncomment the "ons" section only if you wish to use ons feature -->
+<!--
+                <ons>
+                    <auto_config>true</auto_config> 
+                    <thread_stack_size>
+                        100K
+                    </thread_stack_size> 
+                </ons>
+-->
+            </parameters>
+        </config_description>
+        <config_description>
+            <config_alias>foo</config_alias>
+            <parameters>
+                <prefetch>
+                <rows>
+                     23
+                </rows>
+                </prefetch>
+                <statement_cache>
+                   <size>15</size>
+                </statement_cache>
+                <auto_tune>
+                   <ram_threshold>1.5</ram_threshold>
+                   <memory_target>150K</memory_target>
+                </auto_tune>
+                <fan>
+                 <!--only possible values are "trace" and "error" -->
+                 <subscription_failure_action>
+                   trace
+                 </subscription_failure_action>
+               </fan>
+
+<!-- Uncomment the ons section only if you wish to use ons feature -->
+<!--
+                <ons>
+                    <auto_config>true</auto_config> 
+                    <thread_stack_size>100k</thread_stack_size>
+                    <servers>
+                       <address_list>
+                          <name>pacific</name>
+                          <max_connections> 3 </max_connections>
+                          <hosts>primaryscan:6102,primaryscan2:6103,host3:8080</hosts>
+                        </address_list>
+                        <address_list>
+                          <name>Europe</name>
+                          <max_connections>3</max_connections>
+                          <hosts>
+                            secondaryscan:6102,secondaryscan2:6103,host3:3232
+                          </hosts>
+                        </address_list>
+                    </servers>
+                </ons>
+-->
+            </parameters>
+        </config_description>
+    </config_descriptions>
+
+    <!-- now map the connection alias with connection strings -->
+    <connection_configs>
+        <connection_config>
+            <connection_string>hr_db_1</connection_string>
+            <config_alias>foo</config_alias>
+        </connection_config>
+        <connection_config>
+            <connection_string>hr_db_2</connection_string>
+            <config_alias>bar</config_alias>
+        </connection_config>
+    </connection_configs>
+
+</oraaccess>
+

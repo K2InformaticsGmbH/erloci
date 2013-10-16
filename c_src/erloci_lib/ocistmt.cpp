@@ -5,6 +5,10 @@
 
 #include <oci.h>
 
+#ifndef __WIN32__
+#include <stdlib.h>
+#endif
+
 struct column {
     ub2  dtype;
     ub4	 dlen;
