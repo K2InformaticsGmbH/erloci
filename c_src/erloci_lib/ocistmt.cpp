@@ -110,51 +110,39 @@ void ocistmt::execute(void * column_list,
 
 	/* bind variables if any */
 	size_t dat_len = 0;
-	if (_args.size() > 0) {
-		REMOTE_LOG("Bind Data -\n");
-		for(int j = 0; j < _args[0].alen.size(); ++j) {
-			for(int i = 0; i < _args.size(); ++i) {
-				unsigned short * alenarr = &_args[i].alen[0];
-				void ** valueparr = &_args[i].valuep[0];
-				switch(_args[i].dty) {
-					case NUMBER:
-						dat_len = sizeof(int);
-						REMOTE_LOG("   {%d,%d}\n", alenarr[j], (int)(valueparr[j]));
-						break;
-					case STRING:
-						dat_len = _args[i].alen[j];
-						REMOTE_LOG("   {%d,%s}\n", alenarr[j], (char*)(valueparr[j]));
-						break;
-				}
-				_args[i].datap = realloc(_args[i].datap, dat_len+_args[i].datap_len);
-				memcpy((char*)_args[i].datap + _args[i].datap_len, valueparr[j], dat_len);
-				_args[i].datap_len += (unsigned long)dat_len;
-			}
-			REMOTE_LOG("-- \n");
-		}
-		REMOTE_LOG("Bind Data -\n");
-
-		_iters = _args[0].valuep.size();
-		ub2 dty;
-		for(int i = 0; i < _args.size(); ++i) {
-			switch(_args[i].dty) {
-				case NUMBER: dty = SQLT_INT; break;
-				case STRING: dty = SQLT_CHR; break;
-			}
+	for(int i = 0; i < _args.size(); ++i) {
+		for(int j = 0; j < _args[i].alen.size(); ++j) {
 			unsigned short * alenarr = &_args[i].alen[0];
-			//void ** valueparr = &_args[i].valuep[0];
-			checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_args[i].ocibind), (OCIError*)_errhp,
-										(text*)(_args[i].name), -1,
-										_args[i].datap, _args[i].value_sz,
-										dty,
-										(void*)NULL, alenarr,
-										(ub2*)NULL,0,
-										(ub4*)NULL, OCI_DEFAULT));
-			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG("failed OCIBindByName error %s\n", r.gerrbuf);
-				ocisess->release_stmt(this);
-				throw r;
+			void ** valueparr = &_args[i].valuep[0];
+			switch(_args[i].dty) {
+				case SQLT_INT:
+					dat_len = sizeof(int);
+					break;
+				case SQLT_CHR:
+				case SQLT_DAT:
+					dat_len = _args[i].value_sz;
+					break;
 			}
+			_args[i].datap = realloc(_args[i].datap, _args[i].datap_len + dat_len);
+			memcpy((char*)_args[i].datap + _args[i].datap_len, valueparr[j], _args[i].alen[j]);
+			_args[i].datap_len += (unsigned long)(dat_len);
+		}
+	}
+
+	if(_args.size() > 0)
+		_iters = _args[0].valuep.size();
+	for(int i = 0; i < _args.size(); ++i) {
+		checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_args[i].ocibind), (OCIError*)_errhp,
+									(text*)(_args[i].name), -1,
+									_args[i].datap, _args[i].value_sz,
+									_args[i].dty,
+									(void*)NULL, &_args[i].alen[0],
+									(ub2*)NULL,0,
+									(ub4*)NULL, OCI_DEFAULT));
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCIBindByName error %s\n", r.gerrbuf);
+			ocisess->release_stmt(this);
+			throw r;
 		}
 	}
 
@@ -166,6 +154,12 @@ void ocistmt::execute(void * column_list,
 		REMOTE_LOG("failed OCIStmtExecute error %s\n", r.gerrbuf);
 		ocisess->release_stmt(this);
         throw r;
+	}
+
+	for(int i = 0; i < _args.size(); ++i) {
+		free(_args[i].datap);
+		_args[i].valuep.clear();
+		_args[i].alen.clear();
 	}
 
 	if(_stmt_typ == OCI_STMT_SELECT) {

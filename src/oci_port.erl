@@ -386,10 +386,10 @@ create_table(OciSession, Table) ->
         _:_ -> ok % errors due to table doesn't exists bypassed
     end,
     Stmt0 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
-                                       publisher varchar2(40),
+                                       publisher varchar2(30),
                                        rank number,
-                                       hero varchar2(40),
-                                       reality varchar2(40),
+                                       hero varchar2(30),
+                                       reality varchar2(30),
                                        votes number,
                                        createdate date default sysdate,
                                        votes_first_rank number)"])),
@@ -419,61 +419,52 @@ receive_all(OciSession, Count, Acc) ->
             receive_all(OciSession, 0, Acc)
     end.
 
+edatetime_to_ora({Meg,Mcr,Mil} = Now)
+    when is_integer(Meg)
+    andalso is_integer(Mcr)
+    andalso is_integer(Mil) ->
+    edatetime_to_ora(calendar:now_to_datetime(Now));
+edatetime_to_ora({{FullYear,Month,Day},{Hour,Minute,Second}}) ->
+    Century = (FullYear div 100) + 100,
+    Year = (FullYear rem 100) + 100,
+    << Century:8, Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8 >>.
+
 insert_select(OciSession, Table, InsertCount, Parent) ->
     try
         InsertStart = ?NowMs,
         BindQry = erlang:list_to_binary([
-                "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,votes_first_rank) values (",
+                "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
                 ":pkey",
                 ", :publisher",
                 ", :rank",
                 ", :hero",
                 ", :reality",
                 ", :votes",
+                ", :createdate"
                 ", :votes_first_rank)"]),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,BindQry]))),
         BoundStmt = OciSession:prep_sql(BindQry),
         throw_if_error(Parent, BoundStmt, binary_to_list(BindQry)),
-io:format(user, "binding...~n", []),
         Res0 = BoundStmt:bind_vars([ {<<":pkey">>, ?NUMBER}
                             , {<<":publisher">>, ?STRING}
                             , {<<":rank">>, ?NUMBER}
                             , {<<":hero">>, ?STRING}
                             , {<<":reality">>, ?STRING}
                             , {<<":votes">>, ?NUMBER}
+                            , {<<":createdate">>, ?DATE}
                             , {<<":votes_first_rank">>, ?NUMBER}
                             ]),
         throw_if_error(Parent, Res0, "bind_vars"),
-%io:format(user, "waiting...~n", []),
-%        timer:sleep(10000),
-io:format(user, "executing...~n", []),
-        Res1 = BoundStmt:exec_stmt([{10,<<"pub10">>,10,<<"hero10">>, <<"reality10">>, 10, 11}
-                                   ,{20,<<"pub_20">>,20,<<"hero20">>, <<"reality_1_20">>, 20, 21}
-                                   ,{30,<<"p_30">>,30,<<"heo30">>, <<"realy_1_30">>, 30, 31}
-                                   ]),
-        throw_if_error(Parent, Res1, "exec_stmt(bind_data)"),
-io:format(user, "executed...~n", []),
-        %[(fun(I) ->
-        %    Qry = erlang:list_to_binary([
-        %            "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,votes_first_rank) values (",
-        %            I,
-        %            ", 'publisher"++I++"',",
-        %            I,
-        %            ", 'hero"++I++"'",
-        %            ", 'reality"++I++"',",
-        %            I,
-        %            ",",
-        %            I,
-        %            ")"]),
-        %    oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Qry]))),
-        %    Stmt = OciSession:prep_sql(Qry),
-        %    throw_if_error(Parent, Stmt, "insert "++Table++" prep failed"),
-        %    Res = Stmt:exec_stmt(),
-        %    throw_if_error(undefined, Res, "insert "++Table++" exec failed"),
-        %    Stmt:close(),
-        %    if {executed, no_ret} =/= Res -> oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,Res]))); true -> ok end
-        %  end)(integer_to_list(Idx))
-        %|| Idx <- lists:seq(1, InsertCount)],
+        BoundStmt:exec_stmt([{ I
+                            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+                            , I
+                            , list_to_binary(["_hero_",integer_to_list(I),"_"])
+                            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+                            , I
+                            , edatetime_to_ora(erlang:now())
+                            , I
+                            } || I <- lists:seq(1, InsertCount)]),
+        BoundStmt:close(),
         InsertEnd = ?NowMs,
         Statement = OciSession:prep_sql(list_to_binary(["select * from ", Table])),
         throw_if_error(Parent, Statement, "select "++Table++" prep failed"),
@@ -482,7 +473,6 @@ io:format(user, "executed...~n", []),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
         {{rows, Rows}, _} = _RowResp = Statement:fetch_rows(100),
         Statement:close(),
-        BoundStmt:close(),
         oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,_RowResp]))),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,

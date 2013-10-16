@@ -410,18 +410,25 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 			switch(vars[i].dty) {
 				case NUMBER:
 					if(ERL_IS_INTEGER(arg)) {
+						arg_len = sizeof(int);
 						tmp_arg = new int;
 						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
-						arg_len = sizeof(int);
+					}
+					break;
+				case ERLDATE:
+					if(ERL_IS_BINARY(arg)) {
+						arg_len = ERL_BIN_SIZE(arg);
+						tmp_arg = new char[arg_len];
+						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
 					break;
 				case STRING:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
-						tmp_arg = new char[arg_len];
-						strncpy((char*)tmp_arg, (char*)ERL_BIN_PTR(arg), arg_len);
-						//((char*)tmp_arg)[arg_len]='\0';
-						//arg_len--;
+						tmp_arg = new char[arg_len+1];
+						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
+						((char*)tmp_arg)[arg_len]='\0';
+						arg_len++;
 					}
 					break;
 			}

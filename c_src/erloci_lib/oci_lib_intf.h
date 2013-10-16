@@ -37,6 +37,7 @@
 typedef enum _VAR_TYPE {
     NUMBER	= 3, // SQLT_INT
     STRING	= 1, // SQLT_CHR
+    ERLDATE	= 12 // SQLT_CHR
 } VAR_TYPE;
 
 #include <vector>
