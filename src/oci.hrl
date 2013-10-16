@@ -52,7 +52,7 @@
 
 %% Bind arg types
 % MUST match with enum VAR_TYPE ocistmt.h
--define(NUMBER, 0).
+-define(NUMBER, 3).
 -define(STRING, 1).
 
 % Argument Types

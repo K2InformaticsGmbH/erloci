@@ -33,9 +33,10 @@
 #define REMOTE_LOG_SINGLE(_str, ...)	if (log_flag) log_remote((_str),__VA_ARGS__)
 #endif
 
+// values match with SQLT_*
 typedef enum _VAR_TYPE {
-    NUMBER	= 0,
-    STRING	= 1,
+    NUMBER	= 3, // SQLT_INT
+    STRING	= 1, // SQLT_CHR
 } VAR_TYPE;
 
 #include <vector>
@@ -46,6 +47,8 @@ typedef struct var {
 	std::vector<unsigned short> alen;
 	unsigned short value_sz;
 	void *ocibind;
+	void *datap;
+	unsigned long datap_len;
 } var;
 
 typedef enum _INTF_RET {

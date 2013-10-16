@@ -366,6 +366,8 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
 
 		// Initialized, to be prepared later on first execute
 		v.value_sz = 0;
+		v.datap = NULL;
+		v.datap_len = 0;
 
 		vars.push_back(v);
 
@@ -416,9 +418,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 				case STRING:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
-						tmp_arg = new char[arg_len+1];
+						tmp_arg = new char[arg_len];
 						strncpy((char*)tmp_arg, (char*)ERL_BIN_PTR(arg), arg_len);
-						((char*)tmp_arg)[arg_len]='\0';
+						//((char*)tmp_arg)[arg_len]='\0';
+						//arg_len--;
 					}
 					break;
 			}
