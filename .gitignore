@@ -1,6 +1,6 @@
 priv/
 c_src/*.txt
-c_src/lib/instantclient/include/*.h
+c_src/lib/instantclient/
 c_src/lib/instantclient/*.so
 c_src/lib/instantclient/*.lib
 c_src/lib/instantclient/lib*.*
