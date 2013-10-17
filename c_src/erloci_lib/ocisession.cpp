@@ -86,8 +86,8 @@ ocisession::~ocisession(void)
 	intf_ret r;
 
 	// delete all the statements
-	for (list<ocistmt*>::const_iterator it = _statements.begin(); it != _statements.end(); it++)
-		(*it)->close();
+	for (list<ocistmt*>::iterator it = _statements.begin(); it != _statements.end(); ++it)
+		(*it)->del();
 	_statements.clear();
 
 	checkerr(&r, OCISessionRelease((OCISvcCtx*)_svchp, (OCIError*)_errhp, NULL, 0, OCI_DEFAULT));

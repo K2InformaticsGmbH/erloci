@@ -31,6 +31,7 @@ private:
 
 public:
 	ocistmt(void *ocisess, unsigned char *stmt, unsigned int stmt_len);
+	inline void del() { delete this; };
 
 	void execute(void * column_list, void (*coldef_append)(const char *, const char *, const unsigned int, void *));
 	inline vector<var> & get_bind_args() { return _args; };
