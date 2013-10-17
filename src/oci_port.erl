@@ -471,13 +471,21 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         Cols = Statement:exec_stmt(),
         throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ columns ~p~n", [Table,Cols]))),
-        {{rows, Rows}, _} = _RowResp = Statement:fetch_rows(100),
-        Statement:close(),
-        oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p~n", [Table,_RowResp]))),
+        F = fun(Self,RowCount) ->
+            {{rows, Rows}, Finished} = Statement:fetch_rows(100),
+            %oci_logger:log(lists:flatten(io_lib:format("...[~p]... OCI select rows ~p finished ~p~n", [Table,RowCount+length(Rows), Finished]))),
+            case Finished of
+                false -> Self(Self,RowCount+length(Rows));
+                true ->
+                    Statement:close(),
+                    RowCount+length(Rows)
+            end
+        end,
+        TotalRowCount = F(F,0),
         SelectEnd = ?NowMs,
         InsertTime = (InsertEnd - InsertStart)/1000000,
         SelectTime = (SelectEnd - InsertEnd)/1000000,
-        Parent ! {Table, InsertCount, InsertTime, length(Rows), SelectTime}
+        Parent ! {Table, InsertCount, InsertTime, TotalRowCount, SelectTime}
     catch
         Class:Reason ->
             if is_pid(Parent) -> Parent ! {{Table,Class,Reason}, 0, 1, 0, 1}; true -> ok end,
