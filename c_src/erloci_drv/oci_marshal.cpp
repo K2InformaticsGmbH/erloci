@@ -356,7 +356,10 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
         if ((arg = erl_element(1, item)) == NULL || !ERL_IS_BINARY(arg))
             break;
 		len = ERL_BIN_SIZE(arg);
-		v.name = new char[len+1];
+		if(sizeof(v.name) < len+1) {
+			REMOTE_LOG("variable %.*s is too long, max %d\n", len, (char*)ERL_BIN_PTR(arg), sizeof(v.name)-1);
+			throw string("variable name is larger then 255 characters");
+		}
         strncpy(v.name, (char*)ERL_BIN_PTR(arg), len);
 		v.name[len]='\0';
 

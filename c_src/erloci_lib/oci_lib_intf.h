@@ -42,7 +42,7 @@ typedef enum _VAR_TYPE {
 
 #include <vector>
 typedef struct var {
-	char * name;
+	char name[256];
 	unsigned short dty;
 	std::vector<void *> valuep;
 	std::vector<unsigned short> alen;

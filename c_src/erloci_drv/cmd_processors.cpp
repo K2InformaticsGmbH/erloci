@@ -260,7 +260,7 @@ bool cmd_bind_args(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
 			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 			ret = true;
-		} catch (string str) {
+		} catch (string & str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], BIND_ARGS, str.c_str());
 			ret = true;
