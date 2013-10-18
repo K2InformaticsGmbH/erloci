@@ -103,7 +103,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 }
 
 void ocistmt::execute(void * column_list,
-					  void (*coldef_append)(const char *, const char *, const unsigned int, void *))
+					  void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *))
 {
 	intf_ret r;
 
@@ -186,7 +186,7 @@ void ocistmt::execute(void * column_list,
          */
         text *col_name;
         ub4 len = 0;
-        char * data_type = NULL;
+        unsigned short data_type = 0;
 		_columns.clear();
 
 		while (parm_status == OCI_SUCCESS) {
@@ -214,11 +214,11 @@ void ocistmt::execute(void * column_list,
 				throw r;
 			}
 
+			data_type = cur_clm.dtype;
             switch (cur_clm.dtype) {
             case SQLT_NUM:
             case SQLT_VNU:
             case SQLT_LNG:
-                data_type = (char*)"number";
 				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
@@ -231,43 +231,34 @@ void ocistmt::execute(void * column_list,
 				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
-                data_type = (char*)"string";
                 break;
             case SQLT_INT:
             case SQLT_UIN:
-                data_type = (char*)"integer";
                 break;
             case SQLT_DAT:
-                data_type = (char*)"date";
 				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_DAT, "SQLT_DAT");
                 break;
             case SQLT_FLT:
-                data_type = (char*)"double";
                 break;
             case SQLT_TIMESTAMP:
-                data_type = (char*)"timestamp";
 				OCIALLOC(OCI_DTYPE_TIMESTAMP, "SQLT_TIMESTAMP");
 				OCIDEF(SQLT_TIMESTAMP, "SQLT_TIMESTAMP");
                 break;
             case SQLT_TIMESTAMP_TZ:
-                data_type = (char*)"timestamp";
 				OCIALLOC(OCI_DTYPE_TIMESTAMP_TZ, "SQLT_TIMESTAMP_TZ");
 				OCIDEF(SQLT_TIMESTAMP_TZ, "SQLT_TIMESTAMP_TZ");
                 break;
             case SQLT_TIMESTAMP_LTZ:
-                data_type = (char*)"timestamp";
 				OCIALLOC(OCI_DTYPE_TIMESTAMP_LTZ, "SQLT_TIMESTAMP_LTZ");
 				OCIDEF(SQLT_TIMESTAMP_LTZ, "SQLT_TIMESTAMP_LTZ");
                 break;
             case SQLT_INTERVAL_YM:
-                data_type = (char*)"interval";
 				OCIALLOC(OCI_DTYPE_INTERVAL_YM, "SQLT_INTERVAL_YM");
 				OCIDEF(SQLT_INTERVAL_YM, "SQLT_INTERVAL_YM");
                 break;
             case SQLT_INTERVAL_DS:
-                data_type = (char*)"interval";
 				OCIALLOC(OCI_DTYPE_INTERVAL_DS, "SQLT_INTERVAL_DS");
 				OCIDEF(SQLT_INTERVAL_DS, "SQLT_INTERVAL_DS");
                 break;
@@ -277,11 +268,9 @@ void ocistmt::execute(void * column_list,
 				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
-                data_type = (char*)"rowid";
                 break;
                 break;
             default:
-                data_type = (char*)"undefined";
                 break;
             }
 

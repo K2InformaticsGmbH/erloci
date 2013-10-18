@@ -136,7 +136,7 @@ void append_string_to_list(const char * string, size_t len, void * list)
 	(*(ETERM**)list) = new_container_list;
 }
 
-void append_coldef_to_list(const char * col_name, const char * data_type, const unsigned int max_len, void * list)
+void append_coldef_to_list(const char * col_name, const unsigned short data_type, const unsigned int max_len, void * list)
 {
     if (list==NULL)
         return;
@@ -146,7 +146,8 @@ void append_coldef_to_list(const char * col_name, const char * data_type, const 
         container_list = erl_mk_empty_list();
 
 	ETERM *cname = erl_mk_binary(col_name, strlen(col_name));
-    ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
+//    ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
+    ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~i,~i}", cname, data_type, max_len), container_list);
     erl_free_term(cname);
     erl_free_term(container_list);
 

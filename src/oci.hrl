@@ -51,63 +51,67 @@
                         end)(__CMD)).
 
 %% Bind arg types
-% MUST match with enum VAR_TYPE ocistmt.h
--define(SQLT_CHR,  1).
--define(SQLT_NUM,  2).
--define(SQLT_INT,  3).
--define(SQLT_FLT,  4).
--define(SQLT_STR,  5).
--define(SQLT_VNU,  6).
--define(SQLT_PDN,  7).
--define(SQLT_LNG,  8).
--define(SQLT_VCS,  9).
--define(SQLT_NON,  10).
--define(SQLT_RID,  11).
--define(SQLT_DAT,  12).
--define(SQLT_VBI,  15).
--define(SQLT_BFLOAT, 21).
--define(SQLT_BDOUBLE, 22).
--define(SQLT_BIN,  23).
--define(SQLT_LBI,  24).
--define(SQLT_UIN,  68).
--define(SQLT_SLS,  91).
--define(SQLT_LVC,  94).
--define(SQLT_LVB,  95).
--define(SQLT_AFC,  96).
--define(SQLT_AVC,  97).
--define(SQLT_IBFLOAT,  100).
--define(SQLT_IBDOUBLE, 101).
--define(SQLT_CUR,  102).
--define(SQLT_RDD,  104).
--define(SQLT_LAB,  105).
--define(SQLT_OSL,  106).
+% Name and alue inporetd from ocistmt.h
+-define(CLM_TYPES, [
+{'SQLT_CHR',           1},
+{'SQLT_NUM',           2},
+{'SQLT_INT',           3},
+{'SQLT_FLT',           4},
+{'SQLT_STR',           5},
+{'SQLT_VNU',           6},
+{'SQLT_PDN',           7},
+{'SQLT_LNG',           8},
+{'SQLT_VCS',           9},
+{'SQLT_NON',           10},
+{'SQLT_RID',           11},
+{'SQLT_DAT',           12},
+{'SQLT_VBI',           15},
+{'SQLT_BFLOAT',        21},
+{'SQLT_BDOUBLE',       22},
+{'SQLT_BIN',           23},
+{'SQLT_LBI',           24},
+{'SQLT_UIN',           68},
+{'SQLT_SLS',           91},
+{'SQLT_LVC',           94},
+{'SQLT_LVB',           95},
+{'SQLT_AFC',           96},
+{'SQLT_AVC',           97},
+{'SQLT_IBFLOAT',       100},
+{'SQLT_IBDOUBLE',      101},
+{'SQLT_CUR',           102},
+{'SQLT_RDD',           104},
+{'SQLT_LAB',           105},
+{'SQLT_OSL',           106},
 
--define(SQLT_NTY,  108).
--define(SQLT_REF,  110).
--define(SQLT_CLOB, 112).
--define(SQLT_BLOB, 113).
--define(SQLT_BFILEE, 114).
--define(SQLT_CFILEE, 115).
--define(SQLT_RSET, 116).
--define(SQLT_NCO,  122).
--define(SQLT_VST,  155).
--define(SQLT_ODT,  156).
+{'SQLT_NTY',           108},
+{'SQLT_REF',           110},
+{'SQLT_CLOB',          112},
+{'SQLT_BLOB',          113},
+{'SQLT_BFILEE',        114},
+{'SQLT_CFILEE',        115},
+{'SQLT_RSET',          116},
+{'SQLT_NCO',           122},
+{'SQLT_VST',           155},
+{'SQLT_ODT',           156},
 
--define(SQLT_DATE,                      184).
--define(SQLT_TIME,                      185).
--define(SQLT_TIME_TZ,                   186).
--define(SQLT_TIMESTAMP,                 187).
--define(SQLT_TIMESTAMP_TZ,              188).
--define(SQLT_INTERVAL_YM,               189).
--define(SQLT_INTERVAL_DS,               190).
--define(SQLT_TIMESTAMP_LTZ,             232).
+{'SQLT_DATE',          184},
+{'SQLT_TIME',          185},
+{'SQLT_TIME_TZ',       186},
+{'SQLT_TIMESTAMP',     187},
+{'SQLT_TIMESTAMP_TZ',  188},
+{'SQLT_INTERVAL_YM',   189},
+{'SQLT_INTERVAL_DS',   190},
+{'SQLT_TIMESTAMP_LTZ', 232},
 
--define(SQLT_PNTY,   241).
+{'SQLT_PNTY',          241},
 
--define(SQLT_FILE, ?SQLT_BFILEE).
--define(SQLT_CFILE, ?SQLT_CFILEE).
--define(SQLT_BFILE, ?SQLT_BFILEE).
+{'SQLT_FILE',          114}, % SQLT_BFILEE
+{'SQLT_CFILE',         115}, % SQLT_CFILEE
+{'SQLT_BFILE',         114}  % SQLT_BFILEE
+]).
 
+-define(CT(__C), proplists:get_value(__C, ?CLM_TYPES, 0)).
+-define(CS(__C), case lists:keyfind(__C, 2, ?CLM_TYPES) of false -> undefined; __Tuple -> element(1, __Tuple) end).
 
 % Argument Types
 -define(ARG_DIR_IN,			0).
