@@ -16,6 +16,7 @@
 
 #include "oci_marshal.h"
 #include "erl_interface.h"
+#include <ocidfn.h>
 
 #ifdef __WIN32__
 #include <windows.h>
@@ -411,21 +412,23 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 		        break;
 			
 			switch(vars[i].dty) {
-				case NUMBER:
+				case SQLT_NUM:
+				case SQLT_INT:
 					if(ERL_IS_INTEGER(arg)) {
 						arg_len = sizeof(int);
 						tmp_arg = new int;
 						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
 					}
 					break;
-				case ERLDATE:
+				case SQLT_DAT:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
 					break;
-				case STRING:
+				case SQLT_STR:
+				case SQLT_CHR:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
 						tmp_arg = new char[arg_len+1];

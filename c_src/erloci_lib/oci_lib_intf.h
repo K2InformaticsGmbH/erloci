@@ -33,13 +33,6 @@
 #define REMOTE_LOG_SINGLE(_str, ...)	if (log_flag) log_remote((_str),__VA_ARGS__)
 #endif
 
-// values match with SQLT_*
-typedef enum _VAR_TYPE {
-    NUMBER	= 3, // SQLT_INT
-    STRING	= 1, // SQLT_CHR
-    ERLDATE	= 12 // SQLT_CHR
-} VAR_TYPE;
-
 #include <vector>
 typedef struct var {
 	char name[256];

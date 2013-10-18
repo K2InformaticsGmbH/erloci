@@ -43,7 +43,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(ProjectDir)..\erloci_lib&quot;"
+				AdditionalIncludeDirectories="&quot;D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(ProjectDir)..\lib\instantclient\sdk\include&quot;;&quot;$(ProjectDir)..\erloci_lib&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
