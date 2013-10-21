@@ -305,10 +305,10 @@ bool cmd_exec_stmt(ETERM * command)
 		try {
 		    ETERM *columns = NULL;
 			map_value_to_bind_args(args[2], statement_handle->get_bind_args());
-			statement_handle->execute(&columns, append_coldef_to_list);
+			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list);
 			// TODO : Also return bound return values from here
 			if (columns == NULL)
-				resp = erl_format((char*)"{~w,~i,{executed,no_ret}}", args[0], EXEC_STMT);
+				resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
 			else {
 				resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
 				erl_free_term(columns);

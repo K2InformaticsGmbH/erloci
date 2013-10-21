@@ -102,7 +102,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 	}																										\
 }
 
-void ocistmt::execute(void * column_list,
+unsigned int ocistmt::execute(void * column_list,
 					  void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *))
 {
 	intf_ret r;
@@ -119,9 +119,15 @@ void ocistmt::execute(void * column_list,
 			unsigned short * alenarr = &_args[i].alen[0];
 			void ** valueparr = &_args[i].valuep[0];
 			switch(_args[i].dty) {
+				case SQLT_BFLOAT:
+				case SQLT_BDOUBLE:
+				case SQLT_FLT:
+					dat_len = sizeof(double);
+					break;
 				case SQLT_INT:
 					dat_len = sizeof(int);
 					break;
+				case SQLT_STR:
 				case SQLT_CHR:
 				case SQLT_DAT:
 					dat_len = _args[i].value_sz;
@@ -241,6 +247,8 @@ void ocistmt::execute(void * column_list,
 				OCIDEF(SQLT_DAT, "SQLT_DAT");
                 break;
             case SQLT_FLT:
+            case SQLT_BFLOAT:
+            case SQLT_BDOUBLE:
                 break;
             case SQLT_TIMESTAMP:
 				OCIALLOC(OCI_DTYPE_TIMESTAMP, "SQLT_TIMESTAMP");
@@ -313,6 +321,16 @@ void ocistmt::execute(void * column_list,
 
         //REMOTE_LOG("Port: Returning Column(s)\n");
     }
+
+	ub4 row_count;
+	checkerr(&r, OCIAttrGet(_stmthp, OCI_HTYPE_STMT, &row_count, 0, OCI_ATTR_ROW_COUNT, (OCIError*)_errhp));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCIAttrGet(OCI_ATTR_ROW_COUNT) error %s\n", r.gerrbuf);
+		ocisess->release_stmt(this);
+        throw r;
+	}
+
+	return row_count;
 }
 
 intf_ret ocistmt::rows(void * row_list,

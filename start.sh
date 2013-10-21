@@ -9,5 +9,5 @@ else
     #exename=erl.exe
     exename='start //MAX werl.exe'
 fi
-$exename -pa deps/*/ebin -pa ebin -eval "oci_port:run(1,10)."
+$exename -pa deps/*/ebin -pa ebin -eval "oci_test:run(2,1000)."
 #$exename -name erloci@127.0.0.1 -pa deps/*/ebin -pa ebin

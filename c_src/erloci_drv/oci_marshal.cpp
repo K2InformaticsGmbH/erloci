@@ -146,7 +146,6 @@ void append_coldef_to_list(const char * col_name, const unsigned short data_type
         container_list = erl_mk_empty_list();
 
 	ETERM *cname = erl_mk_binary(col_name, strlen(col_name));
-//    ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~a,~i}", cname, data_type, max_len), container_list);
     ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~i,~i}", cname, data_type, max_len), container_list);
     erl_free_term(cname);
     erl_free_term(container_list);
@@ -309,34 +308,6 @@ void unlock_log()
 #endif
 }
 
-/*
-void * build_term_from_bind_args(inp_t * bind_var_list_head)
-{
-    if (bind_var_list_head == NULL)
-        return NULL;
-
-    inp_t * param_t = NULL;
-    ETERM * resp_args = erl_mk_empty_list();
-    for(inp_t *param = bind_var_list_head; param != NULL;) {
-        if(param->dir == DIR_OUT || param->dir == DIR_INOUT) {
-            switch(param->dty) {
-            case NUMBER:
-                resp_args = erl_cons(erl_mk_int(*(int*)param->vp), resp_args);
-                break;
-            case STRING:
-                resp_args = erl_cons(erl_mk_string((char*)param->vp), resp_args);
-                break;
-            }
-        }
-        param_t = param;
-        param = param->next;
-        delete param_t;
-    }
-
-    return resp_args;
-}
-*/
-
 void map_schema_to_bind_args(void * _args, vector<var> & vars)
 {
     ETERM * args = (ETERM *)_args;
@@ -413,6 +384,15 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 		        break;
 			
 			switch(vars[i].dty) {
+				case SQLT_BFLOAT:
+				case SQLT_BDOUBLE:
+				case SQLT_FLT:
+					if(ERL_IS_INTEGER(arg) || ERL_IS_FLOAT(arg)) {
+						arg_len = sizeof(double);
+						tmp_arg = new double;
+						*(double*)tmp_arg = (double)(ERL_IS_INTEGER(arg) ? ERL_INT_VALUE(arg) : ERL_FLOAT_VALUE(arg));
+					}
+					break;
 				case SQLT_NUM:
 				case SQLT_INT:
 					if(ERL_IS_INTEGER(arg)) {
@@ -421,6 +401,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
 					}
 					break;
+				case SQLT_RDD:
 				case SQLT_DAT:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
