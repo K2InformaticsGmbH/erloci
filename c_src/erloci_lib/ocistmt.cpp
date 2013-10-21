@@ -156,12 +156,21 @@ unsigned int ocistmt::execute(void * column_list,
 		}
 	}
 
-	/* execute the statement and commit */
+	/* execute the statement, rollback on failure */
     checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, _iters, 0,
                                 (OCISnapshot *)NULL, (OCISnapshot *)NULL,
-                                OCI_COMMIT_ON_SUCCESS));
+                                OCI_DEFAULT)); // OCI_COMMIT_ON_SUCCESS
 	if(r.fn_ret != SUCCESS) {
 		REMOTE_LOG("failed OCIStmtExecute error %s\n", r.gerrbuf);
+		OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
+		ocisess->release_stmt(this);
+        throw r;
+	}
+
+	/* commit */
+	checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCITransCommit error %s\n", r.gerrbuf);
 		ocisess->release_stmt(this);
         throw r;
 	}

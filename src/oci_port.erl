@@ -331,3 +331,257 @@ signal_str(32) -> {'SIGWAITING',    ignore, "All LWPs blocked"};
 signal_str(33) -> {'SIGLWP',        ignore, "Virtual Interprocessor Interrupt for Threads Library"};
 signal_str(34) -> {'SIGAIO',        ignore, "Asynchronous I/O"};
 signal_str(N)  -> {udefined,        ignore, N}.
+
+%
+% Eunit tests
+%
+-ifdef(TEST).
+
+-include_lib("eunit/include/eunit.hrl").
+
+db_test_() ->
+    {timeout, 60, {
+        setup,
+        fun oci_test:setup/0,
+        fun oci_test:teardown/1,
+        {with, [
+            fun drop_create_insert_select_update/1
+            , fun rollback/1
+        ]}
+    }}.
+
+drop_create_insert_select_update(OciSession) ->
+    io:format(user, "------------------------------------------------------------------~n", []),
+    io:format(user, "|                drop_create_insert_select_update                |~n", []),
+    io:format(user, "------------------------------------------------------------------~n", []),
+    TmpTable = "erloci_test_1",
+    RowCount = 5,
+
+    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
+    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
+                                       "publisher varchar2(30),"
+                                       "rank float,"
+                                       "hero varchar2(30),"
+                                       "reality varchar2(30),"
+                                       "votes number,"
+                                       "createdate date default sysdate,"
+                                       "votes_first_rank number)"]),
+    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
+                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
+                                    ":pkey",
+                                    ", :publisher",
+                                    ", :rank",
+                                    ", :hero",
+                                    ", :reality",
+                                    ", :votes",
+                                    ", :createdate"
+                                    ", :votes_first_rank)"]),
+    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
+                  , {<<":publisher">>, 'SQLT_CHR'}
+                  , {<<":rank">>, 'SQLT_FLT'}
+                  , {<<":hero">>, 'SQLT_CHR'}
+                  , {<<":reality">>, 'SQLT_CHR'}
+                  , {<<":votes">>, 'SQLT_INT'}
+                  , {<<":createdate">>, 'SQLT_DAT'}
+                  , {<<":votes_first_rank">>, 'SQLT_INT'}
+                  ],
+    SelQryStr = list_to_binary(["select ",TmpTable,".rowid, ",TmpTable,".* from ", TmpTable]),
+    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
+                                    "pkey = :pkey",
+                                    ", publisher = :publisher",
+                                    ", rank = :rank",
+                                    ", hero = :hero",
+                                    ", reality = :reality",
+                                    ", votes = :votes",
+                                    ", createdate = :createdate"
+                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
+    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
+                     , {<<":publisher">>, 'SQLT_CHR'}
+                     , {<<":rank">>, 'SQLT_FLT'}
+                     , {<<":hero">>, 'SQLT_CHR'}
+                     , {<<":reality">>, 'SQLT_CHR'}
+                     , {<<":votes">>, 'SQLT_INT'}
+                     , {<<":createdate">>, 'SQLT_DAT'}
+                     , {<<":votes_first_rank">>, 'SQLT_INT'}
+                     , {<<":pri_rowid1">>, 'SQLT_STR'}
+                     ],
+
+    io:format(user, "dropping table ~s~n", [TmpTable]),
+    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    DropStmt:exec_stmt(),
+    ?assertEqual(ok, DropStmt:close()),
+
+    io:format(user, "creating table ~s~n", [TmpTable]),
+    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
+    ?assertEqual(ok, StmtCreate:close()),
+
+    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    ?assertMatch(ok, BoundInsStmtRes),
+    ?assertMatch({executed, RowCount},
+        BoundInsStmt:exec_stmt([{ I
+            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+            , I+I/2
+            , list_to_binary(["_hero_",integer_to_list(I),"_"])
+            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+            , I
+            , oci_test:edatetime_to_ora(erlang:now())
+            , I
+            } || I <- lists:seq(1, RowCount)])),
+    ?assertEqual(ok, BoundInsStmt:close()),
+
+    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
+    {ok, Cols} = SelStmt:exec_stmt(),
+    ?assertEqual(9, length(Cols)),
+    {{rows, Rows0}, false} = SelStmt:fetch_rows(2),
+    {{rows, Rows1}, false} = SelStmt:fetch_rows(2),
+    {{rows, Rows2}, true} = SelStmt:fetch_rows(2),
+    ?assertEqual(ok, SelStmt:close()),
+
+    io:format(user, "update in table ~s~n", [TmpTable]),
+    Rows = Rows0 ++ Rows1 ++ Rows2,
+    RowIDs = [lists:last(R) || R <- Rows],
+    BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
+    ?assertMatch(ok, BoundUpdStmtRes),
+    ?assertMatch({executed, RowCount},
+        BoundUpdStmt:exec_stmt([{ I
+                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
+                            , I+I/3
+                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
+                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                            , I+1
+                            , oci_test:edatetime_to_ora(erlang:now())
+                            , I+1
+                            , Key
+                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
+    ?assertEqual(ok, BoundUpdStmt:close()).
+
+rollback(OciSession) ->
+    io:format(user, "------------------------------------------------------------------~n", []),
+    io:format(user, "|                            rollback                            |~n", []),
+    io:format(user, "------------------------------------------------------------------~n", []),
+    TmpTable = "erloci_test_1",
+    RowCount = 3,
+
+    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
+    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
+                                       "publisher varchar2(30),"
+                                       "rank float,"
+                                       "hero varchar2(30),"
+                                       "reality varchar2(30),"
+                                       "votes number,"
+                                       "createdate date default sysdate,"
+                                       "votes_first_rank number)"]),
+    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
+                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
+                                    ":pkey",
+                                    ", :publisher",
+                                    ", :rank",
+                                    ", :hero",
+                                    ", :reality",
+                                    ", :votes",
+                                    ", :createdate"
+                                    ", :votes_first_rank)"]),
+    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
+                  , {<<":publisher">>, 'SQLT_CHR'}
+                  , {<<":rank">>, 'SQLT_FLT'}
+                  , {<<":hero">>, 'SQLT_CHR'}
+                  , {<<":reality">>, 'SQLT_CHR'}
+                  , {<<":votes">>, 'SQLT_INT'}
+                  , {<<":createdate">>, 'SQLT_DAT'}
+                  , {<<":votes_first_rank">>, 'SQLT_INT'}
+                  ],
+    SelQryStr = list_to_binary(["select ",TmpTable,".rowid, ",TmpTable,".* from ", TmpTable]),
+    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
+                                    "pkey = :pkey",
+                                    ", publisher = :publisher",
+                                    ", rank = :rank",
+                                    ", hero = :hero",
+                                    ", reality = :reality",
+                                    ", votes = :votes",
+                                    ", createdate = :createdate"
+                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
+    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
+                     , {<<":publisher">>, 'SQLT_CHR'}
+                     , {<<":rank">>, 'SQLT_FLT'}
+                     , {<<":hero">>, 'SQLT_CHR'}
+                     , {<<":reality">>, 'SQLT_CHR'}
+                     , {<<":votes">>, 'SQLT_STR'}
+                     , {<<":createdate">>, 'SQLT_DAT'}
+                     , {<<":votes_first_rank">>, 'SQLT_INT'}
+                     , {<<":pri_rowid1">>, 'SQLT_STR'}
+                     ],
+
+    io:format(user, "dropping table ~s~n", [TmpTable]),
+    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    DropStmt:exec_stmt(),
+    ?assertEqual(ok, DropStmt:close()),
+
+    io:format(user, "creating table ~s~n", [TmpTable]),
+    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
+    ?assertEqual(ok, StmtCreate:close()),
+
+    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    ?assertMatch(ok, BoundInsStmtRes),
+    ?assertMatch({executed, RowCount},
+        BoundInsStmt:exec_stmt([{ I
+            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+            , I+I/2
+            , list_to_binary(["_hero_",integer_to_list(I),"_"])
+            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+            , I
+            , oci_test:edatetime_to_ora(erlang:now())
+            , I
+            } || I <- lists:seq(1, RowCount)])),
+    ?assertEqual(ok, BoundInsStmt:close()),
+
+    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
+    {ok, Cols} = SelStmt:exec_stmt(),
+    ?assertEqual(9, length(Cols)),
+    {{rows, Rows}, false} = SelStmt:fetch_rows(2),
+    ?assertEqual(ok, SelStmt:close()),
+
+    io:format(user, "update in table ~s~n", [TmpTable]),
+    RowIDs = [lists:last(R) || R <- Rows],
+    BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
+    ?assertMatch(ok, BoundUpdStmtRes),
+    ?assertMatch({error, _},
+        BoundUpdStmt:exec_stmt([{ I
+                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
+                            , I+I/3
+                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
+                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                            , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end
+                            , oci_test:edatetime_to_ora(erlang:now())
+                            , I+1
+                            , Key
+                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
+    ?assertMatch(ok, BoundUpdStmt:close()),
+
+    io:format(user, "testing rollback table ~s~n", [TmpTable]),
+    SelStmt1 = OciSession:prep_sql(SelQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
+    ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
+    ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(2)),
+    ?assertEqual(ok, SelStmt1:close()).
+
+-endif.

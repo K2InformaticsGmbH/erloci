@@ -1,6 +1,9 @@
 -module(oci_test).
 
--export([run/2]).
+-export([ run/2
+        , setup/0
+        , teardown/1
+        , edatetime_to_ora/1]).
 
 -define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
 
@@ -14,7 +17,7 @@ setup() ->
     OciPort = oci_port:start_link([{logging, true}]),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
     OciSession = OciPort:get_session(Tns, User, Pswd),
-    throw_if_error(undefined, OciSession, "session get failed"),
+    throw_if_error(undefined, OciSession, "session failed"),
     oci_logger:log(lists:flatten(io_lib:format("[OCI Session] ~p~n", [OciSession]))),
     OciSession.
 
@@ -36,7 +39,7 @@ run_test(OciSession, Threads, InsertCount) ->
     receive_all(OciSession, Threads).
 
 throw_if_error(Parent, {error, Error}, Msg) ->
-    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1}; true -> ok end,
+    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1, 1}; true -> ok end,
     throw({Msg, Error});
 throw_if_error(_,_,_) -> ok.
 
@@ -228,24 +231,3 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
 
 print_if_error({error, Error}, Msg) -> oci_logger:log(lists:flatten(io_lib:format("___________----- continue after ~p ~p~n", [Msg,Error])));
 print_if_error(_, _) -> ok.
-
-%
-% Eunit tests
-%
--ifdef(TEST).
-
--include_lib("eunit/include/eunit.hrl").
-
-db_test_() ->
-    {timeout, 60, {
-        setup,
-        fun setup/0,
-        fun teardown/1,
-        {with, [
-            fun db_perf/1
-        ]}
-    }}.
-
-db_perf(OciSession) ->
-    run_test(OciSession, 1, 1).
--endif.
