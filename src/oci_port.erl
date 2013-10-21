@@ -92,9 +92,9 @@ close({?MODULE, PortPid, SessionId}) ->
 close({?MODULE, statement, PortPid, StmtId}) ->
     gen_server:call(PortPid, {port_call, [?CLSE_STMT, StmtId]}, ?PORT_TIMEOUT).
 
-% BindVars = [{<<":col1">>, 1}, {<<":col2">>, 2}]
 bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) when is_list(BindVars) ->
-    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, StmtId, BindVars]}, ?PORT_TIMEOUT),
+    TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
+    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, StmtId, TranslatedBindVars]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         ok -> ok;
@@ -445,14 +445,14 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
         oci_logger:log(lists:flatten(io_lib:format("_[~p]_ ~p~n", [Table,BindQry]))),
         BoundStmt = OciSession:prep_sql(BindQry),
         throw_if_error(Parent, BoundStmt, binary_to_list(BindQry)),
-        Res0 = BoundStmt:bind_vars([ {<<":pkey">>, ?CT('SQLT_INT')}
-                            , {<<":publisher">>, ?CT('SQLT_CHR')}
-                            , {<<":rank">>, ?CT('SQLT_INT')}
-                            , {<<":hero">>, ?CT('SQLT_CHR')}
-                            , {<<":reality">>, ?CT('SQLT_CHR')}
-                            , {<<":votes">>, ?CT('SQLT_INT')}
-                            , {<<":createdate">>, ?CT('SQLT_DAT')}
-                            , {<<":votes_first_rank">>, ?CT('SQLT_INT')}
+        Res0 = BoundStmt:bind_vars([ {<<":pkey">>, 'SQLT_INT'}
+                            , {<<":publisher">>, 'SQLT_CHR'}
+                            , {<<":rank">>, 'SQLT_INT'}
+                            , {<<":hero">>, 'SQLT_CHR'}
+                            , {<<":reality">>, 'SQLT_CHR'}
+                            , {<<":votes">>, 'SQLT_INT'}
+                            , {<<":createdate">>, 'SQLT_DAT'}
+                            , {<<":votes_first_rank">>, 'SQLT_INT'}
                             ]),
         throw_if_error(Parent, Res0, "bind_vars"),
         BoundStmt:exec_stmt([{ I
