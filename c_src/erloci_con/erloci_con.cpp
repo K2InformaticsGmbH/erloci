@@ -65,7 +65,7 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd, const ch
 		printf("Columns:\n");
 		try {
 			stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-			stmt->execute(NULL, append_coldef_to_list);
+			stmt->execute(NULL, append_coldef_to_list, true);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -156,7 +156,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	sprintf(modqry, "drop table oci_test_table_%d", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list);
+		stmt->execute(NULL, append_coldef_to_list, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -179,7 +179,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
                                        votes_first_rank number)", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list);
+		stmt->execute(NULL, append_coldef_to_list, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -200,7 +200,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 		sprintf(modqry, "insert into oci_test_table_%d values (%d,'publisher%d',%d,'hero%d','real%d',%d,%d)", tid, i, i, i, i, i, i, i);
 		try {
 			stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-			stmt->execute(NULL, append_coldef_to_list);
+			stmt->execute(NULL, append_coldef_to_list, true);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -218,7 +218,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	sprintf(modqry, "select * from oci_test_table_%d", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list);
+		stmt->execute(NULL, append_coldef_to_list, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {

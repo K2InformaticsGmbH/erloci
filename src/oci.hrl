@@ -33,8 +33,10 @@
 -define(EXEC_STMT,  5).
 -define(FTCH_ROWS,  6).
 -define(CLSE_STMT,  7).
--define(RMOTE_MSG,  8).
--define(OCIP_QUIT,  9).
+-define(CMT_SESSN,  8).
+-define(RBK_SESSN,  9).
+-define(RMOTE_MSG,  10).
+-define(OCIP_QUIT,  11).
 
 -define(CMDSTR(__CMD), (fun
                             (?CMD_UNKWN)    -> "CMD_UNKWN";
@@ -45,6 +47,8 @@
                             (?EXEC_STMT)    -> "EXEC_STMT";
                             (?FTCH_ROWS)    -> "FTCH_ROWS";
                             (?CLSE_STMT)    -> "CLSE_STMT";
+                            (?CMT_SESSN)    -> "CMT_SESSN";
+                            (?RBK_SESSN)    -> "RBK_SESSN";
                             (?RMOTE_MSG)    -> "RMOTE_MSG";
                             (?OCIP_QUIT)    -> "OCIP_QUIT";
                             (__C)           -> "UNKNOWN "++integer_to_list(__C)

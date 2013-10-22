@@ -117,7 +117,8 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 }
 
 unsigned int ocistmt::execute(void * column_list,
-					  void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *))
+					  void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *),
+					  bool auto_commit)
 {
 	intf_ret r;
 
@@ -171,22 +172,25 @@ unsigned int ocistmt::execute(void * column_list,
 	}
 
 	/* execute the statement, rollback on failure */
+	ub4 mode = (auto_commit ? OCI_COMMIT_ON_SUCCESS : OCI_DEFAULT);
     checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, _iters, 0,
                                 (OCISnapshot *)NULL, (OCISnapshot *)NULL,
-                                OCI_DEFAULT)); // OCI_COMMIT_ON_SUCCESS
+                                OCI_DEFAULT));
 	if(r.fn_ret != SUCCESS) {
 		REMOTE_LOG("failed OCIStmtExecute error %s\n", r.gerrbuf);
-		OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
+		if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 		ocisess->release_stmt(this);
         throw r;
 	}
 
-	/* commit */
-	checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
-	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCITransCommit error %s\n", r.gerrbuf);
-		ocisess->release_stmt(this);
-        throw r;
+	if(auto_commit && _stmt_typ != OCI_STMT_SELECT) {
+		/* commit */
+		checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG("failed OCITransCommit error %s\n", r.gerrbuf);
+			ocisess->release_stmt(this);
+			throw r;
+		}
 	}
 
 	for(int i = 0; i < _args.size(); ++i) {

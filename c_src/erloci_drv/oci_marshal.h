@@ -57,8 +57,10 @@ typedef enum _ERL_CMD {
     EXEC_STMT			= 5,
     FTCH_ROWS			= 6,
     CLSE_STMT			= 7,
-    RMOTE_MSG			= 8,
-    OCIP_QUIT			= 9,
+    CMT_SESSN			= 8,
+    RBK_SESSN			= 9,
+    RMOTE_MSG			= 10,
+    OCIP_QUIT			= 11,
 } ERL_CMD;
 
 /*
@@ -76,9 +78,11 @@ extern const erlcmdtable cmdtbl[];
     {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
     {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
     {BIND_ARGS,	"BIND_ARGS",	3, "Bind parameters into prepared SQL statement"},\
-    {EXEC_STMT,	"EXEC_STMT",	3, "Execute a prepared statement"},\
+    {EXEC_STMT,	"EXEC_STMT",	4, "Execute a prepared statement"},\
     {FTCH_ROWS,	"FTCH_ROWS",	3, "Fetch rows from statements producing rows"},\
     {CLSE_STMT,	"CLSE_STMT",	2, "Close a statement"},\
+    {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
+    {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\
     {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"}\
 }

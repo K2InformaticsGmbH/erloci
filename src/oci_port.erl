@@ -20,13 +20,17 @@
 %% API
 -export([
     start_link/1,
+    start_link/2,
     stop/1,
     logging/2,
     get_session/4,
     prep_sql/2,
+    commit/1,
+    rollback/1,
     bind_vars/2,
     exec_stmt/1,
     exec_stmt/2,
+    exec_stmt/3,
     fetch_rows/2,
     add_stmt_fsm/3,
     close/1
@@ -51,9 +55,21 @@
 
 %% External API
 start_link(Options) ->
+    start_link(Options, fun(B) ->
+        case re:run(B, <<"\n">>) of
+            nomatch -> oci_logger:log(binary_to_list(B));
+            _ ->
+                [(fun
+                    ("") -> ok;
+                    (Txt) ->
+                        oci_logger:log(?T++" "++Txt++"~n")
+                end)(Log) || Log <- re:split(B, <<"\n">>, [{return, list}])]
+        end
+    end).
+start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
-    spawn(fun() -> server(LSock) end),
+    spawn(fun() -> server(LSock,LogFun) end),
     case Options of
         undefined ->
             gen_server:start_link(?MODULE, [false, ListenPort], []);
@@ -99,6 +115,12 @@ bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) when is_list(BindVars
         R -> R
     end.
 
+commit({?MODULE, PortPid, SessionId}) ->
+    gen_server:call(PortPid, {port_call, [?CMT_SESSN, SessionId]}, ?PORT_TIMEOUT).
+
+rollback({?MODULE, PortPid, SessionId}) ->
+    gen_server:call(PortPid, {port_call, [?RBK_SESSN, SessionId]}, ?PORT_TIMEOUT).
+
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
@@ -107,10 +129,13 @@ prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
         R -> R
     end.
 
+% AutoCommit is default set to false
 exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
-    exec_stmt([], {?MODULE, statement, PortPid, StmtId}).
+    exec_stmt([], 1, {?MODULE, statement, PortPid, StmtId}).
 exec_stmt(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
-    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId, BindVars]}, ?PORT_TIMEOUT),
+    exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, StmtId}).
+exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, StmtId}) ->
+    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId, BindVars, AutoCommit]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {cols, Clms} -> {ok, lists:reverse([{N,?CS(T),S} || {N,T,S} <- Clms])};
@@ -175,12 +200,12 @@ start_exe(Executable, Logging, ListenPort) ->
             end
     end.
 
-server(LSock) ->
+server(LSock,Fun) ->
     ?Info("~p waiting for log connections...", [LSock]),
     case gen_tcp:accept(LSock) of
         {ok, Sock} ->
             ?Info("logger connected at ~p, now waiting to receive in tight loop and log", [Sock]),
-            log(Sock),
+            log(Sock,Fun),
             ?Info("closing tcp connection"),
             ok = gen_tcp:close(Sock),
             ok = gen_tcp:close(LSock);
@@ -188,19 +213,11 @@ server(LSock) ->
             ?Error("listener failed ~p!", [Error])
     end.
 
-log(Sock) ->
+log(Sock,Fun) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, B} ->
-            case re:run(B, <<"\n">>) of
-                nomatch -> oci_logger:log(binary_to_list(B));
-                _ ->
-                    [(fun
-                        ("") -> ok;
-                        (Txt) ->
-                            oci_logger:log(?T++" "++Txt++"~n")
-                    end)(Log) || Log <- re:split(B, <<"\n">>, [{return, list}])]
-            end,
-            log(Sock);
+            Fun(B),
+            log(Sock,Fun);
         {error, closed} -> ok
     end.
 
@@ -346,7 +363,8 @@ db_test_() ->
         fun oci_test:teardown/1,
         {with, [
             fun drop_create_insert_select_update/1
-            , fun rollback/1
+            , fun auto_rollback_test/1
+            , fun commit_rollback_test/1
         ]}
     }}.
 
@@ -453,7 +471,7 @@ drop_create_insert_select_update(OciSession) ->
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({executed, RowCount},
-        BoundUpdStmt:exec_stmt([{ I
+    BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
@@ -465,9 +483,9 @@ drop_create_insert_select_update(OciSession) ->
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
     ?assertEqual(ok, BoundUpdStmt:close()).
 
-rollback(OciSession) ->
+auto_rollback_test(OciSession) ->
     io:format(user, "------------------------------------------------------------------~n", []),
-    io:format(user, "|                            rollback                            |~n", []),
+    io:format(user, "|                         auto_rollback                          |~n", []),
     io:format(user, "------------------------------------------------------------------~n", []),
     TmpTable = "erloci_test_1",
     RowCount = 3,
@@ -539,7 +557,7 @@ rollback(OciSession) ->
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({executed, RowCount},
-        BoundInsStmt:exec_stmt([{ I
+    BoundInsStmt:exec_stmt([{ I
             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
             , I+I/2
             , list_to_binary(["_hero_",integer_to_list(I),"_"])
@@ -547,7 +565,7 @@ rollback(OciSession) ->
             , I
             , oci_test:edatetime_to_ora(erlang:now())
             , I
-            } || I <- lists:seq(1, RowCount)])),
+            } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
     io:format(user, "selecting from table ~s~n", [TmpTable]),
@@ -555,7 +573,7 @@ rollback(OciSession) ->
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(9, length(Cols)),
-    {{rows, Rows}, false} = SelStmt:fetch_rows(2),
+    {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
 
     io:format(user, "update in table ~s~n", [TmpTable]),
@@ -565,7 +583,7 @@ rollback(OciSession) ->
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({error, _},
-        BoundUpdStmt:exec_stmt([{ I
+    BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
@@ -574,14 +592,136 @@ rollback(OciSession) ->
                             , oci_test:edatetime_to_ora(erlang:now())
                             , I+1
                             , Key
-                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
+                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], 1)),
     ?assertMatch(ok, BoundUpdStmt:close()),
 
     io:format(user, "testing rollback table ~s~n", [TmpTable]),
     SelStmt1 = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
     ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
-    ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(2)),
+    ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(RowCount)),
+    ?assertEqual(ok, SelStmt1:close()).
+
+commit_rollback_test(OciSession) ->
+    io:format(user, "------------------------------------------------------------------~n", []),
+    io:format(user, "|                      commit_rollback_test                      |~n", []),
+    io:format(user, "------------------------------------------------------------------~n", []),
+    TmpTable = "erloci_test_1",
+    RowCount = 3,
+
+    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
+    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
+                                       "publisher varchar2(30),"
+                                       "rank float,"
+                                       "hero varchar2(30),"
+                                       "reality varchar2(30),"
+                                       "votes number,"
+                                       "createdate date default sysdate,"
+                                       "votes_first_rank number)"]),
+    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
+                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
+                                    ":pkey",
+                                    ", :publisher",
+                                    ", :rank",
+                                    ", :hero",
+                                    ", :reality",
+                                    ", :votes",
+                                    ", :createdate"
+                                    ", :votes_first_rank)"]),
+    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
+                  , {<<":publisher">>, 'SQLT_CHR'}
+                  , {<<":rank">>, 'SQLT_FLT'}
+                  , {<<":hero">>, 'SQLT_CHR'}
+                  , {<<":reality">>, 'SQLT_CHR'}
+                  , {<<":votes">>, 'SQLT_INT'}
+                  , {<<":createdate">>, 'SQLT_DAT'}
+                  , {<<":votes_first_rank">>, 'SQLT_INT'}
+                  ],
+    SelQryStr = list_to_binary(["select ",TmpTable,".rowid, ",TmpTable,".* from ", TmpTable]),
+    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
+                                    "pkey = :pkey",
+                                    ", publisher = :publisher",
+                                    ", rank = :rank",
+                                    ", hero = :hero",
+                                    ", reality = :reality",
+                                    ", votes = :votes",
+                                    ", createdate = :createdate"
+                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
+    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
+                     , {<<":publisher">>, 'SQLT_CHR'}
+                     , {<<":rank">>, 'SQLT_FLT'}
+                     , {<<":hero">>, 'SQLT_CHR'}
+                     , {<<":reality">>, 'SQLT_CHR'}
+                     , {<<":votes">>, 'SQLT_STR'}
+                     , {<<":createdate">>, 'SQLT_DAT'}
+                     , {<<":votes_first_rank">>, 'SQLT_INT'}
+                     , {<<":pri_rowid1">>, 'SQLT_STR'}
+                     ],
+
+    io:format(user, "dropping table ~s~n", [TmpTable]),
+    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    DropStmt:exec_stmt(),
+    ?assertEqual(ok, DropStmt:close()),
+
+    io:format(user, "creating table ~s~n", [TmpTable]),
+    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
+    ?assertEqual(ok, StmtCreate:close()),
+
+    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    ?assertMatch(ok, BoundInsStmtRes),
+    ?assertMatch({executed, RowCount},
+    BoundInsStmt:exec_stmt([{ I
+                            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+                            , I+I/2
+                            , list_to_binary(["_hero_",integer_to_list(I),"_"])
+                            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+                            , I
+                            , oci_test:edatetime_to_ora(erlang:now())
+                            , I
+                            } || I <- lists:seq(1, RowCount)], 1)),
+    ?assertEqual(ok, BoundInsStmt:close()),
+
+    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
+    {ok, Cols} = SelStmt:exec_stmt(),
+    ?assertEqual(9, length(Cols)),
+    {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
+    ?assertEqual(ok, SelStmt:close()),
+
+    io:format(user, "update in table ~s~n", [TmpTable]),
+    RowIDs = [lists:last(R) || R <- Rows],
+    BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
+    ?assertMatch(ok, BoundUpdStmtRes),
+    ?assertMatch({executed, _},
+    BoundUpdStmt:exec_stmt([{ I
+                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
+                            , I+I/3
+                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
+                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                            , integer_to_binary(I+1)
+                            , oci_test:edatetime_to_ora(erlang:now())
+                            , I+1
+                            , Key
+                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], -1)),
+
+    ?assertMatch(ok, BoundUpdStmt:close()),
+
+    io:format(user, "testing rollback table ~s~n", [TmpTable]),
+    ?assertEqual(ok, OciSession:rollback()),
+    SelStmt1 = OciSession:prep_sql(SelQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
+    ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
+    {{rows, NewRows}, false} = SelStmt1:fetch_rows(RowCount),
+    ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
     ?assertEqual(ok, SelStmt1:close()).
 
 -endif.

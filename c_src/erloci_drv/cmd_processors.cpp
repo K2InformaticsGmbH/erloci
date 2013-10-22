@@ -170,7 +170,101 @@ error_exit:
 	return ret;
 }
 
-//inp_t * bind_args = map_to_bind_args(args[3]);
+bool cmd_commit(ETERM * command)
+{
+    bool ret = false;
+    ETERM * resp;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMT_SESSN)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMT_SESSN);
+		REMOTE_LOG("ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+	if(ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) {
+
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+		try {
+			conn_handle->commit();
+            resp = erl_format((char*)"{~w,~i,ok}", args[0], CMT_SESSN);
+		} catch (intf_ret r) {
+			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+            resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMT_SESSN, r.gerrcode, r.gerrbuf);
+			ret = true;
+		} catch (string str) {
+			REMOTE_LOG("ERROR %s\n", str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], CMT_SESSN, str.c_str());
+			ret = true;
+		} catch (...) {
+			REMOTE_LOG("ERROR unknown\n");
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], CMT_SESSN);
+			ret = true;
+		}
+    }
+
+error_exit:
+    if(write_resp(resp) < 0)
+        ret = true;
+
+    erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), args);
+
+	return ret;
+}
+
+bool cmd_rollback(ETERM * command)
+{
+    bool ret = false;
+    ETERM * resp;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(RBK_SESSN)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RBK_SESSN);
+		REMOTE_LOG("ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+	if(ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) {
+
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+		try {
+			conn_handle->rollback();
+            resp = erl_format((char*)"{~w,~i,ok}", args[0], RBK_SESSN);
+		} catch (intf_ret r) {
+			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+            resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], RBK_SESSN, r.gerrcode, r.gerrbuf);
+			ret = true;
+		} catch (string str) {
+			REMOTE_LOG("ERROR %s\n", str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], RBK_SESSN, str.c_str());
+			ret = true;
+		} catch (...) {
+			REMOTE_LOG("ERROR unknown\n");
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], RBK_SESSN);
+			ret = true;
+		}
+    }
+
+error_exit:
+    if(write_resp(resp) < 0)
+        ret = true;
+
+    erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), args);
+
+	return ret;
+}
 bool cmd_prep_sql(ETERM * command)
 {
 	bool ret = false;
@@ -197,7 +291,6 @@ bool cmd_prep_sql(ETERM * command)
 													: ERL_LL_UVALUE(args[1]));
 		try {
 	        ocistmt * statement_handle = conn_handle->prepare_stmt(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]));
-            //REMOTE_LOG("statement handle %lu\n", (unsigned long long)statement_handle);
 			ETERM *stmth = erl_mk_ulonglong((unsigned long long)statement_handle);
 			resp = erl_format((char*)"{~w,~i,{stmt,~w}}", args[0], PREP_STMT, stmth);
 			erl_free_term(stmth);
@@ -296,16 +389,19 @@ bool cmd_exec_stmt(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Conn Handle, Bind List
+    // Args: Conn Handle, Bind List, auto_commit
     if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-	   && ERL_IS_LIST(args[2])) {
+	   && ERL_IS_LIST(args[2])
+	   && (ERL_IS_INTEGER(args[3]) || ERL_IS_UNSIGNED_LONGLONG(args[3]) || ERL_IS_LONGLONG(args[3]))) {
 		ocistmt * statement_handle = (ocistmt *)(ERL_IS_INTEGER(args[1])
 													? ERL_INT_VALUE(args[1])
 													: ERL_LL_UVALUE(args[1]));
+		int auto_commit_val = (ERL_IS_INTEGER(args[3]) ? ERL_INT_VALUE(args[3]) : ERL_LL_UVALUE(args[3]));
+		bool auto_commit = auto_commit_val > 0 ? true : false;
 		try {
 		    ETERM *columns = NULL;
 			map_value_to_bind_args(args[2], statement_handle->get_bind_args());
-			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list);
+			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, auto_commit);
 			// TODO : Also return bound return values from here
 			if (columns == NULL)
 				resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
@@ -487,6 +583,8 @@ bool cmd_processor(void * param)
         case EXEC_STMT:	ret = cmd_exec_stmt(command);		break;
         case FTCH_ROWS:	ret = cmd_fetch_rows(command);		break;
         case CLSE_STMT:	ret = cmd_close_stmt(command);		break;
+        case CMT_SESSN:	ret = cmd_commit(command);			break;
+        case RBK_SESSN:	ret = cmd_rollback(command);		break;
         case RMOTE_MSG:	ret = change_log_flag(command);		break;
         case OCIP_QUIT:
         default:

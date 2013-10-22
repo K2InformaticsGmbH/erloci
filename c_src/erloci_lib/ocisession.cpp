@@ -80,6 +80,28 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
 	_sessions.push_back(this);
 }
 
+void ocisession::commit()
+{
+	intf_ret r;
+
+	checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCITransCommit %s\n", r.gerrbuf);
+        throw r;
+	}
+}
+
+void ocisession::rollback()
+{
+	intf_ret r;
+
+	checkerr(&r, OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCITransRollback %s\n", r.gerrbuf);
+        throw r;
+	}
+}
+
 ocistmt* ocisession::prepare_stmt(OraText *stmt, ub4 stmt_len)
 {
 	ocistmt * statement = new ocistmt(this, stmt, stmt_len);

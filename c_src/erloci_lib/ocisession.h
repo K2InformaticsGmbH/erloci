@@ -43,7 +43,8 @@ public:
 	ocisession(const char * connect_str, const int connect_str_len,
 		const char * user_name, const int user_name_len,
 		const char * password, const int password_len);
-
+	void commit(void);
+	void rollback(void);
 	ocistmt* prepare_stmt(unsigned char *stmt, unsigned int stmt_len);
 	void release_stmt(ocistmt *stmt);
 
