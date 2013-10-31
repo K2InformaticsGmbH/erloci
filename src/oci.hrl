@@ -25,20 +25,23 @@
 % MUST use conteneous and monotonically
 % increasing number codes for new commands
 % MUST match with oci_marshal.h
--define(CMD_UNKWN,  0).
--define(GET_SESSN,  1).
--define(PUT_SESSN,  2).
--define(PREP_STMT,  3).
--define(BIND_ARGS,  4).
--define(EXEC_STMT,  5).
--define(FTCH_ROWS,  6).
--define(CLSE_STMT,  7).
--define(CMT_SESSN,  8).
--define(RBK_SESSN,  9).
--define(RMOTE_MSG,  10).
--define(OCIP_QUIT,  11).
+-define(RMOTE_MSG,  0).
+-define(CMD_UNKWN,  1).
+-define(GET_SESSN,  2).
+-define(PUT_SESSN,  3).
+-define(PREP_STMT,  4).
+-define(BIND_ARGS,  5).
+-define(EXEC_STMT,  6).
+-define(FTCH_ROWS,  7).
+-define(CLSE_STMT,  8).
+-define(CMT_SESSN,  9).
+-define(RBK_SESSN,  10).
+-define(CMD_DSCRB,  11).
+-define(OCIP_QUIT,  12).
 
 -define(CMDSTR(__CMD), (fun
+                            (?RMOTE_MSG)    -> "RMOTE_MSG";
+                            (?OCIP_QUIT)    -> "OCIP_QUIT";
                             (?CMD_UNKWN)    -> "CMD_UNKWN";
                             (?GET_SESSN)    -> "GET_SESSN";
                             (?PUT_SESSN)    -> "PUT_SESSN";
@@ -49,13 +52,18 @@
                             (?CLSE_STMT)    -> "CLSE_STMT";
                             (?CMT_SESSN)    -> "CMT_SESSN";
                             (?RBK_SESSN)    -> "RBK_SESSN";
-                            (?RMOTE_MSG)    -> "RMOTE_MSG";
-                            (?OCIP_QUIT)    -> "OCIP_QUIT";
+                            (?CMD_DSCRB)    -> "CMD_DSCRB";
                             (__C)           -> "UNKNOWN "++integer_to_list(__C)
                         end)(__CMD)).
 
+-define(GetT(__C,__PL), proplists:get_value(__C, __PL, 0)).
+-define(GetS(__C,__K,__PL), case lists:keyfind(__C,__K,__PL) of
+                                false -> undefined;
+                                __Tuple -> element(1,__Tuple)
+                            end).
+
 %% Bind arg types
-% Name and alue inporetd from ocistmt.h
+% Name and value inporetd from ocidfn.h
 -define(CLM_TYPES, [
 {'SQLT_CHR',           1},
 {'SQLT_NUM',           2},
@@ -113,9 +121,40 @@
 {'SQLT_CFILE',         115}, % SQLT_CFILEE
 {'SQLT_BFILE',         114}  % SQLT_BFILEE
 ]).
+-define(CT(__C), ?GetT(__C,?CLM_TYPES)).
+-define(CS(__C), ?GetS(__C,2,?CLM_TYPES)).
 
--define(CT(__C), proplists:get_value(__C, ?CLM_TYPES, 0)).
--define(CS(__C), case lists:keyfind(__C, 2, ?CLM_TYPES) of false -> undefined; __Tuple -> element(1, __Tuple) end).
+%% Bind arg types
+% Name and value inporetd from oci.h
+-define(DESC_TYPES, [
+{'OCI_PTYPE_UNK',                 0},   % unknown
+{'OCI_PTYPE_TABLE',               1},   % table
+{'OCI_PTYPE_VIEW',                2},   % view
+{'OCI_PTYPE_PROC',                3},   % procedure
+{'OCI_PTYPE_FUNC',                4},   % function
+{'OCI_PTYPE_PKG',                 5},   % package
+{'OCI_PTYPE_TYPE',                6},   % user-defined type
+{'OCI_PTYPE_SYN',                 7},   % synonym
+{'OCI_PTYPE_SEQ',                 8},   % sequence
+{'OCI_PTYPE_COL',                 9},   % column
+{'OCI_PTYPE_ARG',                10},   % argument
+{'OCI_PTYPE_LIST',               11},   % list
+{'OCI_PTYPE_TYPE_ATTR',          12},   % user-defined type's attribute
+{'OCI_PTYPE_TYPE_COLL',          13},   % collection type's element
+{'OCI_PTYPE_TYPE_METHOD',        14},   % user-defined type's method
+{'OCI_PTYPE_TYPE_ARG',           15},   % user-defined type method's arg
+{'OCI_PTYPE_TYPE_RESULT',        16},   % user-defined type method's result
+{'OCI_PTYPE_SCHEMA',             17},   % schema
+{'OCI_PTYPE_DATABASE',           18},   % database
+{'OCI_PTYPE_RULE',               19},   % rule
+{'OCI_PTYPE_RULE_SET',           20},   % rule set
+{'OCI_PTYPE_EVALUATION_CONTEXT', 21},   % evaluation context
+{'OCI_PTYPE_TABLE_ALIAS',        22},   % table alias
+{'OCI_PTYPE_VARIABLE_TYPE',      23},   % variable type
+{'OCI_PTYPE_NAME_VALUE',         24}    % name value pair
+]).
+-define(DT(__C), ?GetT(__C,?DESC_TYPES)).
+-define(DS(__C), ?GetS(__C,2,?DESC_TYPES)).
 
 % Argument Types
 -define(ARG_DIR_IN,			0).

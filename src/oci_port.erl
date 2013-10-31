@@ -24,6 +24,7 @@
     stop/1,
     logging/2,
     get_session/4,
+    describe/3,
     prep_sql/2,
     commit/1,
     rollback/1,
@@ -32,7 +33,6 @@
     exec_stmt/2,
     exec_stmt/3,
     fetch_rows/2,
-    add_stmt_fsm/3,
     close/1
 ]).
 
@@ -46,7 +46,6 @@
     code_change/3]).
 
 -record(state, {
-    stmts = [],
     port,
     logging = ?DBG_FLAG_OFF
 }).
@@ -85,9 +84,6 @@ start_link(Options,LogFun) ->
 stop(PortPid) ->
     gen_server:call(PortPid, stop).
 
-add_stmt_fsm(StmtRef, StmtFsm, {?MODULE, PortPid, _SessionId}) ->
-    gen_server:call(PortPid, {add_stmt_fsm, StmtRef, StmtFsm}, ?PORT_TIMEOUT).
-
 logging(enable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]}, ?PORT_TIMEOUT);
 logging(disable, {?MODULE, PortPid}) ->
@@ -121,6 +117,10 @@ commit({?MODULE, PortPid, SessionId}) ->
 rollback({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?RBK_SESSN, SessionId]}, ?PORT_TIMEOUT).
 
+describe(Object, Type, {?MODULE, PortPid, SessionId})
+when is_binary(Object); is_atom(Type) ->
+    gen_server:call(PortPid, {port_call, [?CMD_DSCRB, SessionId, Object, ?DT(Type)]}, ?PORT_TIMEOUT).
+
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
@@ -129,7 +129,7 @@ prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
         R -> R
     end.
 
-% AutoCommit is default set to false
+% AutoCommit is default set to true
 exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
     exec_stmt([], 1, {?MODULE, statement, PortPid, StmtId}).
 exec_stmt(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
@@ -221,10 +221,6 @@ log(Sock,Fun) ->
         {error, closed} -> ok
     end.
 
-handle_call({add_stmt_fsm, StmtRef, {_, StmtFsmPid}}, _From, #state{stmts=Stmts} = State) ->
-    erlang:monitor(process, StmtFsmPid),
-    NStmts = lists:keystore(StmtRef, 1, Stmts, {StmtRef, StmtFsmPid}),
-    {reply,ok,State#state{stmts=NStmts}};
 handle_call(close, _From, #state{port=Port} = State) ->
     try
         erlang:port_close(Port)
@@ -249,13 +245,6 @@ handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
-% statement monitor events
-handle_info({'DOWN', Ref, process, StmtFsmPid, Reason}, #state{stmts=Stmts}=State) ->
-    [StmtRef|_] = [SR || {SR, DS} <- Stmts, DS =:= StmtFsmPid],
-    NewStmts = lists:keydelete(StmtRef, 1, Stmts),
-    true = demonitor(Ref, [flush]),
-    ?Debug("FSM ~p died with reason ~p for stmt ~p remaining ~p", [StmtFsmPid, Reason, StmtRef, [S || {S,_} <- NewStmts]]),
-    {noreply, State#state{stmts=NewStmts}};
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
     Resp = binary_to_term(Data),
@@ -365,6 +354,7 @@ db_test_() ->
             fun drop_create_insert_select_update/1
             , fun auto_rollback_test/1
             , fun commit_rollback_test/1
+            , fun describe_test/1
         ]}
     }}.
 
@@ -697,6 +687,7 @@ commit_rollback_test(OciSession) ->
 
     io:format(user, "update in table ~s~n", [TmpTable]),
     RowIDs = [lists:last(R) || R <- Rows],
+    io:format(user, "rowids ~p~n", [RowIDs]),
     BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
@@ -723,5 +714,13 @@ commit_rollback_test(OciSession) ->
     {{rows, NewRows}, false} = SelStmt1:fetch_rows(RowCount),
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
     ?assertEqual(ok, SelStmt1:close()).
+
+describe_test(OciSession) ->
+    io:format(user, "------------------------------------------------------------------~n", []),
+    io:format(user, "|                         describe_test                          |~n", []),
+    io:format(user, "------------------------------------------------------------------~n", []),
+    timer:sleep(5000),
+    OciSession:describe(<<"ALL_TABLES">>, 'OCI_PTYPE_VIEW'),
+    ok.
 
 -endif.

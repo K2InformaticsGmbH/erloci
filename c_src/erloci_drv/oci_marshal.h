@@ -50,17 +50,19 @@ typedef enum _ERL_DEBUG {
  * MUST match with oci.hrl
  */
 typedef enum _ERL_CMD {
-    GET_SESSN			= 1,
-    PUT_SESSN			= 2,
-    PREP_STMT			= 3,
-    BIND_ARGS			= 4,
-    EXEC_STMT			= 5,
-    FTCH_ROWS			= 6,
-    CLSE_STMT			= 7,
-    CMT_SESSN			= 8,
-    RBK_SESSN			= 9,
-    RMOTE_MSG			= 10,
-    OCIP_QUIT			= 11,
+    RMOTE_MSG			= 0,
+    CMD_UNKWN			= 1,
+    GET_SESSN			= 2,
+    PUT_SESSN			= 3,
+    PREP_STMT			= 4,
+    BIND_ARGS			= 5,
+    EXEC_STMT			= 6,
+    FTCH_ROWS			= 7,
+    CLSE_STMT			= 8,
+    CMT_SESSN			= 9,
+    RBK_SESSN			= 10,
+	CMD_DSCRB			= 11,
+    OCIP_QUIT			= 12,
 } ERL_CMD;
 
 /*
@@ -73,7 +75,8 @@ extern const erlcmdtable cmdtbl[];
 #define CMD_DESCIPTION(_cmd)	cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].cmd_description
 #define CMDTABLE \
 {\
-    {0,			"CMD_UNKWN",	0, "Unknown command"},\
+    {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\
+    {CMD_UNKWN,	"CMD_UNKWN",	0, "Unknown command"},\
     {GET_SESSN,	"GET_SESSN",	4, "Get a OCI session"},\
     {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
     {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
@@ -83,7 +86,7 @@ extern const erlcmdtable cmdtbl[];
     {CLSE_STMT,	"CLSE_STMT",	2, "Close a statement"},\
     {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
-    {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\
+    {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
     {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"}\
 }
 

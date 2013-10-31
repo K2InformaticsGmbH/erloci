@@ -102,6 +102,25 @@ void ocisession::rollback()
 	}
 }
 
+void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp)
+{
+	intf_ret r;
+
+	OCIDescribe *dschp = (OCIDescribe *) 0;
+	r.handle = envhp;
+	checkenv(&r, OCIHandleAlloc((OCIEnv*)envhp, (dvoid **)&dschp,
+                  (ub4)OCI_HTYPE_DESCRIBE, (size_t)0, (dvoid **)0));
+	r.handle = _errhp;
+
+	checkerr(&r, OCIDescribeAny((OCISvcCtx*)_svchp, (OCIError*)_errhp,
+					   objptr, objptr_len, OCI_OTYPE_NAME,
+                       OCI_DEFAULT, objtyp, dschp));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG("failed OCIDescribeAny %s\n", r.gerrbuf);
+        throw r;
+	}
+}
+
 ocistmt* ocisession::prepare_stmt(OraText *stmt, ub4 stmt_len)
 {
 	ocistmt * statement = new ocistmt(this, stmt, stmt_len);

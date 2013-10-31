@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <vector>
+#include <string>
 
 using namespace std;
 
@@ -33,6 +34,7 @@ typedef struct column column;
 class ocistmt
 {
 private:
+	string _stmtstr;
 	void *_svchp;
 	void *_stmthp;
 	void *_errhp;

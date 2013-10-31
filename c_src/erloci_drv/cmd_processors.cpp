@@ -78,7 +78,7 @@ bool cmd_get_session(ETERM * command)
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], GET_SESSN);
-		REMOTE_LOG("ERROR badarg\n");
+		REMOTE_LOG("ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), ARG_COUNT(command));
 		ret = true;
 	    goto error_exit;
 	}
@@ -265,6 +265,65 @@ error_exit:
 
 	return ret;
 }
+
+bool cmd_describe(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_DSCRB)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_DSCRB);
+		REMOTE_LOG("ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Conn Handle, Describe Object string, Describe Object Type
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& ERL_IS_BINARY(args[2])
+		&& (ERL_IS_INTEGER(args[3]) || ERL_IS_UNSIGNED_LONGLONG(args[3]) || ERL_IS_LONGLONG(args[3]))) {
+
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+		unsigned char desc_typ = (unsigned char)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+		try {
+	        conn_handle->describe_object(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), desc_typ);
+			resp = erl_format((char*)"{~w,~i,described}", args[0], CMD_DSCRB);
+		} catch (intf_ret r) {
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
+			if (r.fn_ret == CONTINUE_WITH_ERROR)
+				REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+			else {
+				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				ret = true;
+			}
+		} catch (string str) {
+			REMOTE_LOG("ERROR %s\n", str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], CMD_DSCRB, str.c_str());
+			ret = true;
+		} catch (...) {
+			REMOTE_LOG("ERROR unknown\n");
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], CMD_DSCRB);
+			ret = true;
+		}
+    }
+
+error_exit:
+    if(write_resp(resp) < 0)
+        ret = true;
+
+    erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), args);
+
+	return ret;
+}
+
 bool cmd_prep_sql(ETERM * command)
 {
 	bool ret = false;
@@ -586,6 +645,7 @@ bool cmd_processor(void * param)
         case CMT_SESSN:	ret = cmd_commit(command);			break;
         case RBK_SESSN:	ret = cmd_rollback(command);		break;
         case RMOTE_MSG:	ret = change_log_flag(command);		break;
+        case CMD_DSCRB:	ret = cmd_describe(command);		break;
         case OCIP_QUIT:
         default:
 			ret = true;
