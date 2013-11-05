@@ -68,6 +68,7 @@ start_link(Options) ->
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
+    ?Info("listening at ~p for log connections...", [ListenPort]),
     spawn(fun() -> server(LSock,LogFun) end),
     case Options of
         undefined ->
