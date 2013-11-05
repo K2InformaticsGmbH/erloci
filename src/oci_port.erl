@@ -171,11 +171,10 @@ start_exe(Executable, Logging, ListenPort) ->
 	    {unix,darwin}   -> "DYLD_LIBRARY_PATH";
 	    _               -> "LD_LIBRARY_PATH"
     end,
-    %OciBinaryPath = PrivDir ++ "/../c_src/lib/instantclient/",
     NewLibPath = case os:getenv(LibPath) of
         false -> "";
         LdLibPath -> LdLibPath ++ ":"
-    end ++ PrivDir, % ++ OciBinaryPath,
+    end ++ PrivDir,
     ?Info("New ~s path: ~s", [LibPath, NewLibPath]),
     PortOptions = [ {packet, 4}
                   , binary
