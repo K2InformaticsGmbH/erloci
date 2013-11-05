@@ -24,6 +24,7 @@ LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -Lpriv -L$(OCI_DIR)
 LINKFLAGS = -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12
 
 all: priv/erloci
+	cp $(OCI_DIR)/*.* priv/
 	@echo "erloci compiled"
 
 priv/erloci: priv/liberloci.a $(ERLOCI_DRV_OBJS)

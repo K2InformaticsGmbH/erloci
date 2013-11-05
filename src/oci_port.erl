@@ -170,17 +170,18 @@ start_exe(Executable, Logging, ListenPort) ->
 	    {unix,darwin}   -> "DYLD_LIBRARY_PATH";
 	    _               -> "LD_LIBRARY_PATH"
     end,
-    NewPath = case os:getenv(LibPath) of
+    %OciBinaryPath = PrivDir ++ "/../c_src/lib/instantclient/",
+    NewLibPath = case os:getenv(LibPath) of
         false -> "";
         LdLibPath -> LdLibPath ++ ":"
-    end ++ PrivDir ++ "/../c_src/lib/instantclient/",
-    ?Info("The new lib path: ~p", [NewPath]),
+    end ++ PrivDir, % ++ OciBinaryPath,
+    ?Info("New ~s path: ~s", [LibPath, NewLibPath]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status
                   , use_stdio
                   , {args, ["true", integer_to_list(ListenPort)]}
-                  , {env, [{LibPath, NewPath}]}
+                  , {env, [{LibPath, NewLibPath}]}
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of
         {'EXIT', Reason} ->
