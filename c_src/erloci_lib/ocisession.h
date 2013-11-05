@@ -45,7 +45,7 @@ public:
 		const char * password, const int password_len);
 	void commit(void);
 	void rollback(void);
-	void ocisession::describe_object(void *objptr, unsigned int objptr_len, unsigned char objtyp);
+	void describe_object(void *objptr, unsigned int objptr_len, unsigned char objtyp);
 	ocistmt* prepare_stmt(unsigned char *stmt, unsigned int stmt_len);
 	void release_stmt(ocistmt *stmt);
 
