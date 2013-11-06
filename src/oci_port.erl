@@ -122,6 +122,8 @@ describe(Object, Type, {?MODULE, PortPid, SessionId})
 when is_binary(Object); is_atom(Type) ->
     gen_server:call(PortPid, {port_call, [?CMD_DSCRB, SessionId, Object, ?DT(Type)]}, ?PORT_TIMEOUT).
 
+prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_list(Sql) ->
+    prep_sql(iolist_to_binary(Sql), {?MODULE, PortPid, SessionId});
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
