@@ -289,12 +289,16 @@ bool cmd_describe(ETERM * command)
 		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
 													? ERL_INT_VALUE(args[1])
 													: ERL_LL_UVALUE(args[1]));
-		unsigned char desc_typ = (unsigned char)(ERL_IS_INTEGER(args[1])
-													? ERL_INT_VALUE(args[1])
-													: ERL_LL_UVALUE(args[1]));
+		unsigned char desc_typ = (unsigned char)(ERL_IS_INTEGER(args[3])
+													? ERL_INT_VALUE(args[3])
+													: ERL_LL_UVALUE(args[3]));
+		ETERM *describes = NULL;
 		try {
-	        conn_handle->describe_object(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), desc_typ);
-			resp = erl_format((char*)"{~w,~i,described}", args[0], CMD_DSCRB);
+	        conn_handle->describe_object(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), desc_typ, &describes, append_desc_to_list);
+			if (describes)
+				resp = erl_format((char*)"{~w,~i,{desc,~w}}", args[0], CMD_DSCRB, describes);
+			else
+				resp = erl_format((char*)"{~w,~i,{desc,[]}}", args[0], CMD_DSCRB);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)

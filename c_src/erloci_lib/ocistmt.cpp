@@ -26,6 +26,8 @@
 struct column {
     ub2  dtype;
     ub4	 dlen;
+    ub4	 dprec;
+    ub4	 dscale;
 	sb2  indp;
 	ub4  rtype;
 	void * row_valp;
@@ -125,7 +127,8 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 #endif
 
 unsigned int ocistmt::execute(void * column_list,
-					  void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *),
+					  void (*coldef_append)(const char *, size_t, const unsigned short, const unsigned int,
+											const unsigned int, const unsigned int, void *),
 					  void * rowid_list,
 					  void (*string_append)(const char *, size_t, void *),
 					  bool auto_commit)
@@ -256,7 +259,7 @@ unsigned int ocistmt::execute(void * column_list,
 	}
 
 	if(_stmt_typ == OCI_STMT_SELECT) {
-        OCIParam	*mypard;
+        OCIParam *mypard = NULL;
         int num_cols = 1;
         sb4 parm_status;
 
@@ -266,6 +269,8 @@ unsigned int ocistmt::execute(void * column_list,
         checkerr(&r, parm_status);
 		if(r.fn_ret != SUCCESS) {
 			REMOTE_LOG("failed OCIParamGet error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+			if(mypard)
+				OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
 			ocisess->release_stmt(this);
 			throw r;
 		}
@@ -273,22 +278,25 @@ unsigned int ocistmt::execute(void * column_list,
         /* Loop only if a descriptor was successfully retrieved for
          * current position, starting at 1
          */
-        text *col_name;
-        ub4 len = 0;
-        unsigned short data_type = 0;
+        text *col_name, *schm_name;
+        ub4 len = 0, schm_len = 0;
 		_columns.clear();
 
 		while (parm_status == OCI_SUCCESS) {
 			column cur_clm;
             cur_clm.dlen = 0;
             cur_clm.dtype = 0;
+			cur_clm.dprec = 0;
+			cur_clm.dscale = 0;
 
 			/* Retrieve the data size attribute */
             checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                     (dvoid*) &(cur_clm.dlen), (ub4 *)0, (ub4)OCI_ATTR_DATA_SIZE,
                                     (OCIError*)_errhp));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG("failed OCIAttrGet error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				REMOTE_LOG("failed OCIAttrGet(OCI_ATTR_DATA_SIZE) error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				if(mypard)
+					OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
 				ocisess->release_stmt(this);
 				throw r;
 			}
@@ -298,13 +306,36 @@ unsigned int ocistmt::execute(void * column_list,
                                     (dvoid*) &(cur_clm.dtype), (ub4 *)0, (ub4)OCI_ATTR_DATA_TYPE,
                                     (OCIError*)_errhp));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG("failed OCIAttrGet error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				REMOTE_LOG("failed OCIAttrGet(OCI_ATTR_DATA_TYPE) error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				if(mypard)
+					OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
 				ocisess->release_stmt(this);
 				throw r;
 			}
 
-			data_type = cur_clm.dtype;
-            switch (cur_clm.dtype) {
+			/* Retrieve the data pricision,scale attributes */
+			checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+                                    (dvoid*) &(cur_clm.dprec), (ub4 *)0, (ub4)OCI_ATTR_PRECISION,
+                                    (OCIError*)_errhp));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIAttrGet(OCI_ATTR_PRECISION) error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				if(mypard)
+					OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+				ocisess->release_stmt(this);
+				throw r;
+			}
+			checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+                                    (dvoid*) &(cur_clm.dscale), (ub4 *)0, (ub4)OCI_ATTR_SCALE,
+                                    (OCIError*)_errhp));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG("failed OCIAttrGet(OCI_ATTR_SCALE) error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				if(mypard)
+					OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+				ocisess->release_stmt(this);
+				throw r;
+			}
+
+			switch (cur_clm.dtype) {
             case SQLT_NUM:
             case SQLT_VNU:
             case SQLT_LNG:
@@ -365,21 +396,20 @@ unsigned int ocistmt::execute(void * column_list,
                 break;
             }
 
-            /* Retrieve the column name attribute */
+            /* Retrieve the column name */
             len = 0;
             checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
                                     (dvoid**) &col_name, (ub4 *) &len, (ub4) OCI_ATTR_NAME,
                                     (OCIError*)_errhp));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG("failed OCIAttrGet error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				REMOTE_LOG("failed OCIAttrGet(OCI_ATTR_NAME) error %s (%s)\n", r.gerrbuf, _stmtstr.c_str());
+				if(mypard)
+					OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
 				ocisess->release_stmt(this);
 				throw r;
 			}
-            char * column_name = new char[len+1];
-			std::memcpy(column_name, col_name, len);
-			column_name[len] = '\0';
-            (*coldef_append)(column_name, data_type, cur_clm.dlen, column_list);
-            delete column_name;
+
+			(*coldef_append)((char*)col_name, len, cur_clm.dtype, cur_clm.dlen, cur_clm.dprec, cur_clm.dscale, column_list);
             col_name = NULL;
 
             /* Increment counter and get next descriptor, if there is one */
@@ -390,6 +420,7 @@ unsigned int ocistmt::execute(void * column_list,
 				throw r;
             }
             num_cols++;
+			mypard = NULL;
             parm_status = OCIParamGet(_stmthp, OCI_HTYPE_STMT, (OCIError*)_errhp, (dvoid **)&mypard,
                                       (ub4) num_cols);
 
@@ -401,6 +432,9 @@ unsigned int ocistmt::execute(void * column_list,
 			ocisess->release_stmt(this);
             throw r;
 		}
+
+		if(mypard)
+			OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
 
         //REMOTE_LOG("Port: Returning Column(s)\n");
     }

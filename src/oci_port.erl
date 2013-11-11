@@ -120,7 +120,11 @@ rollback({?MODULE, PortPid, SessionId}) ->
 
 describe(Object, Type, {?MODULE, PortPid, SessionId})
 when is_binary(Object); is_atom(Type) ->
-    gen_server:call(PortPid, {port_call, [?CMD_DSCRB, SessionId, Object, ?DT(Type)]}, ?PORT_TIMEOUT).
+    R = gen_server:call(PortPid, {port_call, [?CMD_DSCRB, SessionId, Object, ?DT(Type)]}, ?PORT_TIMEOUT),
+    case R of
+        {desc, Descs} -> {ok, lists:reverse([{N,?CS(T),Sz} || {N,T,Sz} <- Descs])};
+        R -> R
+    end.
 
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_list(Sql) ->
     prep_sql(iolist_to_binary(Sql), {?MODULE, PortPid, SessionId});
@@ -141,7 +145,7 @@ exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, StmtId}) ->
     R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId, BindVars, AutoCommit]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
-        {cols, Clms} -> {ok, lists:reverse([{N,?CS(T),S} || {N,T,S} <- Clms])};
+        {cols, Clms} -> {ok, lists:reverse([{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms])};
         R -> R
     end.
 
@@ -349,6 +353,8 @@ signal_str(N)  -> {udefined,        ignore, N}.
 %
 -ifdef(TEST).
 
+-define(ELog(__F), ?ELog(__F,[])).
+-define(ELog(__F,__A), io:format(user, "[~p:~p] "__F"~n", [?MODULE,?LINE|__A])).
 -include_lib("eunit/include/eunit.hrl").
 
 db_test_() ->
@@ -366,9 +372,9 @@ db_test_() ->
     }}.
 
 drop_create_insert_select_update(OciSession) ->
-    io:format(user, "------------------------------------------------------------------~n", []),
-    io:format(user, "|                drop_create_insert_select_update                |~n", []),
-    io:format(user, "------------------------------------------------------------------~n", []),
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                drop_create_insert_select_update                |"),
+    ?ELog("------------------------------------------------------------------"),
     TmpTable = "erloci_test_1",
     RowCount = 5,
 
@@ -421,19 +427,19 @@ drop_create_insert_select_update(OciSession) ->
                      , {<<":pri_rowid1">>, 'SQLT_STR'}
                      ],
 
-    io:format(user, "dropping table ~s~n", [TmpTable]),
+    ?ELog("dropping table ~s", [TmpTable]),
     DropStmt = OciSession:prep_sql(DropTableQryStr),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    io:format(user, "creating table ~s~n", [TmpTable]),
+    ?ELog("creating table ~s", [TmpTable]),
     StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    ?ELog("inserting into table ~s", [TmpTable]),
     BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
@@ -451,17 +457,18 @@ drop_create_insert_select_update(OciSession) ->
     ?assertMatch(RowCount, length(RowIds)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    ?ELog("selecting from table ~s", [TmpTable]),
     SelStmt = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
+    ?ELog("selected columns ~p from table ~s", [Cols, TmpTable]),
     ?assertEqual(9, length(Cols)),
     {{rows, Rows0}, false} = SelStmt:fetch_rows(2),
     {{rows, Rows1}, false} = SelStmt:fetch_rows(2),
     {{rows, Rows2}, true} = SelStmt:fetch_rows(2),
     ?assertEqual(ok, SelStmt:close()),
 
-    io:format(user, "update in table ~s~n", [TmpTable]),
+    ?ELog("update in table ~s", [TmpTable]),
     Rows = Rows0 ++ Rows1 ++ Rows2,
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
@@ -481,9 +488,9 @@ drop_create_insert_select_update(OciSession) ->
     ?assertEqual(ok, BoundUpdStmt:close()).
 
 auto_rollback_test(OciSession) ->
-    io:format(user, "------------------------------------------------------------------~n", []),
-    io:format(user, "|                         auto_rollback                          |~n", []),
-    io:format(user, "------------------------------------------------------------------~n", []),
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                         auto_rollback                          |"),
+    ?ELog("------------------------------------------------------------------"),
     TmpTable = "erloci_test_1",
     RowCount = 3,
 
@@ -536,19 +543,19 @@ auto_rollback_test(OciSession) ->
                      , {<<":pri_rowid1">>, 'SQLT_STR'}
                      ],
 
-    io:format(user, "dropping table ~s~n", [TmpTable]),
+    ?ELog("dropping table ~s", [TmpTable]),
     DropStmt = OciSession:prep_sql(DropTableQryStr),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    io:format(user, "creating table ~s~n", [TmpTable]),
+    ?ELog("creating table ~s", [TmpTable]),
     StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    ?ELog("inserting into table ~s", [TmpTable]),
     BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
@@ -565,7 +572,7 @@ auto_rollback_test(OciSession) ->
             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    ?ELog("selecting from table ~s", [TmpTable]),
     SelStmt = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
@@ -573,7 +580,7 @@ auto_rollback_test(OciSession) ->
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
 
-    io:format(user, "update in table ~s~n", [TmpTable]),
+    ?ELog("update in table ~s", [TmpTable]),
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
@@ -591,7 +598,7 @@ auto_rollback_test(OciSession) ->
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], 1)),
     ?assertMatch(ok, BoundUpdStmt:close()),
 
-    io:format(user, "testing rollback table ~s~n", [TmpTable]),
+    ?ELog("testing rollback table ~s", [TmpTable]),
     SelStmt1 = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
     ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
@@ -599,9 +606,9 @@ auto_rollback_test(OciSession) ->
     ?assertEqual(ok, SelStmt1:close()).
 
 commit_rollback_test(OciSession) ->
-    io:format(user, "------------------------------------------------------------------~n", []),
-    io:format(user, "|                      commit_rollback_test                      |~n", []),
-    io:format(user, "------------------------------------------------------------------~n", []),
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                      commit_rollback_test                      |"),
+    ?ELog("------------------------------------------------------------------"),
     TmpTable = "erloci_test_1",
     RowCount = 3,
 
@@ -654,24 +661,24 @@ commit_rollback_test(OciSession) ->
                      , {<<":pri_rowid1">>, 'SQLT_STR'}
                      ],
 
-    io:format(user, "dropping table ~s~n", [TmpTable]),
+    ?ELog("dropping table ~s", [TmpTable]),
     DropStmt = OciSession:prep_sql(DropTableQryStr),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    io:format(user, "creating table ~s~n", [TmpTable]),
+    ?ELog("creating table ~s", [TmpTable]),
     StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    ?ELog("inserting into table ~s", [TmpTable]),
     BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
     ?assertMatch(ok, BoundInsStmtRes),
-    ?assertMatch({executed, RowCount},
+    ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
                             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
                             , I+I/2
@@ -683,7 +690,7 @@ commit_rollback_test(OciSession) ->
                             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    ?ELog("selecting from table ~s", [TmpTable]),
     SelStmt = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
@@ -691,14 +698,14 @@ commit_rollback_test(OciSession) ->
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
 
-    io:format(user, "update in table ~s~n", [TmpTable]),
+    ?ELog("update in table ~s", [TmpTable]),
     RowIDs = [lists:last(R) || R <- Rows],
-    io:format(user, "rowids ~p~n", [RowIDs]),
+    ?ELog("rowids ~p", [RowIDs]),
     BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
     ?assertMatch(ok, BoundUpdStmtRes),
-    ?assertMatch({executed, _},
+    ?assertMatch({rowids, _},
     BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
@@ -712,7 +719,7 @@ commit_rollback_test(OciSession) ->
 
     ?assertMatch(ok, BoundUpdStmt:close()),
 
-    io:format(user, "testing rollback table ~s~n", [TmpTable]),
+    ?ELog("testing rollback table ~s", [TmpTable]),
     ?assertEqual(ok, OciSession:rollback()),
     SelStmt1 = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
@@ -722,9 +729,9 @@ commit_rollback_test(OciSession) ->
     ?assertEqual(ok, SelStmt1:close()).
 
 asc_desc_test(OciSession) ->
-    io:format(user, "------------------------------------------------------------------~n", []),
-    io:format(user, "|                          asc_desc_test                         |~n", []),
-    io:format(user, "------------------------------------------------------------------~n", []),
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                          asc_desc_test                         |"),
+    ?ELog("------------------------------------------------------------------"),
     TmpTable = "erloci_test_1",
     RowCount = 10,
 
@@ -777,19 +784,19 @@ asc_desc_test(OciSession) ->
                      , {<<":pri_rowid1">>, 'SQLT_STR'}
                      ],
 
-    io:format(user, "dropping table ~s~n", [TmpTable]),
+    ?ELog("dropping table ~s", [TmpTable]),
     DropStmt = OciSession:prep_sql(DropTableQryStr),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    io:format(user, "creating table ~s~n", [TmpTable]),
+    ?ELog("creating table ~s", [TmpTable]),
     StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    io:format(user, "inserting into table ~s~n", [TmpTable]),
+    ?ELog("inserting into table ~s", [TmpTable]),
     BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
@@ -806,25 +813,50 @@ asc_desc_test(OciSession) ->
                             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    io:format(user, "selecting from table ~s~n", [TmpTable]),
+    ?ELog("selecting from table ~s", [TmpTable]),
     SelStmt = OciSession:prep_sql(SelQryStr),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(1, length(Cols)),
 
     {{rows, Rows1}, false} = SelStmt:fetch_rows(5),
-    {{rows, Rows2}, true} = SelStmt:fetch_rows(5),
+    {{rows, Rows2}, false} = SelStmt:fetch_rows(5),
+    {{rows, []}, true} = SelStmt:fetch_rows(1),
 
     ?assertEqual([binary_to_integer(R) || [R] <- Rows1++Rows2], lists:reverse(lists:seq(1,10))),
 
     ?assertEqual(ok, SelStmt:close()).
 
 describe_test(OciSession) ->
-    io:format(user, "------------------------------------------------------------------~n", []),
-    io:format(user, "|                         describe_test                          |~n", []),
-    io:format(user, "------------------------------------------------------------------~n", []),
-    timer:sleep(1000),
-    OciSession:describe(<<"ALL_TABLES">>, 'OCI_PTYPE_VIEW'),
-    ok.
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                         describe_test                          |"),
+    ?ELog("------------------------------------------------------------------"),
+    TmpTable = "erloci_test_1",
+
+    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
+    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
+                                       "publisher varchar2(30),"
+                                       "rank float,"
+                                       "hero varchar2(30),"
+                                       "reality varchar2(30),"
+                                       "votes number,"
+                                       "createdate date default sysdate,"
+                                       "votes_first_rank number)"]),
+    ?ELog("dropping table ~s", [TmpTable]),
+    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    DropStmt:exec_stmt(),
+    ?assertEqual(ok, DropStmt:close()),
+
+    ?ELog("creating table ~s", [TmpTable]),
+    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
+    ?assertEqual(ok, StmtCreate:close()),
+
+    ?ELog("describing table ~s", [TmpTable]),
+    {ok, Descs} = OciSession:describe(list_to_binary(TmpTable), 'OCI_PTYPE_TABLE'),
+    ?assertEqual(8, length(Descs)),
+    ?ELog("table ~s has ~p", [TmpTable, Descs]).
 
 -endif.

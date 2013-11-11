@@ -51,15 +51,16 @@ public:
 	inline void del() { delete this; };
 
 	unsigned int execute(void * column_list,
-				void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *),
+				void (*coldef_append)(const char *, size_t, const unsigned short, const unsigned int,
+									  const unsigned int, const unsigned int, void *),
 				void * rowid_list,
-				void (*string_append)(const char * string, size_t len, void * list),
+				void (*string_append)(const char *, size_t, void *),
 				bool);
 	inline vector<var> & get_in_bind_args() { return _argsin; };
 	inline vector<var> & get_out_bind_args() { return _argsout; };
 	intf_ret rows(void * row_list,
-				void (*string_append)(const char * string, size_t len, void * list),
-				void (*list_append)(const void * sub_list, void * list),
+				void (*string_append)(const char *, size_t, void *),
+				void (*list_append)(const void *, void *),
 				size_t (*sizeof_resp)(void * resp),
 				unsigned int maxrowcount);
 	void close(void);

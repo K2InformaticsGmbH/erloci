@@ -67,6 +67,9 @@ typedef struct intf_ret {
 	INTF_RET	fn_ret;
 } intf_ret;
 
+typedef void (*fn_coldefappend)(const char *, size_t, const unsigned short, const unsigned int,
+							  const unsigned int, const unsigned int, void *);
+
 // External linkages (import)
 extern bool	log_flag;
 

@@ -45,7 +45,9 @@ public:
 		const char * password, const int password_len);
 	void commit(void);
 	void rollback(void);
-	void describe_object(void *objptr, unsigned int objptr_len, unsigned char objtyp);
+	void describe_object(void *objptr, unsigned int objptr_len, unsigned char objtyp, void *desc_list,
+						 void (*append_desc_to_list)(const char * col_name, size_t len, const unsigned short data_type,
+													 const unsigned int max_len, void * list));
 	ocistmt* prepare_stmt(unsigned char *stmt, unsigned int stmt_len);
 	void release_stmt(ocistmt *stmt);
 
