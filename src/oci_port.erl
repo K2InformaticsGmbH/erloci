@@ -438,16 +438,17 @@ drop_create_insert_select_update(OciSession) ->
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
     ?assertMatch(ok, BoundInsStmtRes),
-    ?assertMatch({executed, RowCount},
-        BoundInsStmt:exec_stmt([{ I
-            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
-            , I+I/2
-            , list_to_binary(["_hero_",integer_to_list(I),"_"])
-            , list_to_binary(["_reality_",integer_to_list(I),"_"])
-            , I
-            , oci_test:edatetime_to_ora(erlang:now())
-            , I
-            } || I <- lists:seq(1, RowCount)])),
+    {rowids, RowIds} = BoundInsStmt:exec_stmt(
+        [{ I
+         , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+         , I+I/2
+         , list_to_binary(["_hero_",integer_to_list(I),"_"])
+         , list_to_binary(["_reality_",integer_to_list(I),"_"])
+         , I
+         , oci_test:edatetime_to_ora(erlang:now())
+         , I
+         } || I <- lists:seq(1, RowCount)]),
+    ?assertMatch(RowCount, length(RowIds)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
     io:format(user, "selecting from table ~s~n", [TmpTable]),
@@ -467,8 +468,7 @@ drop_create_insert_select_update(OciSession) ->
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
     ?assertMatch(ok, BoundUpdStmtRes),
-    ?assertMatch({executed, RowCount},
-    BoundUpdStmt:exec_stmt([{ I
+    ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
@@ -553,7 +553,7 @@ auto_rollback_test(OciSession) ->
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
     ?assertMatch(ok, BoundInsStmtRes),
-    ?assertMatch({executed, RowCount},
+    ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
             , I+I/2
@@ -579,8 +579,7 @@ auto_rollback_test(OciSession) ->
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
     ?assertMatch(ok, BoundUpdStmtRes),
-    ?assertMatch({error, _},
-    BoundUpdStmt:exec_stmt([{ I
+    ?assertMatch({error, _}, BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
@@ -795,7 +794,7 @@ asc_desc_test(OciSession) ->
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
     ?assertMatch(ok, BoundInsStmtRes),
-    ?assertMatch({executed, RowCount},
+    ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
                             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
                             , I+I/2

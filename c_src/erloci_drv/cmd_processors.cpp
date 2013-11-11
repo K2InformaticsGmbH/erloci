@@ -406,7 +406,7 @@ bool cmd_bind_args(ETERM * command)
 												: ERL_LL_UVALUE(args[1]));
 
 		try {
-			map_schema_to_bind_args(args[2], statement_handle->get_bind_args());
+			map_schema_to_bind_args(args[2], statement_handle->get_in_bind_args());
 			resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
@@ -457,17 +457,22 @@ bool cmd_exec_stmt(ETERM * command)
 													: ERL_LL_UVALUE(args[1]));
 		int auto_commit_val = (ERL_IS_INTEGER(args[3]) ? ERL_INT_VALUE(args[3]) : ERL_LL_UVALUE(args[3]));
 		bool auto_commit = auto_commit_val > 0 ? true : false;
+	    ETERM *columns = NULL, *rowids = NULL;
 		try {
-		    ETERM *columns = NULL;
-			map_value_to_bind_args(args[2], statement_handle->get_bind_args());
-			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, auto_commit);
+			map_value_to_bind_args(args[2], statement_handle->get_in_bind_args());
+			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
 			// TODO : Also return bound return values from here
-			if (columns == NULL)
+			if (columns == NULL && rowids == NULL)
 				resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
-			else {
+			else if (columns != NULL && rowids == NULL)
 				resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
-				erl_free_term(columns);
+			else if (columns == NULL && rowids != NULL)
+				resp = erl_format((char*)"{~w,~i,{rowids, ~w}}", args[0], EXEC_STMT, rowids);
+			else {
+				resp = erl_format((char*)"{~w,~i,{cols,~w},{rowids, ~w}}", args[0], EXEC_STMT, columns, rowids);
 			}
+			if (rowids != NULL) erl_free_term(rowids);
+			if (columns != NULL) erl_free_term(columns);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)

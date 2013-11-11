@@ -165,7 +165,10 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                             , I
                             } || I <- lists:seq(1, InsertCount)]),
         Parent ! {keep_alive, insert_qry_executed, Table},
-        ?Log("[OCI insert ~s] ~p~n", [Table, Res1]),
+        case Res1 of
+            {error, ErrorIns} -> ?Log("[OCI insert ~s] ~p~n", [Table, ErrorIns]);
+            _ -> ok
+        end,
         BoundInsStmt:close(),
         Parent ! {keep_alive, insert_qry_closed, Table},
         InsertEnd = ?NowMs,
@@ -233,7 +236,10 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                             , I+1
                             , Key
                             } || {Key, I} <- lists:zip(AllKeys, lists:seq(1, length(AllKeys)))]),
-        ?Log("[OCI update ~s] ~p~n", [Table, ResUdpBind1]),
+        case ResUdpBind1 of
+            {error, ErrorUpdate} -> ?Log("[OCI update ~s] ~p~n", [Table, ErrorUpdate]);
+            _ -> ok
+        end,
         Parent ! {keep_alive, update_qry_exec, Table},
         BoundUpdStmt:close(),
         Parent ! {keep_alive, update_qry_closed, Table},

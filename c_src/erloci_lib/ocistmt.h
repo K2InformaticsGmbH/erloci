@@ -42,15 +42,21 @@ private:
 	unsigned int _iters;
 	unsigned int _stmt_typ;
 	vector<column> _columns;
-	vector<var> _args;
+	vector<var> _argsin;
+	vector<var> _argsout;
 	~ocistmt(void);
 
 public:
 	ocistmt(void *ocisess, unsigned char *stmt, unsigned int stmt_len);
 	inline void del() { delete this; };
 
-	unsigned int execute(void * column_list, void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *), bool);
-	inline vector<var> & get_bind_args() { return _args; };
+	unsigned int execute(void * column_list,
+				void (*coldef_append)(const char *, const unsigned short, const unsigned int, void *),
+				void * rowid_list,
+				void (*string_append)(const char * string, size_t len, void * list),
+				bool);
+	inline vector<var> & get_in_bind_args() { return _argsin; };
+	inline vector<var> & get_out_bind_args() { return _argsout; };
 	intf_ret rows(void * row_list,
 				void (*string_append)(const char * string, size_t len, void * list),
 				void (*list_append)(const void * sub_list, void * list),

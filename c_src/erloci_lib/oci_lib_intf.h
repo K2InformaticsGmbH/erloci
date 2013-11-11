@@ -43,6 +43,12 @@ typedef struct var {
 	void *ocibind;
 	void *datap;
 	unsigned long datap_len;
+	var(char * _name = NULL, unsigned short _dty = 0)
+	{
+		dty = _dty;
+		if (_name != NULL)
+			strcpy((char*)name, _name);
+	}
 } var;
 
 typedef enum _INTF_RET {

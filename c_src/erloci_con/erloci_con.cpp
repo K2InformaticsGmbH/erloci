@@ -18,6 +18,8 @@
 #include "string.h"
 #include "stdarg.h"
 
+#include <ocidfn.h>
+
 void append_coldef_to_list(const char * col_name, const unsigned short data_type, const unsigned int max_len, void * list)
 {
 	printf("\t%s\n", col_name);
@@ -38,7 +40,7 @@ size_t sizeof_resp(void * resp)
 	return 0;
 }
 
-int memory_leak_test(const char *tns, const char *usr, const char *pwd, const char *opt)
+int memory_leak_test(const char *tns, const char *usr, const char *pwd)
 {
 	ocisession * ocisess = NULL;
 	ocistmt *stmt = NULL;
@@ -65,7 +67,7 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd, const ch
 		printf("Columns:\n");
 		try {
 			stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-			stmt->execute(NULL, append_coldef_to_list, true);
+			stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -130,7 +132,7 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd, const ch
 
 
 char modqry[1024];
-int drop_create_insert_select(const char *tns, const char *usr, const char *pwd, const char *opt, int tid)
+int drop_create_insert_select(const char *tns, const char *usr, const char *pwd, int tid)
 {
 	ocisession * ocisess = NULL;
 	ocistmt *stmt = NULL;
@@ -156,7 +158,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	sprintf(modqry, "drop table oci_test_table_%d", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list, true);
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -179,7 +181,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
                                        votes_first_rank number)", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list, true);
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -200,7 +202,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 		sprintf(modqry, "insert into oci_test_table_%d values (%d,'publisher%d',%d,'hero%d','real%d',%d,%d)", tid, i, i, i, i, i, i, i);
 		try {
 			stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-			stmt->execute(NULL, append_coldef_to_list, true);
+			stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -218,7 +220,269 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	sprintf(modqry, "select * from oci_test_table_%d", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list, true);
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+
+	try {
+		stmt->rows(NULL,string_append, list_append, sizeof_resp, 100);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_produce_rows error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+	
+	try {
+		stmt->close();
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				printf("oci_close_statement success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_close_statement error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_close_statement failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+
+	try {
+		delete ocisess;
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				//printf("oci_free_session success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_free_session error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_free_session failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+}
+
+int insert_bind_select(const char *tns, const char *usr, const char *pwd)
+{
+	ocisession * ocisess = NULL;
+	ocistmt *stmt = NULL;
+	intf_ret r;
+	char * qry = NULL;
+
+	try {
+		ocisess = new ocisession(tns, strlen(tns),
+							     usr, strlen(usr),
+								 pwd, strlen(pwd));
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_get_session error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_get_session failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+
+	// Drop can fail so ignoring the errors
+	qry = "drop table erloci_table";
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				break;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				break;
+		}
+	}
+
+	// Create table
+	qry = "create table erloci_table(pkey number,\
+                                     publisher varchar2(100),\
+                                     rank number,\
+                                     hero varchar2(100),\
+                                     real varchar2(100),\
+                                     votes number,\
+                                     votes_first_rank number)";
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				//printf("oci_exec_sql success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+
+	// insert some rows
+	qry = "insert into erloci_table values (:pkey,:publisher,:rank,:hero,:real,:votes,:votes_first_rank)";
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				//printf("oci_exec_sql success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+	vector<var> & varsin = stmt->get_in_bind_args();
+	varsin.push_back(var(":pkey", SQLT_INT));				//0
+	varsin.push_back(var(":publisher", SQLT_STR));			//1
+	varsin.push_back(var(":rank", SQLT_INT));				//2
+	varsin.push_back(var(":hero", SQLT_STR));				//3
+	varsin.push_back(var(":real", SQLT_STR));				//4
+	varsin.push_back(var(":votes", SQLT_INT));				//5
+	varsin.push_back(var(":votes_first_rank", SQLT_INT));	//6
+
+	vector<var> & varsout = stmt->get_out_bind_args();
+	varsout.push_back(var(":row_id", SQLT_STR));			//0
+	
+	for(int i=0; i < varsin.size(); ++i) {
+		varsin[i].valuep.clear();
+		varsin[i].alen.clear();
+		varsin[i].value_sz = 0;
+		varsin[i].datap = NULL;
+		varsin[i].datap_len = 0;
+	}
+
+	char tmp[100];
+	int tmp_len = 0;
+	char * tmpp = NULL;
+	int *tmpint = NULL;	
+	for(int i=10; i>0; --i) {
+
+		// :pkey
+		tmpint = new int;
+		*tmpint = i;
+		varsin[0].valuep.push_back(tmpint);
+		if (sizeof(int)+1 > varsin[0].value_sz) varsin[0].value_sz = sizeof(int);
+		varsin[0].alen.push_back(sizeof(int));
+
+		// :publisher
+		sprintf(tmp, "publisher%d", i);
+		tmp_len = strlen(tmp)+1;
+		tmpp = new char[tmp_len];
+		memcpy(tmpp, tmp, tmp_len);
+		varsin[1].valuep.push_back(tmpp);
+		if (tmp_len > varsin[1].value_sz) varsin[1].value_sz = tmp_len;
+		varsin[1].alen.push_back(tmp_len);
+
+		// :rank
+		tmpint = new int;
+		*tmpint = i;
+		varsin[2].valuep.push_back(tmpint);
+		if (sizeof(int)+1 > varsin[2].value_sz) varsin[2].value_sz = sizeof(int);
+		varsin[2].alen.push_back(sizeof(int));
+
+		// :hero
+		sprintf(tmp, "hero%d", i);
+		tmp_len = strlen(tmp)+1;
+		tmpp = new char[tmp_len];
+		memcpy(tmpp, tmp, tmp_len);
+		varsin[3].valuep.push_back(tmpp);
+		if (tmp_len > varsin[3].value_sz) varsin[3].value_sz = tmp_len;
+		varsin[3].alen.push_back(tmp_len);
+
+		// :real
+		sprintf(tmp, "real%d", i);
+		tmp_len = strlen(tmp)+1;
+		tmpp = new char[tmp_len];
+		memcpy(tmpp, tmp, tmp_len);
+		varsin[4].valuep.push_back(tmpp);
+		if (tmp_len > varsin[4].value_sz) varsin[4].value_sz = tmp_len;
+		varsin[4].alen.push_back(tmp_len);
+
+		// :votes
+		tmpint = new int;
+		*tmpint = i;
+		varsin[5].valuep.push_back(tmpint);
+		if (sizeof(int)+1 > varsin[5].value_sz) varsin[5].value_sz = sizeof(int);
+		varsin[5].alen.push_back(sizeof(int));
+
+		// :votes_first_rank
+		tmpint = new int;
+		*tmpint = i;
+		varsin[6].valuep.push_back(tmpint);
+		if (sizeof(int)+1 > varsin[6].value_sz) varsin[6].value_sz = sizeof(int);
+		varsin[6].alen.push_back(sizeof(int));
+	}
+
+	try {
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case CONTINUE_WITH_ERROR:
+				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+	try {
+		stmt->close();
+	}
+	catch (intf_ret r) {
+		switch(r.fn_ret) {
+			case SUCCESS:
+				printf("oci_close_statement success...!\n");
+				break;
+			case CONTINUE_WITH_ERROR:
+				printf("oci_close_statement error... %s!\n", r.gerrbuf);
+				return -1;
+			case FAILURE:
+				printf("oci_close_statement failed... %s!\n", r.gerrbuf);
+				return -1;
+		}
+	}
+
+	// read back rows
+	qry = "select * from erloci_table";
+	try {
+		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
+		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -283,16 +547,16 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 int _tmain(int argc, _TCHAR* argv[])
 {
 	const char
-		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
-		*usr = "bikram",
-		*pwd = "abcd123",
-		*opt = "";
+		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+		*usr = "scott",
+		*pwd = "tiger";
 	intf_ret r;
 
 	// tests for memory leak detection
-	int ret;
-	ret = memory_leak_test(tns, usr, pwd, opt);
-	//ret = drop_create_insert_select(tns, usr, pwd, opt, 0);
+	int ret = 
+	//memory_leak_test(tns, usr, pwd);
+	//drop_create_insert_select(tns, usr, pwd, 0);
+	insert_bind_select(tns, usr, pwd);
 
 	return ret;
 }
