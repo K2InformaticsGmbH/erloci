@@ -137,7 +137,7 @@ void append_string_to_list(const char * string, size_t len, void * list)
 }
 
 void append_coldef_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len,
-						   const unsigned int precision, const unsigned int scale, void * list)
+						   const unsigned short precision, const signed char scale, void * list)
 {
     if (list==NULL)
         return;

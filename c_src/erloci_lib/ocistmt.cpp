@@ -26,8 +26,8 @@
 struct column {
     ub2  dtype;
     ub4	 dlen;
-    ub4	 dprec;
-    ub4	 dscale;
+    ub2	 dprec;
+    sb1	 dscale;
 	sb2  indp;
 	ub4  rtype;
 	void * row_valp;
@@ -128,7 +128,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 
 unsigned int ocistmt::execute(void * column_list,
 					  void (*coldef_append)(const char *, size_t, const unsigned short, const unsigned int,
-											const unsigned int, const unsigned int, void *),
+											const unsigned short, const signed char, void *),
 					  void * rowid_list,
 					  void (*string_append)(const char *, size_t, void *),
 					  bool auto_commit)

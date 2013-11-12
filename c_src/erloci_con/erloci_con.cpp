@@ -21,8 +21,8 @@
 #include <ocidfn.h>
 
 void append_coldef_to_list(const char * col_name, size_t len,
-						   const unsigned short data_type, const unsigned int max_len, const unsigned int prec,
-						   const unsigned int scale, void * list)
+						   const unsigned short data_type, const unsigned int max_len, const unsigned short prec,
+						   const signed char scale, void * list)
 {
 	printf("\t%s\n", col_name);
 }

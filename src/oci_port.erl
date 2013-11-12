@@ -357,6 +357,59 @@ signal_str(N)  -> {udefined,        ignore, N}.
 -define(ELog(__F,__A), io:format(user, "[~p:~p] "__F"~n", [?MODULE,?LINE|__A])).
 -include_lib("eunit/include/eunit.hrl").
 
+-define(TESTTABLE, "erloci_test_1").
+-define(DROP,   <<"drop table "?TESTTABLE>>).
+-define(CREATE, <<"create table "?TESTTABLE" (pkey number,"
+                  "publisher varchar2(30),"
+                  "rank float,"
+                  "hero varchar2(30),"
+                  "reality varchar2(30),"
+                  "votes number(1,-10),"
+                  "createdate date default sysdate,"
+                  "chapters int,"
+                  "votes_first_rank number)">>).
+-define(INSERT, <<"insert into "?TESTTABLE
+                  " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values ("
+                  ":pkey"
+                  ", :publisher"
+                  ", :rank"
+                  ", :hero"
+                  ", :reality"
+                  ", :votes"
+                  ", :createdate"
+                  ", :votes_first_rank)">>).
+-define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE".* from "?TESTTABLE>>).
+-define(SELECT_WITH_ORDER, <<"select pkey from ", ?TESTTABLE, " order by pkey desc">>).
+-define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
+                   , {<<":publisher">>, 'SQLT_CHR'}
+                   , {<<":rank">>, 'SQLT_FLT'}
+                   , {<<":hero">>, 'SQLT_CHR'}
+                   , {<<":reality">>, 'SQLT_CHR'}
+                   , {<<":votes">>, 'SQLT_INT'}
+                   , {<<":createdate">>, 'SQLT_DAT'}
+                   , {<<":votes_first_rank">>, 'SQLT_INT'}
+                   ]).
+-define(UPDATE, <<"update "?TESTTABLE" set "
+                  "pkey = :pkey"
+                  ", publisher = :publisher"
+                  ", rank = :rank"
+                  ", hero = :hero"
+                  ", reality = :reality"
+                  ", votes = :votes"
+                  ", createdate = :createdate"
+                  ", votes_first_rank = :votes_first_rank"
+                  " where "?TESTTABLE".rowid = :pri_rowid1">>).
+-define(UPDATE_BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
+                          , {<<":publisher">>, 'SQLT_CHR'}
+                          , {<<":rank">>, 'SQLT_FLT'}
+                          , {<<":hero">>, 'SQLT_CHR'}
+                          , {<<":reality">>, 'SQLT_CHR'}
+                          , {<<":votes">>, 'SQLT_STR'}
+                          , {<<":createdate">>, 'SQLT_DAT'}
+                          , {<<":votes_first_rank">>, 'SQLT_INT'}
+                          , {<<":pri_rowid1">>, 'SQLT_STR'}
+                          ]).
+
 db_test_() ->
     {timeout, 60, {
         setup,
@@ -375,74 +428,24 @@ drop_create_insert_select_update(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                drop_create_insert_select_update                |"),
     ?ELog("------------------------------------------------------------------"),
-    TmpTable = "erloci_test_1",
     RowCount = 5,
 
-    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
-    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
-                                       "publisher varchar2(30),"
-                                       "rank float,"
-                                       "hero varchar2(30),"
-                                       "reality varchar2(30),"
-                                       "votes number,"
-                                       "createdate date default sysdate,"
-                                       "votes_first_rank number)"]),
-    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
-                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
-                                    ":pkey",
-                                    ", :publisher",
-                                    ", :rank",
-                                    ", :hero",
-                                    ", :reality",
-                                    ", :votes",
-                                    ", :createdate"
-                                    ", :votes_first_rank)"]),
-    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                  , {<<":publisher">>, 'SQLT_CHR'}
-                  , {<<":rank">>, 'SQLT_FLT'}
-                  , {<<":hero">>, 'SQLT_CHR'}
-                  , {<<":reality">>, 'SQLT_CHR'}
-                  , {<<":votes">>, 'SQLT_INT'}
-                  , {<<":createdate">>, 'SQLT_DAT'}
-                  , {<<":votes_first_rank">>, 'SQLT_INT'}
-                  ],
-    SelQryStr = list_to_binary(["select ",TmpTable,".rowid, ",TmpTable,".* from ", TmpTable]),
-    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
-                                    "pkey = :pkey",
-                                    ", publisher = :publisher",
-                                    ", rank = :rank",
-                                    ", hero = :hero",
-                                    ", reality = :reality",
-                                    ", votes = :votes",
-                                    ", createdate = :createdate"
-                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
-    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                     , {<<":publisher">>, 'SQLT_CHR'}
-                     , {<<":rank">>, 'SQLT_FLT'}
-                     , {<<":hero">>, 'SQLT_CHR'}
-                     , {<<":reality">>, 'SQLT_CHR'}
-                     , {<<":votes">>, 'SQLT_INT'}
-                     , {<<":createdate">>, 'SQLT_DAT'}
-                     , {<<":votes_first_rank">>, 'SQLT_INT'}
-                     , {<<":pri_rowid1">>, 'SQLT_STR'}
-                     ],
-
-    ?ELog("dropping table ~s", [TmpTable]),
-    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?ELog("dropping table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    ?ELog("creating table ~s", [TmpTable]),
-    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    ?ELog("inserting into table ~s", [TmpTable]),
-    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?ELog("inserting into table ~s", [?TESTTABLE]),
+    BoundInsStmt = OciSession:prep_sql(?INSERT),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
-    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     {rowids, RowIds} = BoundInsStmt:exec_stmt(
         [{ I
@@ -457,23 +460,23 @@ drop_create_insert_select_update(OciSession) ->
     ?assertMatch(RowCount, length(RowIds)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    ?ELog("selecting from table ~s", [TmpTable]),
-    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?ELog("selecting from table ~s", [?TESTTABLE]),
+    SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
-    ?ELog("selected columns ~p from table ~s", [Cols, TmpTable]),
-    ?assertEqual(9, length(Cols)),
+    ?ELog("selected columns ~p from table ~s", [Cols, ?TESTTABLE]),
+    ?assertEqual(10, length(Cols)),
     {{rows, Rows0}, false} = SelStmt:fetch_rows(2),
     {{rows, Rows1}, false} = SelStmt:fetch_rows(2),
     {{rows, Rows2}, true} = SelStmt:fetch_rows(2),
     ?assertEqual(ok, SelStmt:close()),
 
-    ?ELog("update in table ~s", [TmpTable]),
+    ?ELog("update in table ~s", [?TESTTABLE]),
     Rows = Rows0 ++ Rows1 ++ Rows2,
     RowIDs = [lists:last(R) || R <- Rows],
-    BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
+    BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
-    BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(lists:keyreplace(<<":votes">>, 1, ?UPDATE_BIND_LIST, {<<":votes">>, 'SQLT_INT'})),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
@@ -491,74 +494,24 @@ auto_rollback_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                         auto_rollback                          |"),
     ?ELog("------------------------------------------------------------------"),
-    TmpTable = "erloci_test_1",
     RowCount = 3,
 
-    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
-    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
-                                       "publisher varchar2(30),"
-                                       "rank float,"
-                                       "hero varchar2(30),"
-                                       "reality varchar2(30),"
-                                       "votes number,"
-                                       "createdate date default sysdate,"
-                                       "votes_first_rank number)"]),
-    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
-                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
-                                    ":pkey",
-                                    ", :publisher",
-                                    ", :rank",
-                                    ", :hero",
-                                    ", :reality",
-                                    ", :votes",
-                                    ", :createdate"
-                                    ", :votes_first_rank)"]),
-    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                  , {<<":publisher">>, 'SQLT_CHR'}
-                  , {<<":rank">>, 'SQLT_FLT'}
-                  , {<<":hero">>, 'SQLT_CHR'}
-                  , {<<":reality">>, 'SQLT_CHR'}
-                  , {<<":votes">>, 'SQLT_INT'}
-                  , {<<":createdate">>, 'SQLT_DAT'}
-                  , {<<":votes_first_rank">>, 'SQLT_INT'}
-                  ],
-    SelQryStr = list_to_binary(["select ",TmpTable,".rowid, ",TmpTable,".* from ", TmpTable]),
-    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
-                                    "pkey = :pkey",
-                                    ", publisher = :publisher",
-                                    ", rank = :rank",
-                                    ", hero = :hero",
-                                    ", reality = :reality",
-                                    ", votes = :votes",
-                                    ", createdate = :createdate"
-                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
-    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                     , {<<":publisher">>, 'SQLT_CHR'}
-                     , {<<":rank">>, 'SQLT_FLT'}
-                     , {<<":hero">>, 'SQLT_CHR'}
-                     , {<<":reality">>, 'SQLT_CHR'}
-                     , {<<":votes">>, 'SQLT_STR'}
-                     , {<<":createdate">>, 'SQLT_DAT'}
-                     , {<<":votes_first_rank">>, 'SQLT_INT'}
-                     , {<<":pri_rowid1">>, 'SQLT_STR'}
-                     ],
-
-    ?ELog("dropping table ~s", [TmpTable]),
-    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?ELog("dropping table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    ?ELog("creating table ~s", [TmpTable]),
-    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    ?ELog("inserting into table ~s", [TmpTable]),
-    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?ELog("inserting into table ~s", [?TESTTABLE]),
+    BoundInsStmt = OciSession:prep_sql(?INSERT),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
-    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
@@ -572,19 +525,19 @@ auto_rollback_test(OciSession) ->
             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    ?ELog("selecting from table ~s", [TmpTable]),
-    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?ELog("selecting from table ~s", [?TESTTABLE]),
+    SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
-    ?assertEqual(9, length(Cols)),
+    ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
 
-    ?ELog("update in table ~s", [TmpTable]),
+    ?ELog("update in table ~s", [?TESTTABLE]),
     RowIDs = [lists:last(R) || R <- Rows],
-    BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
+    BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
-    BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(?UPDATE_BIND_LIST),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({error, _}, BoundUpdStmt:exec_stmt([{ I
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
@@ -598,8 +551,8 @@ auto_rollback_test(OciSession) ->
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], 1)),
     ?assertMatch(ok, BoundUpdStmt:close()),
 
-    ?ELog("testing rollback table ~s", [TmpTable]),
-    SelStmt1 = OciSession:prep_sql(SelQryStr),
+    ?ELog("testing rollback table ~s", [?TESTTABLE]),
+    SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
     ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
     ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(RowCount)),
@@ -609,74 +562,24 @@ commit_rollback_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                      commit_rollback_test                      |"),
     ?ELog("------------------------------------------------------------------"),
-    TmpTable = "erloci_test_1",
     RowCount = 3,
 
-    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
-    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
-                                       "publisher varchar2(30),"
-                                       "rank float,"
-                                       "hero varchar2(30),"
-                                       "reality varchar2(30),"
-                                       "votes number,"
-                                       "createdate date default sysdate,"
-                                       "votes_first_rank number)"]),
-    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
-                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
-                                    ":pkey",
-                                    ", :publisher",
-                                    ", :rank",
-                                    ", :hero",
-                                    ", :reality",
-                                    ", :votes",
-                                    ", :createdate"
-                                    ", :votes_first_rank)"]),
-    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                  , {<<":publisher">>, 'SQLT_CHR'}
-                  , {<<":rank">>, 'SQLT_FLT'}
-                  , {<<":hero">>, 'SQLT_CHR'}
-                  , {<<":reality">>, 'SQLT_CHR'}
-                  , {<<":votes">>, 'SQLT_INT'}
-                  , {<<":createdate">>, 'SQLT_DAT'}
-                  , {<<":votes_first_rank">>, 'SQLT_INT'}
-                  ],
-    SelQryStr = list_to_binary(["select ",TmpTable,".rowid, ",TmpTable,".* from ", TmpTable]),
-    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
-                                    "pkey = :pkey",
-                                    ", publisher = :publisher",
-                                    ", rank = :rank",
-                                    ", hero = :hero",
-                                    ", reality = :reality",
-                                    ", votes = :votes",
-                                    ", createdate = :createdate"
-                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
-    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                     , {<<":publisher">>, 'SQLT_CHR'}
-                     , {<<":rank">>, 'SQLT_FLT'}
-                     , {<<":hero">>, 'SQLT_CHR'}
-                     , {<<":reality">>, 'SQLT_CHR'}
-                     , {<<":votes">>, 'SQLT_STR'}
-                     , {<<":createdate">>, 'SQLT_DAT'}
-                     , {<<":votes_first_rank">>, 'SQLT_INT'}
-                     , {<<":pri_rowid1">>, 'SQLT_STR'}
-                     ],
-
-    ?ELog("dropping table ~s", [TmpTable]),
-    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?ELog("dropping table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    ?ELog("creating table ~s", [TmpTable]),
-    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    ?ELog("inserting into table ~s", [TmpTable]),
-    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?ELog("inserting into table ~s", [?TESTTABLE]),
+    BoundInsStmt = OciSession:prep_sql(?INSERT),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
-    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
@@ -690,20 +593,20 @@ commit_rollback_test(OciSession) ->
                             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    ?ELog("selecting from table ~s", [TmpTable]),
-    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?ELog("selecting from table ~s", [?TESTTABLE]),
+    SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
-    ?assertEqual(9, length(Cols)),
+    ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
 
-    ?ELog("update in table ~s", [TmpTable]),
+    ?ELog("update in table ~s", [?TESTTABLE]),
     RowIDs = [lists:last(R) || R <- Rows],
     ?ELog("rowids ~p", [RowIDs]),
-    BoundUpdStmt = OciSession:prep_sql(BindUpdQryStr),
+    BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
-    BoundUpdStmtRes = BoundUpdStmt:bind_vars(VarUdpBindList),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(?UPDATE_BIND_LIST),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _},
     BoundUpdStmt:exec_stmt([{ I
@@ -719,9 +622,9 @@ commit_rollback_test(OciSession) ->
 
     ?assertMatch(ok, BoundUpdStmt:close()),
 
-    ?ELog("testing rollback table ~s", [TmpTable]),
+    ?ELog("testing rollback table ~s", [?TESTTABLE]),
     ?assertEqual(ok, OciSession:rollback()),
-    SelStmt1 = OciSession:prep_sql(SelQryStr),
+    SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
     ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
     {{rows, NewRows}, false} = SelStmt1:fetch_rows(RowCount),
@@ -732,74 +635,24 @@ asc_desc_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                          asc_desc_test                         |"),
     ?ELog("------------------------------------------------------------------"),
-    TmpTable = "erloci_test_1",
     RowCount = 10,
 
-    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
-    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
-                                       "publisher varchar2(30),"
-                                       "rank float,"
-                                       "hero varchar2(30),"
-                                       "reality varchar2(30),"
-                                       "votes number,"
-                                       "createdate date default sysdate,"
-                                       "votes_first_rank number)"]),
-    BindInsQryStr = list_to_binary(["insert into ", TmpTable,
-                                    " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
-                                    ":pkey",
-                                    ", :publisher",
-                                    ", :rank",
-                                    ", :hero",
-                                    ", :reality",
-                                    ", :votes",
-                                    ", :createdate"
-                                    ", :votes_first_rank)"]),
-    VarBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                  , {<<":publisher">>, 'SQLT_CHR'}
-                  , {<<":rank">>, 'SQLT_FLT'}
-                  , {<<":hero">>, 'SQLT_CHR'}
-                  , {<<":reality">>, 'SQLT_CHR'}
-                  , {<<":votes">>, 'SQLT_INT'}
-                  , {<<":createdate">>, 'SQLT_DAT'}
-                  , {<<":votes_first_rank">>, 'SQLT_INT'}
-                  ],
-    SelQryStr = list_to_binary(["select pkey from ", TmpTable, " order by pkey desc"]),
-    BindUpdQryStr = list_to_binary(["update ", TmpTable, " set ",
-                                    "pkey = :pkey",
-                                    ", publisher = :publisher",
-                                    ", rank = :rank",
-                                    ", hero = :hero",
-                                    ", reality = :reality",
-                                    ", votes = :votes",
-                                    ", createdate = :createdate"
-                                    ", votes_first_rank = :votes_first_rank where ", TmpTable, ".rowid = :pri_rowid1"]),
-    VarUdpBindList = [ {<<":pkey">>, 'SQLT_INT'}
-                     , {<<":publisher">>, 'SQLT_CHR'}
-                     , {<<":rank">>, 'SQLT_FLT'}
-                     , {<<":hero">>, 'SQLT_CHR'}
-                     , {<<":reality">>, 'SQLT_CHR'}
-                     , {<<":votes">>, 'SQLT_STR'}
-                     , {<<":createdate">>, 'SQLT_DAT'}
-                     , {<<":votes_first_rank">>, 'SQLT_INT'}
-                     , {<<":pri_rowid1">>, 'SQLT_STR'}
-                     ],
-
-    ?ELog("dropping table ~s", [TmpTable]),
-    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?ELog("dropping table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    ?ELog("creating table ~s", [TmpTable]),
-    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    ?ELog("inserting into table ~s", [TmpTable]),
-    BoundInsStmt = OciSession:prep_sql(BindInsQryStr),
+    ?ELog("inserting into table ~s", [?TESTTABLE]),
+    BoundInsStmt = OciSession:prep_sql(?INSERT),
     ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
-    BoundInsStmtRes = BoundInsStmt:bind_vars(VarBindList),
+    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
@@ -813,8 +666,8 @@ asc_desc_test(OciSession) ->
                             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
-    ?ELog("selecting from table ~s", [TmpTable]),
-    SelStmt = OciSession:prep_sql(SelQryStr),
+    ?ELog("selecting from table ~s", [?TESTTABLE]),
+    SelStmt = OciSession:prep_sql(?SELECT_WITH_ORDER),
     ?assertMatch({?MODULE, statement, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(1, length(Cols)),
@@ -831,32 +684,22 @@ describe_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                         describe_test                          |"),
     ?ELog("------------------------------------------------------------------"),
-    TmpTable = "erloci_test_1",
 
-    DropTableQryStr = list_to_binary(["drop table ", TmpTable]),
-    CreateTableQueryStr = list_to_binary(["create table ", TmpTable, " (pkey number,"
-                                       "publisher varchar2(30),"
-                                       "rank float,"
-                                       "hero varchar2(30),"
-                                       "reality varchar2(30),"
-                                       "votes number,"
-                                       "createdate date default sysdate,"
-                                       "votes_first_rank number)"]),
-    ?ELog("dropping table ~s", [TmpTable]),
-    DropStmt = OciSession:prep_sql(DropTableQryStr),
+    ?ELog("dropping table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
 
-    ?ELog("creating table ~s", [TmpTable]),
-    StmtCreate = OciSession:prep_sql(CreateTableQueryStr),
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
-    ?ELog("describing table ~s", [TmpTable]),
-    {ok, Descs} = OciSession:describe(list_to_binary(TmpTable), 'OCI_PTYPE_TABLE'),
-    ?assertEqual(8, length(Descs)),
-    ?ELog("table ~s has ~p", [TmpTable, Descs]).
+    ?ELog("describing table ~s", [?TESTTABLE]),
+    {ok, Descs} = OciSession:describe(list_to_binary(?TESTTABLE), 'OCI_PTYPE_TABLE'),
+    ?assertEqual(9, length(Descs)),
+    ?ELog("table ~s has ~p", [?TESTTABLE, Descs]).
 
 -endif.
