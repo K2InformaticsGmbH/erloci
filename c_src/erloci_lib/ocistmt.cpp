@@ -201,7 +201,7 @@ unsigned int ocistmt::execute(void * column_list,
 			ocisess->release_stmt(this);
 			throw r;
 		}
-		if(_stmt_typ == OCI_STMT_INSERT || _stmt_typ == OCI_STMT_UPDATE) {
+		if(_stmt_typ == OCI_STMT_INSERT || _stmt_typ == OCI_STMT_UPDATE || _stmt_typ == OCI_STMT_DELETE) {
 			// Get the row ID for the row that was just inserted.
 			OraText *rowID = new OraText[19]; // Extra char for null termination.
 			ub2 size = 18;
