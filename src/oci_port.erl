@@ -242,7 +242,7 @@ handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     Cmd = [From | Msg],
     %CmdBin = term_to_binary(Cmd),
     %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
-    %?Debug(" ~p", [Cmd]),
+    %?Info(">>>>>>>>>>>> TX ~p", [Cmd]),
     %case Cmd of
     %    [_,C,S|Args] -> ?Info("PORT CMD : ~s ~p\n~p", [?CMDSTR(C),S,Args]);
     %    [_,C|Args] -> ?Info("PORT CMD : ~s\n~p", [?CMDSTR(C),Args])
@@ -409,6 +409,33 @@ signal_str(N)  -> {udefined,        ignore, N}.
                           , {<<":votes_first_rank">>, 'SQLT_INT'}
                           , {<<":pri_rowid1">>, 'SQLT_STR'}
                           ]).
+
+setup() ->
+    application:start(erloci),
+    OciPort = oci_port:start_link([{logging, true}]),
+    timer:sleep(1000),
+    OciPort.
+
+teardown(_OciPort) ->
+    application:stop(erloci).
+
+db_negative_test_() ->
+    {timeout, 60, {
+        setup,
+        fun setup/0,
+        fun teardown/1,
+        {with, [
+            fun bad_password/1
+        ]}
+    }}.
+
+bad_password(OciPort) ->
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                       bad_password                             |"),
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("get_session with wrong password", []),
+    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
 
 db_test_() ->
     {timeout, 60, {

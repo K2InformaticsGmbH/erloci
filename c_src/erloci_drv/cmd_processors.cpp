@@ -99,16 +99,13 @@ bool cmd_get_session(ETERM * command)
 				erl_free_term(conh);
 		   } catch (intf_ret r) {
 				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
-				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}", args[0], GET_SESSN, r.gerrcode, r.gerrbuf);
-				ret = true;
+				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], GET_SESSN, r.gerrcode, r.gerrbuf);
 		   } catch (string str) {
 				REMOTE_LOG("ERROR %s\n", str.c_str());
-				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], GET_SESSN, str.c_str());
-				ret = true;
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], GET_SESSN, str.c_str());
 		   } catch (...) {
 				REMOTE_LOG("ERROR unknown\n");
-				resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], GET_SESSN);
-				ret = true;
+				resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], GET_SESSN);
 		   }
 	}
 
@@ -151,11 +148,11 @@ bool cmd_release_conn(ETERM * command)
 			ret = true;
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], PUT_SESSN, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], PUT_SESSN, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], PUT_SESSN);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PUT_SESSN);
 			ret = true;
 		}
     }
@@ -199,11 +196,11 @@ bool cmd_commit(ETERM * command)
 			ret = true;
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], CMT_SESSN, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMT_SESSN, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], CMT_SESSN);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMT_SESSN);
 			ret = true;
 		}
     }
@@ -247,11 +244,11 @@ bool cmd_rollback(ETERM * command)
 			ret = true;
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], RBK_SESSN, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], RBK_SESSN, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], RBK_SESSN);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], RBK_SESSN);
 			ret = true;
 		}
     }
@@ -309,11 +306,11 @@ bool cmd_describe(ETERM * command)
 			}
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], CMD_DSCRB, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMD_DSCRB, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], CMD_DSCRB);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_DSCRB);
 			ret = true;
 		}
     }
@@ -367,11 +364,11 @@ bool cmd_prep_sql(ETERM * command)
 			}
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], PREP_STMT, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], PREP_STMT, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], PREP_STMT);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PREP_STMT);
 			ret = true;
 		}
     }
@@ -418,11 +415,11 @@ bool cmd_bind_args(ETERM * command)
 			ret = true;
 		} catch (string & str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], BIND_ARGS, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], BIND_ARGS, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], BIND_ARGS);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], BIND_ARGS);
 			ret = true;
 		}
     }
@@ -487,11 +484,11 @@ bool cmd_exec_stmt(ETERM * command)
 			}
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], EXEC_STMT, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], EXEC_STMT, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], EXEC_STMT);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], EXEC_STMT);
 			ret = true;
 		}
 	}
@@ -556,11 +553,11 @@ bool cmd_fetch_rows(ETERM * command)
 			}
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], FTCH_ROWS, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], FTCH_ROWS, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], FTCH_ROWS);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], FTCH_ROWS);
 			ret = true;
 		}
     }
@@ -605,11 +602,11 @@ bool cmd_close_stmt(ETERM * command)
 			ret = true;
 		} catch (string str) {
 			REMOTE_LOG("ERROR %s\n", str.c_str());
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}", args[0], CLSE_STMT, str.c_str());
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, str.c_str());
 			ret = true;
 		} catch (...) {
 			REMOTE_LOG("ERROR unknown\n");
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}", args[0], CLSE_STMT);
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
 		}
     }
