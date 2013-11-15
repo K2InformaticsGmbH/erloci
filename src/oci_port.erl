@@ -359,7 +359,7 @@ signal_str(N)  -> {udefined,        ignore, N}.
 
 -define(TESTTABLE, "erloci_test_1").
 -define(DROP,   <<"drop table "?TESTTABLE>>).
--define(CREATE, <<"create table "?TESTTABLE" (pkey number,"
+-define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
                   "publisher varchar2(30),"
                   "rank float,"
                   "hero varchar2(30),"
@@ -410,6 +410,18 @@ signal_str(N)  -> {udefined,        ignore, N}.
                           , {<<":pri_rowid1">>, 'SQLT_STR'}
                           ]).
 
+flush_table(OciSession) ->
+    ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
+    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    DropStmt:exec_stmt(),
+    ?assertEqual(ok, DropStmt:close()),
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
+    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
+    ?assertEqual(ok, StmtCreate:close()).
+
 setup() ->
     application:start(erloci),
     OciPort = oci_port:start_link([{logging, true}]),
@@ -443,7 +455,8 @@ db_test_() ->
         fun oci_test:setup/0,
         fun oci_test:teardown/1,
         {with, [
-            fun drop_create_insert_select_update/1
+            fun drop_create/1
+            , fun insert_select_update/1
             , fun auto_rollback_test/1
             , fun commit_rollback_test/1
             , fun asc_desc_test/1
@@ -451,23 +464,34 @@ db_test_() ->
         ]}
     }}.
 
-drop_create_insert_select_update(OciSession) ->
+drop_create(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
-    ?ELog("|                drop_create_insert_select_update                |"),
+    ?ELog("|                            drop_create                         |"),
     ?ELog("------------------------------------------------------------------"),
-    RowCount = 5,
 
-    ?ELog("dropping table ~s", [?TESTTABLE]),
+    ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     DropStmt = OciSession:prep_sql(?DROP),
     ?assertMatch({?MODULE, statement, _, _}, DropStmt),
     DropStmt:exec_stmt(),
     ?assertEqual(ok, DropStmt:close()),
-
-    ?ELog("creating table ~s", [?TESTTABLE]),
     StmtCreate = OciSession:prep_sql(?CREATE),
     ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
+
+    ?ELog("dropping table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
+    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    ?assertEqual({executed,0}, DropStmt:exec_stmt()),
+    ?assertEqual(ok, DropStmt:close()).
+
+insert_select_update(OciSession) ->
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                      insert_select_update                      |"),
+    ?ELog("------------------------------------------------------------------"),
+    RowCount = 5,
+
+    flush_table(OciSession),
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
@@ -523,17 +547,7 @@ auto_rollback_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     RowCount = 3,
 
-    ?ELog("dropping table ~s", [?TESTTABLE]),
-    DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
-    DropStmt:exec_stmt(),
-    ?assertEqual(ok, DropStmt:close()),
-
-    ?ELog("creating table ~s", [?TESTTABLE]),
-    StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
-    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
-    ?assertEqual(ok, StmtCreate:close()),
+    flush_table(OciSession),
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
@@ -591,17 +605,7 @@ commit_rollback_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     RowCount = 3,
 
-    ?ELog("dropping table ~s", [?TESTTABLE]),
-    DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
-    DropStmt:exec_stmt(),
-    ?assertEqual(ok, DropStmt:close()),
-
-    ?ELog("creating table ~s", [?TESTTABLE]),
-    StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
-    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
-    ?assertEqual(ok, StmtCreate:close()),
+    flush_table(OciSession),
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
@@ -664,17 +668,7 @@ asc_desc_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
     RowCount = 10,
 
-    ?ELog("dropping table ~s", [?TESTTABLE]),
-    DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
-    DropStmt:exec_stmt(),
-    ?assertEqual(ok, DropStmt:close()),
-
-    ?ELog("creating table ~s", [?TESTTABLE]),
-    StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
-    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
-    ?assertEqual(ok, StmtCreate:close()),
+    flush_table(OciSession),
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
@@ -712,17 +706,7 @@ describe_test(OciSession) ->
     ?ELog("|                         describe_test                          |"),
     ?ELog("------------------------------------------------------------------"),
 
-    ?ELog("dropping table ~s", [?TESTTABLE]),
-    DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
-    DropStmt:exec_stmt(),
-    ?assertEqual(ok, DropStmt:close()),
-
-    ?ELog("creating table ~s", [?TESTTABLE]),
-    StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
-    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
-    ?assertEqual(ok, StmtCreate:close()),
+    flush_table(OciSession),
 
     ?ELog("describing table ~s", [?TESTTABLE]),
     {ok, Descs} = OciSession:describe(list_to_binary(?TESTTABLE), 'OCI_PTYPE_TABLE'),

@@ -336,8 +336,19 @@ unsigned int ocistmt::execute(void * column_list,
 			}
 
 			switch (cur_clm.dtype) {
-            case SQLT_NUM:
+            case SQLT_FLT:
+            case SQLT_BFLOAT:
+            case SQLT_BDOUBLE:
+            case SQLT_INT:
+            case SQLT_UIN:
             case SQLT_VNU:
+            case SQLT_NUM:
+				cur_clm.dlen = OCI_NUMBER_SIZE;
+				cur_clm.row_valp = new OCINumber;
+				memset(cur_clm.row_valp, 0, sizeof(OCINumber));
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_VNU, "SQLT_VNU");
+				break;
             case SQLT_LNG:
 				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
@@ -352,17 +363,10 @@ unsigned int ocistmt::execute(void * column_list,
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
                 break;
-            case SQLT_INT:
-            case SQLT_UIN:
-                break;
             case SQLT_DAT:
 				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_DAT, "SQLT_DAT");
-                break;
-            case SQLT_FLT:
-            case SQLT_BFLOAT:
-            case SQLT_BDOUBLE:
                 break;
             case SQLT_TIMESTAMP:
 				OCIALLOC(OCI_DTYPE_TIMESTAMP, "SQLT_TIMESTAMP");
@@ -488,10 +492,12 @@ intf_ret ocistmt::rows(void * row_list,
 		}
 
         row = NULL;
-
 		if (res != OCI_NO_DATA) {
 			for (int i = 0; i < _columns.size(); ++i)
 					switch (_columns[i].dtype) {
+					case SQLT_NUM:
+						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
+						break;
 					case SQLT_TIMESTAMP:
 					case SQLT_TIMESTAMP_TZ:
 					case SQLT_TIMESTAMP_LTZ: {
@@ -505,24 +511,11 @@ intf_ret ocistmt::rows(void * row_list,
 					/*case SQLT_INTERVAL_YM:
 					case SQLT_INTERVAL_DS:
 						break;*/
-					case SQLT_DAT:
-						{
-						/*char date_buf[15];
-						sprintf(date_buf, "%02d%02d%02d%02d%02d%02d%02d",
-							((char*)data_row[i])[0] - 100, // Century
-							((char*)data_row[i])[1] - 100, // Year
-							((char*)data_row[i])[2],		 // Month
-							((char*)data_row[i])[3],		 // Day
-							((char*)data_row[i])[4],		 // 24HH
-							((char*)data_row[i])[5],		 // MM
-							((char*)data_row[i])[6]);		 // DD
-						(*string_append)(date_buf, strlen(date_buf), &row);*/
+					case SQLT_DAT:						
 						(*string_append)((char*)_columns[i].row_valp, 7, &row);
-						}
 						break;
 					case SQLT_RID:
 					case SQLT_RDD:
-					case SQLT_NUM:
 					case SQLT_CHR:
 						(*string_append)((char*)_columns[i].row_valp, strlen((char*)_columns[i].row_valp), &row);
 						break;
