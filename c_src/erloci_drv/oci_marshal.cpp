@@ -447,3 +447,58 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
         args = erl_tl(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
 }
+
+void * walk_term(void * _term)
+{
+	ETERM * term = (ETERM *)_term;
+	ETERM * list_item = NULL;
+	ETERM * tuple_arg = NULL;
+	size_t len = 0;
+
+	if(!term)
+		return NULL;
+
+	if(ERL_IS_TUPLE(term)) {
+		len = erl_size(term);
+		for(int i=0; i<len; ++i) {
+			if ((tuple_arg = erl_element(i+1, term)) == NULL)
+				break;
+			walk_term(tuple_arg);
+		}
+	}
+	else if(ERL_IS_LIST(term)) {
+		do {
+			list_item = erl_hd(term);
+			walk_term(list_item);
+		    term = erl_tl(term);
+	    } while (term != NULL && !ERL_IS_EMPTY_LIST(term));
+	}
+	else if(ERL_IS_ATOM(term)) {
+	}
+	else if(ERL_IS_UNSIGNED_LONGLONG(term)) {
+	}
+	else if(ERL_IS_LONGLONG(term)) {
+	}
+	else if(ERL_IS_UNSIGNED_INTEGER(term)) {
+	}
+	else if(ERL_IS_INTEGER(term)) {
+	}
+	else if(ERL_IS_FLOAT(term)) {
+	}
+	else if(ERL_IS_PID(term)) {
+	}
+	else if(ERL_IS_REF(term)) {
+	}
+	else if(ERL_IS_PORT(term)) {
+	}
+	else if(ERL_IS_CONS(term)) {
+	}
+	else if(ERL_IS_EMPTY_LIST(term)) {
+	}
+	else if(ERL_IS_NIL(term)) {
+	}
+	else if(ERL_IS_BINARY(term)) {
+	}
+
+	return _term;
+}

@@ -497,6 +497,7 @@ intf_ret ocistmt::rows(void * row_list,
 					switch (_columns[i].dtype) {
 					case SQLT_NUM:
 						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
+						memset(_columns[i].row_valp, 0, sizeof(OCINumber));
 						break;
 					case SQLT_TIMESTAMP:
 					case SQLT_TIMESTAMP_TZ:
@@ -513,11 +514,15 @@ intf_ret ocistmt::rows(void * row_list,
 						break;*/
 					case SQLT_DAT:						
 						(*string_append)((char*)_columns[i].row_valp, 7, &row);
+						memset(_columns[i].row_valp, 0, 7);
 						break;
 					case SQLT_RID:
 					case SQLT_RDD:
-					case SQLT_CHR:
-						(*string_append)((char*)_columns[i].row_valp, strlen((char*)_columns[i].row_valp), &row);
+					case SQLT_CHR: {
+							size_t str_len = strlen((char*)_columns[i].row_valp);
+							(*string_append)((char*)_columns[i].row_valp, str_len, &row);
+							memset(_columns[i].row_valp, 0, str_len);
+						}
 						break;
 					}
 			total_est_row_size += (*sizeof_resp)(&row);
