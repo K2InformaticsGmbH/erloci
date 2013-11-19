@@ -419,6 +419,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
 					}
 					break;
+				case SQLT_VNU:
 				case SQLT_RDD:
 				case SQLT_DAT:
 					if(ERL_IS_BINARY(arg)) {
