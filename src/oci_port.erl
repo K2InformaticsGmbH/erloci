@@ -459,7 +459,7 @@ db_test_() ->
             , fun insert_select_update/1
             , fun auto_rollback_test/1
             , fun commit_rollback_test/1
-            , fun asc_desc_test/1
+%            , fun asc_desc_test/1
             , fun describe_test/1
         ]}
     }}.
@@ -524,6 +524,29 @@ insert_select_update(OciSession) ->
 
     ?ELog("update in table ~s", [?TESTTABLE]),
     Rows = Rows0 ++ Rows1 ++ Rows2,
+
+%    ?ELog("Got rows~n~p", [[begin
+%        [Rowid
+%        , Pkey
+%        , Publisher
+%        , Rank
+%        , Hero
+%        , Reality
+%        , Votes
+%        , Createdate
+%        , Chapters
+%        , Votes_first_rank] = lists:reverse(R),
+%        [Rowid
+%        , oci_test:oranumber_decode(Pkey)
+%        , Publisher
+%        , oci_test:oranumber_decode(Rank)
+%        , Hero
+%        , Reality
+%        , oci_test:oranumber_decode(Votes)
+%        , oci_test:oradate_to_str(Createdate)
+%        , oci_test:oranumber_decode(Chapters)
+%        , oci_test:oranumber_decode(Votes_first_rank)]
+%    end || R <- Rows]]),
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
@@ -697,7 +720,10 @@ asc_desc_test(OciSession) ->
     {{rows, Rows2}, false} = SelStmt:fetch_rows(5),
     {{rows, []}, true} = SelStmt:fetch_rows(1),
 
-    ?assertEqual([binary_to_integer(R) || [R] <- Rows1++Rows2], lists:reverse(lists:seq(1,10))),
+    Rows = Rows1++Rows2,
+    ?ELog("Got rows ~s", [Rows]),
+    Pkeys = [oci_test:oranumber_decode(R) || R <- Rows],
+    ?assertEqual([M || {M,_} <- Pkeys], lists:reverse(lists:seq(1,10))),
 
     ?assertEqual(ok, SelStmt:close()).
 

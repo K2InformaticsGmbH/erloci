@@ -428,12 +428,20 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
 					break;
-				case SQLT_STR:
 				case SQLT_CHR:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
+					}
+					break;
+				case SQLT_STR:
+					if(ERL_IS_BINARY(arg)) {
+						arg_len = ERL_BIN_SIZE(arg);
+						tmp_arg = new char[arg_len+1];
+						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
+						((char*)tmp_arg)[arg_len] = '\0';
+						arg_len++;
 					}
 					break;
 			}
