@@ -350,23 +350,21 @@ unsigned int ocistmt::execute(void * column_list,
 				OCIDEF(SQLT_VNU, "SQLT_VNU");
 				break;
             case SQLT_LNG:
-				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
-				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(SQLT_STR, "SQLT_STR");
-                break;
             case SQLT_AVC:
             case SQLT_AFC:
             case SQLT_CHR:
             case SQLT_STR:
             case SQLT_VCS:
-				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
+				cur_clm.row_valp = new text[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
                 break;
             case SQLT_DAT:
-				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
+				cur_clm.dlen = sizeof(OCIDate);
+				cur_clm.row_valp = new OCIDate;
+				memset(cur_clm.row_valp, 0, sizeof(OCIDate));
 				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(SQLT_DAT, "SQLT_DAT");
+				OCIDEF(SQLT_ODT, "SQLT_ODT");
                 break;
             case SQLT_TIMESTAMP:
 				OCIALLOC(OCI_DTYPE_TIMESTAMP, "SQLT_TIMESTAMP");
@@ -391,10 +389,9 @@ unsigned int ocistmt::execute(void * column_list,
 			case SQLT_RDD:
 			case SQLT_RID:
 				cur_clm.dlen = 19;
-				cur_clm.row_valp = new text*[cur_clm.dlen + 1];
+				cur_clm.row_valp = new text[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
-                break;
                 break;
             default:
                 break;
@@ -513,8 +510,8 @@ intf_ret ocistmt::rows(void * row_list,
 					case SQLT_INTERVAL_DS:
 						break;*/
 					case SQLT_DAT:						
-						(*string_append)((char*)_columns[i].row_valp, 7, &row);
-						memset(_columns[i].row_valp, 0, 7);
+						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
+						memset(_columns[i].row_valp, 0, sizeof(OCIDate));
 						break;
 					case SQLT_RID:
 					case SQLT_RDD:
