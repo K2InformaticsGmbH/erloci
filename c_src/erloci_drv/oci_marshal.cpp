@@ -16,11 +16,15 @@
 
 #include "oci_marshal.h"
 #include "erl_interface.h"
+
 #include <ocidfn.h>
+#include <orl.h>
 
 #ifdef __WIN32__
 #include <windows.h>
+#include <Winsock2.h>
 #else
+#include <netinet/in.h>
 #include <pthread.h>
 #endif
 
@@ -422,12 +426,13 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 				case SQLT_VNU:
 				case SQLT_RDD:
 				case SQLT_DAT:
-				case SQLT_ODT:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
+				case SQLT_ODT:
+					((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
 					break;
 				case SQLT_AFC:
 				case SQLT_CHR:
