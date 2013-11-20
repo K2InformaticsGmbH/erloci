@@ -128,8 +128,7 @@ edatetime_to_ora({{FullYear,Month,Day},{Hour,Minute,Second}}) ->
     Year = (FullYear rem 100) + 100,
     << Century:8, Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8 >>.
 
-oradate_to_str(<<YearLow:8, YearHigh:8, Month:8, Day:8, Hour:8, Min:8, Sec:8, _/binary>>) ->
-    << Year:16, _/binary >> = << YearHigh:8, YearLow:8 >>,
+oradate_to_str(<<Year:16, Month:8, Day:8, Hour:8, Min:8, Sec:8, _/binary>>) ->
     lists:flatten(io_lib:format("~4..0B.~2..0B.~2..0B ~2..0B:~2..0B:~2..0B", [Year, Month, Day, Hour, Min, Sec])).
 
 insert_select(OciSession, Table, InsertCount, Parent) ->

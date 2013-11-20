@@ -525,28 +525,28 @@ insert_select_update(OciSession) ->
     ?ELog("update in table ~s", [?TESTTABLE]),
     Rows = Rows0 ++ Rows1 ++ Rows2,
 
-%    ?ELog("Got rows~n~p", [[begin
-%        [Rowid
-%        , Pkey
-%        , Publisher
-%        , Rank
-%        , Hero
-%        , Reality
-%        , Votes
-%        , Createdate
-%        , Chapters
-%        , Votes_first_rank] = lists:reverse(R),
-%        [Rowid
-%        , oci_test:oranumber_decode(Pkey)
-%        , Publisher
-%        , oci_test:oranumber_decode(Rank)
-%        , Hero
-%        , Reality
-%        , oci_test:oranumber_decode(Votes)
-%        , oci_test:oradate_to_str(Createdate)
-%        , oci_test:oranumber_decode(Chapters)
-%        , oci_test:oranumber_decode(Votes_first_rank)]
-%    end || R <- Rows]]),
+    ?ELog("Got rows~n~p", [[begin
+        [Rowid
+        , Pkey
+        , Publisher
+        , Rank
+        , Hero
+        , Reality
+        , Votes
+        , Createdate
+        , Chapters
+        , Votes_first_rank] = lists:reverse(R),
+        [Rowid
+        , oci_test:oranumber_decode(Pkey)
+        , Publisher
+        , oci_test:oranumber_decode(Rank)
+        , Hero
+        , Reality
+        , oci_test:oranumber_decode(Votes)
+        , oci_test:oradate_to_str(Createdate)
+        , oci_test:oranumber_decode(Chapters)
+        , oci_test:oranumber_decode(Votes_first_rank)]
+    end || R <- Rows]]),
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
