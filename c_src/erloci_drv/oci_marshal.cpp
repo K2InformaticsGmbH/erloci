@@ -422,12 +422,14 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 				case SQLT_VNU:
 				case SQLT_RDD:
 				case SQLT_DAT:
+				case SQLT_ODT:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
 					break;
+				case SQLT_AFC:
 				case SQLT_CHR:
 					if(ERL_IS_BINARY(arg)) {
 						arg_len = ERL_BIN_SIZE(arg);

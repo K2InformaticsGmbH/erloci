@@ -15,13 +15,15 @@
 #include "ocistmt.h"
 #include "ocisession.h"
 
-#include <cstring>
-
-#include <oci.h>
-
 #ifndef __WIN32__
 #include <stdlib.h>
+#include <netinet/in.h>
+#else
+#include <Winsock2.h>
 #endif
+
+#include <cstring>
+#include <oci.h>
 
 struct column {
     ub2  dtype;
@@ -509,12 +511,15 @@ intf_ret ocistmt::rows(void * row_list,
 					/*case SQLT_INTERVAL_YM:
 					case SQLT_INTERVAL_DS:
 						break;*/
-					case SQLT_DAT:						
+					case SQLT_DAT:
+						((OCIDate*)_columns[i].row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)_columns[i].row_valp)->OCIDateYYYY);
 						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
 						memset(_columns[i].row_valp, 0, sizeof(OCIDate));
 						break;
 					case SQLT_RID:
 					case SQLT_RDD:
+					case SQLT_AFC:
+					case SQLT_STR:
 					case SQLT_CHR: {
 							size_t str_len = strlen((char*)_columns[i].row_valp);
 							(*string_append)((char*)_columns[i].row_valp, str_len, &row);
