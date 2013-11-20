@@ -178,7 +178,7 @@ unsigned int ocistmt::execute(void * column_list,
 									(text*)(_argsin[i].name), -1,
 									_argsin[i].datap, _argsin[i].value_sz,
 									_argsin[i].dty,
-									(void*)NULL, &_argsin[i].alen[0],
+									&_argsin[i].ind[0], &_argsin[i].alen[0],
 									(ub2*)NULL,0,
 									(ub4*)NULL, OCI_DEFAULT));
 		if(r.fn_ret != SUCCESS) {

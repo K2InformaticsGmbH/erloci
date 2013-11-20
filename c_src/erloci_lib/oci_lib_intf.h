@@ -39,6 +39,7 @@ typedef struct var {
 	unsigned short dty;
 	std::vector<void *> valuep;
 	std::vector<unsigned short> alen;
+	std::vector<signed short> ind;
 	unsigned short value_sz;
 	void *ocibind;
 	void *datap;

@@ -383,6 +383,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
     ETERM * arg = NULL;
 	void * tmp_arg = NULL;
 	size_t len = 0;
+	sb2 ind = -1;
 	unsigned short arg_len = 0;
 	
 	// remove any old bind from the vars
@@ -405,11 +406,15 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 			if ((arg = erl_element(i+1, item)) == NULL)
 		        break;
 			
+			ind = -1;
+			tmp_arg = NULL;
+			arg_len = 0;
 			switch(vars[i].dty) {
 				case SQLT_BFLOAT:
 				case SQLT_BDOUBLE:
 				case SQLT_FLT:
 					if(ERL_IS_INTEGER(arg) || ERL_IS_FLOAT(arg)) {
+						ind = 0;
 						arg_len = sizeof(double);
 						tmp_arg = new double;
 						*(double*)tmp_arg = (double)(ERL_IS_INTEGER(arg) ? ERL_INT_VALUE(arg) : ERL_FLOAT_VALUE(arg));
@@ -418,6 +423,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 				case SQLT_NUM:
 				case SQLT_INT:
 					if(ERL_IS_INTEGER(arg)) {
+						ind = 0;
 						arg_len = sizeof(int);
 						tmp_arg = new int;
 						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
@@ -426,15 +432,15 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 				case SQLT_VNU:
 				case SQLT_RDD:
 				case SQLT_DAT:
-					if(ERL_IS_BINARY(arg)) {
-						arg_len = ERL_BIN_SIZE(arg);
+					if(ERL_IS_BINARY(arg) && (arg_len = ERL_BIN_SIZE(arg))) {
+						ind = 0;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
 					break;
 				case SQLT_ODT:
-					if(ERL_IS_BINARY(arg)) {
-						arg_len = ERL_BIN_SIZE(arg);
+					if(ERL_IS_BINARY(arg) && (arg_len = ERL_BIN_SIZE(arg))) {
+						ind = 0;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 						((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
@@ -442,15 +448,15 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 					break;
 				case SQLT_AFC:
 				case SQLT_CHR:
-					if(ERL_IS_BINARY(arg)) {
-						arg_len = ERL_BIN_SIZE(arg);
+					if(ERL_IS_BINARY(arg) && (arg_len = ERL_BIN_SIZE(arg))) {
+						ind = 0;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 					}
 					break;
 				case SQLT_STR:
-					if(ERL_IS_BINARY(arg)) {
-						arg_len = ERL_BIN_SIZE(arg);
+					if(ERL_IS_BINARY(arg) && (arg_len = ERL_BIN_SIZE(arg))) {
+						ind = 0;
 						tmp_arg = new char[arg_len+1];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 						((char*)tmp_arg)[arg_len] = '\0';
@@ -462,6 +468,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 			if (arg_len > vars[i].value_sz)
 				vars[i].value_sz = arg_len;
 			vars[i].valuep.push_back(tmp_arg);
+			vars[i].ind.push_back(ind);
 		}
 
         args = erl_tl(args);
