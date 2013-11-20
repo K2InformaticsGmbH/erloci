@@ -49,7 +49,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
 
 	// allocate error handle
 	r.handle = envhp;
-	checkenv(&r, OCIHandleAlloc(envhp,	/* environment handle */
+	checkenv(&r, OCIHandleAlloc(envhp,			/* environment handle */
                             (void **) &_errhp,	/* returned err handle */
                             OCI_HTYPE_ERROR,	/* typ of handle to allocate */
                             (size_t) 0,			/* optional extra memory size */
@@ -161,6 +161,7 @@ unsigned int ocistmt::execute(void * column_list,
 				case SQLT_STR:
 				case SQLT_CHR:
 				case SQLT_DAT:
+				default:
 					dat_len = _argsin[i].value_sz;
 					break;
 			}
@@ -252,8 +253,10 @@ unsigned int ocistmt::execute(void * column_list,
 #endif
 
 	for(int i = 0; i < _argsin.size(); ++i) {
-		free(_argsin[i].datap);
-		_argsin[i].datap = NULL;
+		if(_argsin[i].datap) {
+			free(_argsin[i].datap);
+			_argsin[i].datap = NULL;
+		}
 		_argsin[i].datap_len = 0;
 		_argsin[i].value_sz = 0;
 		_argsin[i].valuep.clear();
