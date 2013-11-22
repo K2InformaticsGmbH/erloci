@@ -412,10 +412,12 @@ bool cmd_bind_args(ETERM * command)
 												: ERL_LL_UVALUE(args[2]));
 
 		try {
-			if (!conn_handle->has_statement(statement_handle))
-				throw(string("invalid statement handle"));
-			map_schema_to_bind_args(args[3], statement_handle->get_in_bind_args());
-			resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+			} else {
+				map_schema_to_bind_args(args[3], statement_handle->get_in_bind_args());
+				resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
+			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
 			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
@@ -472,23 +474,24 @@ bool cmd_exec_stmt(ETERM * command)
 		bool auto_commit = auto_commit_val > 0 ? true : false;
 	    ETERM *columns = NULL, *rowids = NULL;
 		try {
-			if (!conn_handle->has_statement(statement_handle))
-				throw(string("invalid statement handle"));
-
-			map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
-			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
-			// TODO : Also return bound return values from here
-			if (columns == NULL && rowids == NULL)
-				resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
-			else if (columns != NULL && rowids == NULL)
-				resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
-			else if (columns == NULL && rowids != NULL)
-				resp = erl_format((char*)"{~w,~i,{rowids, ~w}}", args[0], EXEC_STMT, rowids);
-			else {
-				resp = erl_format((char*)"{~w,~i,{cols,~w},{rowids, ~w}}", args[0], EXEC_STMT, columns, rowids);
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+			} else {
+				map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
+				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
+				// TODO : Also return bound return values from here
+				if (columns == NULL && rowids == NULL)
+					resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
+				else if (columns != NULL && rowids == NULL)
+					resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
+				else if (columns == NULL && rowids != NULL)
+					resp = erl_format((char*)"{~w,~i,{rowids, ~w}}", args[0], EXEC_STMT, rowids);
+				else {
+					resp = erl_format((char*)"{~w,~i,{cols,~w},{rowids, ~w}}", args[0], EXEC_STMT, columns, rowids);
+				}
+				if (rowids != NULL) erl_free_term(rowids);
+				if (columns != NULL) erl_free_term(columns);
 			}
-			if (rowids != NULL) erl_free_term(rowids);
-			if (columns != NULL) erl_free_term(columns);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
@@ -549,22 +552,23 @@ bool cmd_fetch_rows(ETERM * command)
 
 		ETERM *rows = NULL;
 		try {
-			if (!conn_handle->has_statement(statement_handle))
-				throw(string("invalid statement handle"));
-
-			intf_ret r = statement_handle->rows(&rows,
-											   append_string_to_list,
-											   append_list_to_list,
-											   calculate_resp_size,
-											   rowcount);
-			if (r.fn_ret == MORE || r.fn_ret == DONE) {
-				if (rows != NULL) {
-                    resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
-					erl_free_term(rows);
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+			} else {
+				intf_ret r = statement_handle->rows(&rows,
+												   append_string_to_list,
+												   append_list_to_list,
+												   calculate_resp_size,
+												   rowcount);
+				if (r.fn_ret == MORE || r.fn_ret == DONE) {
+					if (rows != NULL) {
+						resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
+						erl_free_term(rows);
+					}
+					else
+						resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
 				}
-                else
-                    resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
-            }
+			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
@@ -621,11 +625,12 @@ bool cmd_close_stmt(ETERM * command)
 												? ERL_INT_VALUE(args[2])
 												: ERL_LL_UVALUE(args[2]));
 		try {
-			if (!conn_handle->has_statement(statement_handle))
-				throw(string("invalid statement handle"));
-
-			statement_handle->close();
-			resp = erl_format((char*)"{~w,~i,ok}", args[0], CLSE_STMT);
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+			} else {
+				statement_handle->close();
+				resp = erl_format((char*)"{~w,~i,ok}", args[0], CLSE_STMT);
+			}
 		} catch (intf_ret r) {
 			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CLSE_STMT, r.gerrcode, r.gerrbuf);
