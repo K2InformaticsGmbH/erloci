@@ -80,10 +80,10 @@ extern const erlcmdtable cmdtbl[];
     {GET_SESSN,	"GET_SESSN",	4, "Get a OCI session"},\
     {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
     {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
-    {BIND_ARGS,	"BIND_ARGS",	3, "Bind parameters into prepared SQL statement"},\
-    {EXEC_STMT,	"EXEC_STMT",	4, "Execute a prepared statement"},\
-    {FTCH_ROWS,	"FTCH_ROWS",	3, "Fetch rows from statements producing rows"},\
-    {CLSE_STMT,	"CLSE_STMT",	2, "Close a statement"},\
+    {BIND_ARGS,	"BIND_ARGS",	4, "Bind parameters into prepared SQL statement"},\
+    {EXEC_STMT,	"EXEC_STMT",	5, "Execute a prepared statement"},\
+    {FTCH_ROWS,	"FTCH_ROWS",	4, "Fetch rows from statements producing rows"},\
+    {CLSE_STMT,	"CLSE_STMT",	3, "Close a statement"},\
     {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\

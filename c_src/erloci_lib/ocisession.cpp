@@ -237,6 +237,18 @@ void ocisession::release_stmt(ocistmt *stmt)
 	}
 }
 
+bool ocisession::has_statement(ocistmt *stmt)
+{
+	bool found = false;
+	for (list<ocistmt*>::iterator it = _statements.begin(); it != _statements.end(); ++it) {
+		if(*it == stmt) {
+			found = true;
+			break;
+		}
+	}
+	return found;
+}
+
 ocisession::~ocisession(void)
 {
 	intf_ret r;

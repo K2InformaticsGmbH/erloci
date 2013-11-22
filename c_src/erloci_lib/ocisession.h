@@ -50,6 +50,7 @@ public:
 													 const unsigned int max_len, void * list));
 	ocistmt* prepare_stmt(unsigned char *stmt, unsigned int stmt_len);
 	void release_stmt(ocistmt *stmt);
+	bool has_statement(ocistmt *stmt);
 
 	~ocisession(void);
 };

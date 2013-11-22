@@ -398,16 +398,23 @@ bool cmd_bind_args(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Statement Handle, BindList
+    // Args: Connection Handle, Statement Handle, BindList
     if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-		&& ERL_IS_LIST(args[2])) {
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+		&& ERL_IS_LIST(args[3])) {
 
-		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[1])
-												? ERL_INT_VALUE(args[1])
-												: ERL_LL_UVALUE(args[1]));
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+
+		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
+												? ERL_INT_VALUE(args[2])
+												: ERL_LL_UVALUE(args[2]));
 
 		try {
-			map_schema_to_bind_args(args[2], statement_handle->get_in_bind_args());
+			if (!conn_handle->has_statement(statement_handle))
+				throw(string("invalid statement handle"));
+			map_schema_to_bind_args(args[3], statement_handle->get_in_bind_args());
 			resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
@@ -449,18 +456,26 @@ bool cmd_exec_stmt(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Conn Handle, Bind List, auto_commit
+    // Args: Connection Handle, Statement Handle, Bind List, auto_commit
     if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-	   && ERL_IS_LIST(args[2])
-	   && (ERL_IS_INTEGER(args[3]) || ERL_IS_UNSIGNED_LONGLONG(args[3]) || ERL_IS_LONGLONG(args[3]))) {
-		ocistmt * statement_handle = (ocistmt *)(ERL_IS_INTEGER(args[1])
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+		&& ERL_IS_LIST(args[3])
+		&& (ERL_IS_INTEGER(args[4]) || ERL_IS_UNSIGNED_LONGLONG(args[4]) || ERL_IS_LONGLONG(args[4]))) {
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
 													? ERL_INT_VALUE(args[1])
 													: ERL_LL_UVALUE(args[1]));
-		int auto_commit_val = (ERL_IS_INTEGER(args[3]) ? ERL_INT_VALUE(args[3]) : ERL_LL_UVALUE(args[3]));
+
+		ocistmt * statement_handle = (ocistmt *)(ERL_IS_INTEGER(args[2])
+													? ERL_INT_VALUE(args[2])
+													: ERL_LL_UVALUE(args[2]));
+		int auto_commit_val = (ERL_IS_INTEGER(args[4]) ? ERL_INT_VALUE(args[4]) : ERL_LL_UVALUE(args[4]));
 		bool auto_commit = auto_commit_val > 0 ? true : false;
 	    ETERM *columns = NULL, *rowids = NULL;
 		try {
-			map_value_to_bind_args(args[2], statement_handle->get_in_bind_args());
+			if (!conn_handle->has_statement(statement_handle))
+				throw(string("invalid statement handle"));
+
+			map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
 			unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
 			// TODO : Also return bound return values from here
 			if (columns == NULL && rowids == NULL)
@@ -503,7 +518,6 @@ error_exit:
 	return ret;
 }
 
-// TODO inp_t * bind_args = map_to_bind_args(args[4]);
 bool cmd_fetch_rows(ETERM * command)
 {
 	bool ret = false;
@@ -519,17 +533,25 @@ bool cmd_fetch_rows(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Statement Handle, Rowcount
+    // Args: Connection Handle, Statement Handle, Rowcount
     if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-		&& ERL_IS_INTEGER(args[2])) {
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+		&& ERL_IS_INTEGER(args[3])) {
 
-		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[1])
-												? ERL_INT_VALUE(args[1])
-												: ERL_LL_UVALUE(args[1]));
-        int rowcount = ERL_INT_VALUE(args[2]);
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+										? ERL_INT_VALUE(args[1])
+										: ERL_LL_UVALUE(args[1]));
+
+		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
+												? ERL_INT_VALUE(args[2])
+												: ERL_LL_UVALUE(args[2]));
+        int rowcount = ERL_INT_VALUE(args[3]);
 
 		ETERM *rows = NULL;
 		try {
+			if (!conn_handle->has_statement(statement_handle))
+				throw(string("invalid statement handle"));
+
 			intf_ret r = statement_handle->rows(&rows,
 											   append_string_to_list,
 											   append_list_to_list,
@@ -587,13 +609,21 @@ bool cmd_close_stmt(ETERM * command)
 	    goto error_exit;
 	}
 
-    // Args: Statement Handle
-    if(ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1])) {
+    // Args: Connection Handle, Statement Handle
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))) {
 
-		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[1])
-												? ERL_INT_VALUE(args[1])
-												: ERL_LL_UVALUE(args[1]));
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+										? ERL_INT_VALUE(args[1])
+										: ERL_LL_UVALUE(args[1]));
+
+		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
+												? ERL_INT_VALUE(args[2])
+												: ERL_LL_UVALUE(args[2]));
 		try {
+			if (!conn_handle->has_statement(statement_handle))
+				throw(string("invalid statement handle"));
+
 			statement_handle->close();
 			resp = erl_format((char*)"{~w,~i,ok}", args[0], CLSE_STMT);
 		} catch (intf_ret r) {

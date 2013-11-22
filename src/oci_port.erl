@@ -100,12 +100,12 @@ when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
 close({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT),
     gen_server:call(PortPid, close, ?PORT_TIMEOUT);
-close({?MODULE, statement, PortPid, StmtId}) ->
-    gen_server:call(PortPid, {port_call, [?CLSE_STMT, StmtId]}, ?PORT_TIMEOUT).
+close({?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT).
 
-bind_vars(BindVars, {?MODULE, statement, PortPid, StmtId}) when is_list(BindVars) ->
+bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
     TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
-    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, StmtId, TranslatedBindVars]}, ?PORT_TIMEOUT),
+    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, SessionId, StmtId, TranslatedBindVars]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         ok -> ok;
@@ -132,25 +132,25 @@ prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
-        {stmt,StmtId} -> {?MODULE, statement, PortPid, StmtId};
+        {stmt,StmtId} -> {?MODULE, statement, PortPid, SessionId, StmtId};
         R -> R
     end.
 
 % AutoCommit is default set to true
-exec_stmt({?MODULE, statement, PortPid, StmtId}) ->
-    exec_stmt([], 1, {?MODULE, statement, PortPid, StmtId}).
-exec_stmt(BindVars, {?MODULE, statement, PortPid, StmtId}) ->
-    exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, StmtId}).
-exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, StmtId}) ->
-    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, StmtId, BindVars, AutoCommit]}, ?PORT_TIMEOUT),
+exec_stmt({?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    exec_stmt([], 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
+exec_stmt(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
+exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, AutoCommit]}, ?PORT_TIMEOUT),
     timer:sleep(100), % Port driver breaks on faster pipe access
     case R of
         {cols, Clms} -> {ok, lists:reverse([{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms])};
         R -> R
     end.
 
-fetch_rows(Count, {?MODULE, statement, PortPid, StmtId}) ->
-    case gen_server:call(PortPid, {port_call, [?FTCH_ROWS, StmtId, Count]}, ?PORT_TIMEOUT) of
+fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    case gen_server:call(PortPid, {port_call, [?FTCH_ROWS, SessionId, StmtId, Count]}, ?PORT_TIMEOUT) of
         {{rows, Rows}, Completed} -> {{rows, lists:reverse(Rows)}, Completed};
         Other -> Other
     end.
@@ -239,7 +239,6 @@ handle_call(close, _From, #state{port=Port} = State) ->
     end,
     {stop, normal, ok, State};
 handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
-    Cmd = [From | Msg],
     %CmdBin = term_to_binary(Cmd),
     %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
     %?Info(">>>>>>>>>>>> TX ~p", [Cmd]),
@@ -247,9 +246,11 @@ handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     %    [_,C,S|Args] -> ?Info("PORT CMD : ~s ~p\n~p", [?CMDSTR(C),S,Args]);
     %    [_,C|Args] -> ?Info("PORT CMD : ~s\n~p", [?CMDSTR(C),Args])
     %end,
-    true = port_command(Port, term_to_binary(list_to_tuple(Cmd))),
+    Cmd = [From | Msg],
     %io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
-    {noreply, State}. %% we will reply inside handle_info_result
+    % reply send from handle_info{Port, {data, Data}})
+    true = port_command(Port, term_to_binary(list_to_tuple(Cmd))),
+    {noreply, State}. 
 
 handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
@@ -379,7 +380,8 @@ signal_str(N)  -> {udefined,        ignore, N}.
                   ", :createdate"
                   ", :votes_first_rank)">>).
 -define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE".* from "?TESTTABLE>>).
--define(SELECT_WITH_ORDER, <<"select pkey from ", ?TESTTABLE, " order by pkey desc">>).
+-define(SELECT_ROWID_ASC, <<"select rowid from ", ?TESTTABLE, " order by pkey">>).
+-define(SELECT_ROWID_DESC, <<"select rowid from ", ?TESTTABLE, " order by pkey desc">>).
 -define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
                    , {<<":publisher">>, 'SQLT_CHR'}
                    , {<<":rank">>, 'SQLT_FLT'}
@@ -413,12 +415,16 @@ signal_str(N)  -> {udefined,        ignore, N}.
 flush_table(OciSession) ->
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
-    DropStmt:exec_stmt(),
-    ?assertEqual(ok, DropStmt:close()),
+    ?assertMatch({?MODULE, statement, _, _, _}, DropStmt),
+    % If table doesn't exists the handle isn't valid
+    % Any error is ignored anyway
+    case DropStmt:exec_stmt() of
+        {error, _} -> ok; 
+        _ -> ?assertEqual(ok, DropStmt:close())
+    end,
     ?ELog("creating table ~s", [?TESTTABLE]),
     StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertMatch({?MODULE, statement, _, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()).
 
@@ -459,7 +465,7 @@ db_test_() ->
             , fun insert_select_update/1
             , fun auto_rollback_test/1
             , fun commit_rollback_test/1
-%            , fun asc_desc_test/1
+            , fun asc_desc_test/1
             , fun describe_test/1
         ]}
     }}.
@@ -470,18 +476,20 @@ drop_create(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
 
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
-    DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
-    DropStmt:exec_stmt(),
-    ?assertEqual(ok, DropStmt:close()),
+    TmpDropStmt = OciSession:prep_sql(?DROP),
+    ?assertMatch({?MODULE, statement, _, _, _}, TmpDropStmt),
+    case TmpDropStmt:exec_stmt() of
+        {error, _} -> ok; % If table doesn't exists the handle isn't valid
+        _ -> ?assertEqual(ok, TmpDropStmt:close())
+    end,
     StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _}, StmtCreate),
+    ?assertMatch({?MODULE, statement, _, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()),
 
     ?ELog("dropping table ~s", [?TESTTABLE]),
     DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _}, DropStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, DropStmt),
     ?assertEqual({executed,0}, DropStmt:exec_stmt()),
     ?assertEqual(ok, DropStmt:close()).
 
@@ -495,7 +503,7 @@ insert_select_update(OciSession) ->
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
-    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     {rowids, RowIds} = BoundInsStmt:exec_stmt(
@@ -513,7 +521,7 @@ insert_select_update(OciSession) ->
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
     ?ELog("selected columns ~p from table ~s", [Cols, ?TESTTABLE]),
     ?assertEqual(10, length(Cols)),
@@ -525,31 +533,31 @@ insert_select_update(OciSession) ->
     ?ELog("update in table ~s", [?TESTTABLE]),
     Rows = Rows0 ++ Rows1 ++ Rows2,
 
-    ?ELog("Got rows~n~p", [[begin
-        [Rowid
-        , Pkey
-        , Publisher
-        , Rank
-        , Hero
-        , Reality
-        , Votes
-        , Createdate
-        , Chapters
-        , Votes_first_rank] = lists:reverse(R),
-        [Rowid
-        , oci_test:oranumber_decode(Pkey)
-        , Publisher
-        , oci_test:oranumber_decode(Rank)
-        , Hero
-        , Reality
-        , oci_test:oranumber_decode(Votes)
-        , oci_test:oradate_to_str(Createdate)
-        , oci_test:oranumber_decode(Chapters)
-        , oci_test:oranumber_decode(Votes_first_rank)]
-    end || R <- Rows]]),
+%    ?ELog("Got rows~n~p", [[begin
+%        [Rowid
+%        , Pkey
+%        , Publisher
+%        , Rank
+%        , Hero
+%        , Reality
+%        , Votes
+%        , Createdate
+%        , Chapters
+%        , Votes_first_rank] = lists:reverse(R),
+%        [Rowid
+%        , oci_test:oranumber_decode(Pkey)
+%        , Publisher
+%        , oci_test:oranumber_decode(Rank)
+%        , Hero
+%        , Reality
+%        , oci_test:oranumber_decode(Votes)
+%        , oci_test:oradate_to_str(Createdate)
+%        , oci_test:oranumber_decode(Chapters)
+%        , oci_test:oranumber_decode(Votes_first_rank)]
+%    end || R <- Rows]]),
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
-    ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(lists:keyreplace(<<":votes">>, 1, ?UPDATE_BIND_LIST, {<<":votes">>, 'SQLT_INT'})),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt([{ I
@@ -574,7 +582,7 @@ auto_rollback_test(OciSession) ->
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
-    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
@@ -591,7 +599,7 @@ auto_rollback_test(OciSession) ->
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
@@ -600,7 +608,7 @@ auto_rollback_test(OciSession) ->
     ?ELog("update in table ~s", [?TESTTABLE]),
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
-    ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(?UPDATE_BIND_LIST),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({error, _}, BoundUpdStmt:exec_stmt([{ I
@@ -613,11 +621,10 @@ auto_rollback_test(OciSession) ->
                             , I+1
                             , Key
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], 1)),
-    ?assertMatch(ok, BoundUpdStmt:close()),
 
     ?ELog("testing rollback table ~s", [?TESTTABLE]),
     SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt1),
     ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
     ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(RowCount)),
     ?assertEqual(ok, SelStmt1:close()).
@@ -632,7 +639,7 @@ commit_rollback_test(OciSession) ->
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
-    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
@@ -649,7 +656,7 @@ commit_rollback_test(OciSession) ->
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt),
     {ok, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
@@ -659,7 +666,7 @@ commit_rollback_test(OciSession) ->
     RowIDs = [lists:last(R) || R <- Rows],
     ?ELog("rowids ~p", [RowIDs]),
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
-    ?assertMatch({?MODULE, statement, _, _}, BoundUpdStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(?UPDATE_BIND_LIST),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _},
@@ -679,7 +686,7 @@ commit_rollback_test(OciSession) ->
     ?ELog("testing rollback table ~s", [?TESTTABLE]),
     ?assertEqual(ok, OciSession:rollback()),
     SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?MODULE, statement, _, _}, SelStmt1),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt1),
     ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
     {{rows, NewRows}, false} = SelStmt1:fetch_rows(RowCount),
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
@@ -695,7 +702,7 @@ asc_desc_test(OciSession) ->
 
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
-    ?assertMatch({?MODULE, statement, _, _}, BoundInsStmt),
+    ?assertMatch({?MODULE, statement, _, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
@@ -711,21 +718,28 @@ asc_desc_test(OciSession) ->
     ?assertEqual(ok, BoundInsStmt:close()),
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),
-    SelStmt = OciSession:prep_sql(?SELECT_WITH_ORDER),
-    ?assertMatch({?MODULE, statement, _, _}, SelStmt),
-    {ok, Cols} = SelStmt:exec_stmt(),
-    ?assertEqual(1, length(Cols)),
+    SelStmt1 = OciSession:prep_sql(?SELECT_ROWID_ASC),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt1),
+    SelStmt2 = OciSession:prep_sql(?SELECT_ROWID_DESC),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelStmt2),
+    ?assertEqual(SelStmt1:exec_stmt(), SelStmt2:exec_stmt()),
 
-    {{rows, Rows1}, false} = SelStmt:fetch_rows(5),
-    {{rows, Rows2}, false} = SelStmt:fetch_rows(5),
-    {{rows, []}, true} = SelStmt:fetch_rows(1),
+    {{rows, Rows11}, false} = SelStmt1:fetch_rows(5),
+    {{rows, Rows12}, false} = SelStmt1:fetch_rows(5),
+    {{rows, []}, true} = SelStmt1:fetch_rows(1),
+    Rows1 = Rows11++Rows12,
 
-    Rows = Rows1++Rows2,
-    ?ELog("Got rows ~s", [Rows]),
-    Pkeys = [oci_test:oranumber_decode(R) || R <- Rows],
-    ?assertEqual([M || {M,_} <- Pkeys], lists:reverse(lists:seq(1,10))),
+    {{rows, Rows21}, false} = SelStmt2:fetch_rows(5),
+    {{rows, Rows22}, false} = SelStmt2:fetch_rows(5),
+    {{rows, []}, true} = SelStmt2:fetch_rows(1),
+    Rows2 = Rows21++Rows22,
 
-    ?assertEqual(ok, SelStmt:close()).
+    ?ELog("Got rows asc ~p~n desc ~p", [Rows1, Rows2]),
+
+    ?assertEqual(Rows1, lists:reverse(Rows2)),
+
+    ?assertEqual(ok, SelStmt1:close()),
+    ?assertEqual(ok, SelStmt2:close()).
 
 describe_test(OciSession) ->
     ?ELog("------------------------------------------------------------------"),
