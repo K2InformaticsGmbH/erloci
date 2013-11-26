@@ -19,12 +19,12 @@ ERLOCI_DRV_SRCS =	$(ERLOCI_DRV_PATH)/cmd_processors.cpp	\
 
 ERLOCI_DRV_OBJS = $(ERLOCI_DRV_SRCS:.cpp=.o)
 
-CXXFLAGS = -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_DIR)/sdk/include/
+CXXFLAGS = -ggdb -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_DIR)/sdk/include/
 LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -Lpriv -L$(OCI_DIR)
 LINKFLAGS = -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12
 
 all: priv/erloci
-	cp -f $(OCI_DIR)/*.* priv/
+	cp -u $(OCI_DIR)/*.* priv/
 	@echo "erloci compiled"
 
 priv/erloci: priv/liberloci.a $(ERLOCI_DRV_OBJS)
