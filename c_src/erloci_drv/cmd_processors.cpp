@@ -479,7 +479,7 @@ bool cmd_exec_stmt(ETERM * command)
 			} else {
 				map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
-				// TODO : Also return bound return values from here
+				// TODO : Also return bound values from here
 				if (columns == NULL && rowids == NULL)
 					resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
 				else if (columns != NULL && rowids == NULL)

@@ -51,6 +51,9 @@
 }).
 
 -define(log(__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Format, __Args); true -> ok end).
+% Port driver breaks on faster pipe access
+%-define(DriverSleep, timer:sleep(100)).
+-define(DriverSleep, ok).
 
 %% External API
 start_link(Options) ->
@@ -106,7 +109,7 @@ close({?MODULE, statement, PortPid, SessionId, StmtId}) ->
 bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
     TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
     R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, SessionId, StmtId, TranslatedBindVars]}, ?PORT_TIMEOUT),
-    timer:sleep(100), % Port driver breaks on faster pipe access
+    ?DriverSleep,
     case R of
         ok -> ok;
         R -> R
@@ -130,7 +133,7 @@ prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_list(Sql) ->
     prep_sql(iolist_to_binary(Sql), {?MODULE, PortPid, SessionId});
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
     R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
-    timer:sleep(100), % Port driver breaks on faster pipe access
+    ?DriverSleep,
     case R of
         {stmt,StmtId} -> {?MODULE, statement, PortPid, SessionId, StmtId};
         R -> R
@@ -143,7 +146,7 @@ exec_stmt(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
 exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, AutoCommit]}, ?PORT_TIMEOUT),
-    timer:sleep(100), % Port driver breaks on faster pipe access
+    ?DriverSleep,
     case R of
         {cols, Clms} -> {ok, lists:reverse([{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms])};
         R -> R
@@ -513,7 +516,7 @@ insert_select_update(OciSession) ->
          , list_to_binary(["_hero_",integer_to_list(I),"_"])
          , list_to_binary(["_reality_",integer_to_list(I),"_"])
          , I
-         , oci_test:edatetime_to_ora(erlang:now())
+         , oci_util:edatetime_to_ora(erlang:now())
          , I
          } || I <- lists:seq(1, RowCount)]),
     ?assertMatch(RowCount, length(RowIds)),
@@ -545,15 +548,15 @@ insert_select_update(OciSession) ->
 %        , Chapters
 %        , Votes_first_rank] = lists:reverse(R),
 %        [Rowid
-%        , oci_test:oranumber_decode(Pkey)
+%        , oci_util:oranumber_decode(Pkey)
 %        , Publisher
-%        , oci_test:oranumber_decode(Rank)
+%        , oci_util:oranumber_decode(Rank)
 %        , Hero
 %        , Reality
-%        , oci_test:oranumber_decode(Votes)
-%        , oci_test:oradate_to_str(Createdate)
-%        , oci_test:oranumber_decode(Chapters)
-%        , oci_test:oranumber_decode(Votes_first_rank)]
+%        , oci_util:oranumber_decode(Votes)
+%        , oci_util:oradate_to_str(Createdate)
+%        , oci_util:oranumber_decode(Chapters)
+%        , oci_util:oranumber_decode(Votes_first_rank)]
 %    end || R <- Rows]]),
     RowIDs = [lists:last(R) || R <- Rows],
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
@@ -566,7 +569,7 @@ insert_select_update(OciSession) ->
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_Reality_",integer_to_list(I),"_"])
                             , I+1
-                            , oci_test:edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
                             , Key
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
@@ -592,7 +595,7 @@ auto_rollback_test(OciSession) ->
             , list_to_binary(["_hero_",integer_to_list(I),"_"])
             , list_to_binary(["_reality_",integer_to_list(I),"_"])
             , I
-            , oci_test:edatetime_to_ora(erlang:now())
+            , oci_util:edatetime_to_ora(erlang:now())
             , I
             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
@@ -617,7 +620,7 @@ auto_rollback_test(OciSession) ->
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_Reality_",integer_to_list(I),"_"])
                             , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end
-                            , oci_test:edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
                             , Key
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], 1)),
@@ -649,7 +652,7 @@ commit_rollback_test(OciSession) ->
                             , list_to_binary(["_hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_reality_",integer_to_list(I),"_"])
                             , I
-                            , oci_test:edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I
                             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),
@@ -676,7 +679,7 @@ commit_rollback_test(OciSession) ->
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_Reality_",integer_to_list(I),"_"])
                             , integer_to_binary(I+1)
-                            , oci_test:edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
                             , Key
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], -1)),
@@ -712,7 +715,7 @@ asc_desc_test(OciSession) ->
                             , list_to_binary(["_hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_reality_",integer_to_list(I),"_"])
                             , I
-                            , oci_test:edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I
                             } || I <- lists:seq(1, RowCount)], 1)),
     ?assertEqual(ok, BoundInsStmt:close()),

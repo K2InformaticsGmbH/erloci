@@ -133,11 +133,15 @@ void append_string_to_list(const char * string, size_t len, void * list)
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-	ETERM *binstr = erl_mk_binary(string, len);
-	ETERM *new_container_list = erl_cons(binstr, container_list);
-    erl_free_term(binstr);
-    erl_free_term(container_list);
-	(*(ETERM**)list) = new_container_list;
+	if (string) {
+		ETERM *binstr = erl_mk_binary(string, len);
+		ETERM *new_container_list = erl_cons(binstr, container_list);
+		erl_free_term(binstr);
+		erl_free_term(container_list);
+		(*(ETERM**)list) = new_container_list;
+	} else {
+		(*(ETERM**)list) = container_list;
+	}
 }
 
 void append_coldef_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len,

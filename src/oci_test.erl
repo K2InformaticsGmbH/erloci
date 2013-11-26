@@ -13,14 +13,21 @@
 %% limitations under the License.
 
 -module(oci_test).
+-behavior(gen_server).
 
--export([ run/2
+-export([ start/2
         , setup/0
-        , teardown/1
-        , edatetime_to_ora/1
-        , oradate_to_str/1
-        , oranumber_decode/1]).
+        , teardown/1]).
 
+%gen_server callbacks
+-export([ init/1
+        , handle_call/3
+        , handle_cast/2
+        , handle_info/2
+        , terminate/2
+        , code_change/3]).
+
+-define(TablePrefix, "erloci_table_").
 -define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
 -define(Log(__Fmt,__Args),
 (fun(__F,__A) ->
@@ -29,15 +36,85 @@
 end)(__Fmt,__Args)).
 -define(Log(__F), ?Log(__F,[])).
 
-run(Threads, InsertCount) ->
-    OciSession = setup(),
-    run_test(OciSession, Threads, InsertCount),
-    teardown(OciSession).
+-record(state,  { port
+                , session
+                , stats = []
+       }).
+
+start(Threads, InsertCount) ->
+    application:start(erloci),
+    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    start(Tns,User,Pswd,Threads,InsertCount).
+
+start(Tns,User,Pswd,Threads,InsertCount) ->
+    application:start(erloci),
+    gen_server:start_link(?MODULE, [Tns,User,Pswd,Threads,InsertCount], []).
+
+init([Tns,User,Pswd]) ->
+    OciPort = oci_port:start_link([{logging, true}]),
+    Session = setupi(OciPort,Tns,User,Pswd),
+    {ok, #state{port=OciPort, session=Session}}.
+
+%run(Threads, InsertCount) ->
+%    OciSession = setup(),
+%    run_test(OciSession, Threads, InsertCount),
+%    teardown(OciSession).
+
+handle_call({create_tables, -1}, From, State) ->
+    {reply,ok,State};
+handle_call({create_tables, N}, From, {session = OciSession} = State) ->
+    Table = lists:flatten([?TablePrefix, integer_to_list(N)]),
+    try
+        StartCreate = erlang:now(),
+        StmtDrop = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
+        print_if_error(StmtDrop, "drop prep failed"),
+        print_if_error(StmtDrop:exec_stmt(), "drop exec failed"),
+        print_if_error(StmtDrop:close(), "drop close failed"),
+        Stmt0 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
+                                       publisher varchar2(30),
+                                       rank float,
+                                       hero varchar2(30),
+                                       reality varchar2(30),
+                                       votes number,
+                                       createdate date default sysdate,
+                                       votes_first_rank number)"])),
+        throw_if_error(undefined, Stmt0, "create "++Table++" prep failed"),
+        throw_if_error(undefined, Stmt0:exec_stmt(), "create "++Table++" exec failed"),
+        throw_if_error(undefined, Stmt0:close(), "close statement for "++Table++" failed"),
+        EndCreate = erlang:now(),
+        gen_server:cast(self(), {create, Table, {StartCreate, EndCreate}}),
+        handle_call({create_tables, N-1}, From, State)
+    catch
+        _:Error -> ?Log("[OCI drop ~s] failed ~p~n", [Table, Error]),
+        {reply, {error, Error}, State}
+    end;
+handle_call(Msg, From, State) ->
+    {stop,normal,{unknown_call, Msg, From},State}.
+
+handle_cast(Request, State) ->
+    ?Log("Unknown cast ~p from~p", [Request]),
+    {stop, normal, State}.
+
+handle_info(Info, State) ->
+    ?Log("Unknown info ~p from~p", [Info]),
+    {stop, normal, State}.
+
+terminate(Reason, #state{session = Session, port = OciPort}) ->
+    if Session =/= undefined -> Session:close(); true -> ok end,
+    if OciPort =/= undefined -> OciPort:close(); true -> ok end,
+    ?Log("Shutdown for ~p", [Reason]).
+    
+code_change(OldVsn, State, Extra) ->
+    ?Log("Code change old vsn ~p Extra ~p", [OldVsn, Extra]),
+    {ok, State}.
 
 setup() ->
     application:start(erloci),
     OciPort = oci_port:start_link([{logging, true}]),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    setupi(OciPort,Tns,User,Pswd).
+
+setupi(OciPort,Tns,User,Pswd) ->
     OciSession = OciPort:get_session(Tns, User, Pswd),
     throw_if_error(undefined, OciSession, "session failed"),
     ?Log("[OCI Session] ~p~n", [OciSession]),
@@ -118,19 +195,6 @@ receive_all(OciSession, Count, Acc) ->
             receive_all(OciSession, 0, Acc)
     end.
 
-edatetime_to_ora({Meg,Mcr,Mil} = Now)
-    when is_integer(Meg)
-    andalso is_integer(Mcr)
-    andalso is_integer(Mil) ->
-    edatetime_to_ora(calendar:now_to_datetime(Now));
-edatetime_to_ora({{FullYear,Month,Day},{Hour,Minute,Second}}) ->
-    Century = (FullYear div 100) + 100,
-    Year = (FullYear rem 100) + 100,
-    << Century:8, Year:8, Month:8, Day:8, Hour:8, Minute:8, Second:8 >>.
-
-oradate_to_str(<<Year:16, Month:8, Day:8, Hour:8, Min:8, Sec:8, _/binary>>) ->
-    lists:flatten(io_lib:format("~4..0B.~2..0B.~2..0B ~2..0B:~2..0B:~2..0B", [Year, Month, Day, Hour, Min, Sec])).
-
 insert_select(OciSession, Table, InsertCount, Parent) ->
     try
         Parent ! {keep_alive, insert_qry_prepare, Table},
@@ -166,7 +230,7 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                             , list_to_binary(["_hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_reality_",integer_to_list(I),"_"])
                             , I
-                            , edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I
                             } || I <- lists:seq(1, InsertCount)]),
         Parent ! {keep_alive, insert_qry_executed, Table},
@@ -237,7 +301,7 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
                             , list_to_binary(["_Reality_",integer_to_list(I),"_"])
                             , I+1
-                            , edatetime_to_ora(erlang:now())
+                            , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
                             , Key
                             } || {Key, I} <- lists:zip(AllKeys, lists:seq(1, length(AllKeys)))]),
@@ -262,33 +326,3 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
 
 print_if_error({error, Error}, Msg) -> ?Log("___________----- continue after ~p ~p~n", [Msg,Error]);
 print_if_error(_, _) -> ok.
-
-
-oranumber_decode(<<0:8, _/binary>>) -> {0, 0};
-oranumber_decode(<<1:8, _/binary>>) -> {0, 0};
-oranumber_decode(<<Length:8, 1:1, OraExp:7, Rest/binary>>) -> % positive numbers
-    Exponent = OraExp - 65,
-    MLength = Length - 1,
-    <<OraMantissa:MLength/binary, _/binary>> = Rest,
-    ListOraMant = binary_to_list(OraMantissa),
-    ListMantissa = lists:flatten([io_lib:format("~2.10.0B", [DD-1]) || DD <- ListOraMant]),
-    Mantissa = list_to_integer(ListMantissa),
-    LengthMant = length(ListMantissa),
-    oraexp_to_imem_prec(Mantissa, Exponent, LengthMant);
-oranumber_decode(<<Length:8, 0:1, OraExp:7, Rest/binary>>) -> % negative numbers
-    Exponent = 62 - OraExp,
-    MLength = Length - 2,
-    <<OraMantissa:MLength/binary, 102, _/binary>> = Rest,
-    ListOraMant = binary_to_list(OraMantissa),
-    ListMantissa = lists:flatten([io_lib:format("~2.10.0B", [101-DD]) || DD <- ListOraMant]),
-    Mantissa = -1 * list_to_integer(ListMantissa),
-    LengthMant = length(ListMantissa),
-    oraexp_to_imem_prec(Mantissa, Exponent, LengthMant);
-oranumber_decode(_) -> {error, <<"invalid oracle number">>}.
-
-oraexp_to_imem_prec(Mantissa, Exponent, LengthMant) ->
-    oraexp_to_imem_prec(Mantissa, Exponent, LengthMant, LengthMant rem 2, Mantissa rem 10).
-
-oraexp_to_imem_prec(Mantissa,Exponent,LengthMant,RemLength,0) -> {Mantissa div 10, (Exponent*-2) + LengthMant-3 + RemLength};
-oraexp_to_imem_prec(Mantissa,Exponent,LengthMant,RemLength,_) -> {Mantissa       , (Exponent*-2) + LengthMant-2 + RemLength}.
-
