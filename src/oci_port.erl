@@ -100,11 +100,12 @@ when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
         SessionId -> {?MODULE, PortPid, SessionId}
     end.
 
-close({?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT),
-    gen_server:call(PortPid, close, ?PORT_TIMEOUT);
 close({?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT).
+    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT);
+close({?MODULE, PortPid, SessionId}) ->
+    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT);
+close({?MODULE, PortPid}) ->
+    gen_server:call(PortPid, close, ?PORT_TIMEOUT).
 
 bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
     TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
