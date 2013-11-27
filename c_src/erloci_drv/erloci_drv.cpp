@@ -28,6 +28,7 @@
 #include <WinBase.h>
 #else
 #include <stdlib.h>
+#include <unistd.h>
 #endif
 
 #include <time.h>
@@ -51,7 +52,8 @@ void *check_idle_thread(void * argument)
 #ifdef __WIN32__
 		Sleep(port_idle_timeout);
 #else
-		usleep(port_idle_timeout);
+		usleep(port_idle_timeout*1000);
+		//sleep(port_idle_timeout / 1000);
 #endif
 		// is set in cmd_ping
 		if (is_idle) {
@@ -63,6 +65,7 @@ void *check_idle_thread(void * argument)
 	ExitProcess(3);
 	return 0;
 #else
+    exit(0);
 	return NULL;
 #endif
 }

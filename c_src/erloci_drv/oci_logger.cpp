@@ -75,7 +75,7 @@ char * connect_tcp(int PortNo)
         return NULL; //Success
 #else
     struct sockaddr_in serv_addr;
-	if((s = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+	if((log_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0)
         return (char*)"sock create failed";
 
 	memset(&serv_addr, 0, sizeof(serv_addr)); 
@@ -86,7 +86,7 @@ char * connect_tcp(int PortNo)
     if(inet_pton(AF_INET, "127.0.0.1", &serv_addr.sin_addr)<=0)
         return (char*)"inet_pton error occured";
 
-	if(connect(s, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
+	if(connect(log_socket, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
 	    return (char*)"sock connect failed";
 
     return NULL; //Success
