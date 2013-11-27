@@ -27,9 +27,9 @@
 #endif
 
 #ifdef __WIN32__
-SOCKET s; //Socket handle
+SOCKET log_socket; //Socket handle
 #else
-int s;
+int log_socket;
 #endif
 
 //CONNECTTOHOST – Connects to a remote host
@@ -59,15 +59,15 @@ char * connect_tcp(int PortNo)
     target.sin_port = htons (PortNo); //Port to connect on
     target.sin_addr.s_addr = inet_addr ("127.0.0.1"); //Target IP
 
-    s = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); //Create socket
-    if (s == INVALID_SOCKET)
+    log_socket = socket (AF_INET, SOCK_STREAM, IPPROTO_TCP); //Create socket
+    if (log_socket == INVALID_SOCKET)
     {
         return "Winsock sock create failed"; //Couldn't create the socket
     }  
 
     //Try connecting...
 
-    if (connect(s, (SOCKADDR *)&target, sizeof(target)) == SOCKET_ERROR)
+    if (connect(log_socket, (SOCKADDR *)&target, sizeof(target)) == SOCKET_ERROR)
     {
         return "Winsock sock connect failed"; //Couldn't connect
     }
@@ -98,12 +98,12 @@ void close_tcp()
 {
 #ifdef __WIN32__
     //Close the socket if it exists
-    if (s)
-        closesocket(s);
+    if (log_socket)
+        closesocket(log_socket);
 
     WSACleanup(); //Clean up Winsock
 #else
-	close(s);
+	close(log_socket);
 #endif
 }
 
@@ -122,7 +122,7 @@ void log_remote(const char *fmt, ...)
 #endif
     (log_str, MAX_FORMATTED_STR_LEN, fmt, arguments);
 
-	send(s, log_str, (int)strlen(log_str), 0);
+	send(log_socket, log_str, (int)strlen(log_str), 0);
 
     va_end(arguments);
 

@@ -63,6 +63,7 @@ typedef enum _ERL_CMD {
     RBK_SESSN			= 10,
 	CMD_DSCRB			= 11,
     OCIP_QUIT			= 12,
+    PORT_PING			= 13,
 } ERL_CMD;
 
 /*
@@ -87,7 +88,8 @@ extern const erlcmdtable cmdtbl[];
     {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
-    {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"}\
+    {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"},\
+    {PORT_PING,	"OCIP_QUIT",	1, "Keep-Alive from erlang process"}\
 }
 
 extern char * print_term(void*);
@@ -187,3 +189,5 @@ extern void map_value_to_bind_args(void *, vector<var> &);
 #else
 #define LOG_DUMP(__len, __buf)
 #endif
+
+extern bool is_idle;

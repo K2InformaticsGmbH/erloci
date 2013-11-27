@@ -25,6 +25,7 @@
 #include <io.h>
 #include <fcntl.h>
 #include <share.h>
+#include <WinBase.h>
 #else
 #include <stdlib.h>
 #endif
@@ -35,6 +36,59 @@ typedef unsigned char byte;
 
 bool log_flag;
 bool exit_loop = false;
+unsigned long port_idle_timeout = PORT_IDLE_TIMEOUT;
+bool is_idle = false;
+
+#ifdef __WIN32__
+DWORD WINAPI check_idle_thread( LPVOID lpParam )
+#else
+void *check_idle_thread(void * argument)
+#endif
+{
+	REMOTE_LOG("Idle timeout checker thread started with %d ms timeout\n", port_idle_timeout);
+	do {
+		is_idle = true;
+#ifdef __WIN32__
+		Sleep(port_idle_timeout);
+#else
+		usleep(port_idle_timeout);
+#endif
+		// is set in cmd_ping
+		if (is_idle) {
+			REMOTE_LOG("No ping from port master erlang process after %d ms. dying...\n", port_idle_timeout);
+			break;
+		}
+	} while(true);
+#ifdef __WIN32__
+	ExitProcess(3);
+	return 0;
+#else
+	return NULL;
+#endif
+}
+
+#ifdef __WIN32__
+HANDLE check_idle_thread_handle;
+DWORD  check_idle_thread_id;
+#else
+pthread_t check_idle_thread_handle;
+int  check_idle_thread_id;
+#endif
+void create_start_idle_check_thread()
+{
+	check_idle_thread_handle =
+#ifdef __WIN32__
+		CreateThread( 
+            NULL,                   // default security attributes
+            0,                      // use default stack size  
+            check_idle_thread,		// thread function name
+            NULL,					// argument to thread function 
+            0,                      // use default creation flags 
+            &check_idle_thread_id);
+#else
+	check_idle_thread_id = pthread_create(&check_idle_thread_handle, NULL, check_idle_thread, NULL);
+#endif
+}
 
 #ifdef __WIN32__
 int _tmain(int argc, _TCHAR* argv[])
@@ -74,7 +128,17 @@ int main(int argc, char * argv[])
 		if(ret != NULL) {
 			return -1;
 		} else
-			REMOTE_LOG("Logging over TCP, Voila!\n");
+			REMOTE_LOG("Port native process logs sent over TCP port %d\n", ListenPortNo);
+	}
+
+	if (argc >= 4) {
+		port_idle_timeout =
+#ifdef __WIN32__
+			_wtol(argv[3]);
+#else
+            atoi(argv[3]);
+#endif
+		REMOTE_LOG("Port native process idle timeout %ul ms\n", port_idle_timeout);
 	}
 
     init_marshall();
@@ -87,17 +151,21 @@ int main(int argc, char * argv[])
 
     REMOTE_LOG("Port: Initialized Oracle OCI\n");
 
+	create_start_idle_check_thread();
+    REMOTE_LOG("Idle check thread started\n");
+
     while(!exit_loop && (cmd_tuple = (ETERM *)read_cmd()) != NULL) {
         if(threaded && ProcessCommand(cmd_tuple)) {
             //REMOTE_LOG("Port: Command sumitted to thread-pool for processing...");
         }
     }
 
-    REMOTE_LOG("Port: Process oci terminating...\n");
-	close_tcp();
-
-    REMOTE_LOG("Port: Thread pool destroyed...\n");
     CleanupThreadPool();
+    REMOTE_LOG("Port: Thread pool destroyed\n");
 
+	close_tcp();
+    REMOTE_LOG("Port: tcp log socket closed\n");
+
+    REMOTE_LOG("Port: Process oci terminating...\n");
     return 0;
 }

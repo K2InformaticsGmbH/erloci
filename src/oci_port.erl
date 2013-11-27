@@ -47,6 +47,7 @@
 
 -record(state, {
     port,
+    pingref,
     logging = ?DBG_FLAG_OFF
 }).
 
@@ -78,7 +79,7 @@ start_link(Options,LogFun) ->
             gen_server:start_link(?MODULE, [false, ListenPort], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            StartRes = gen_server:start_link(?MODULE, [Logging, ListenPort], []),
+            StartRes = gen_server:start_link(?MODULE, [Logging, ListenPort, ?IDLE_TIMEOUT], []),
             case StartRes of
                 {ok, Pid} -> {?MODULE, Pid};
                 Error -> throw({error, Error})
@@ -161,7 +162,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
 
 
 %% Callbacks
-init([Logging, ListenPort]) ->
+init([Logging, ListenPort, IdleTimeout]) ->
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -170,12 +171,12 @@ init([Logging, ListenPort]) ->
         false ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
                 false -> {stop, bad_executable};
-                Executable -> start_exe(Executable, Logging, ListenPort)
+                Executable -> start_exe(Executable, Logging, ListenPort, IdleTimeout)
             end;
-        Executable -> start_exe(Executable, Logging, ListenPort)
+        Executable -> start_exe(Executable, Logging, ListenPort, IdleTimeout)
     end.
 
-start_exe(Executable, Logging, ListenPort) ->
+start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -193,7 +194,7 @@ start_exe(Executable, Logging, ListenPort) ->
                   , binary
                   , exit_status
                   , use_stdio
-                  , {args, ["true", integer_to_list(ListenPort)]}
+                  , {args, ["true", integer_to_list(ListenPort), integer_to_list(2*IdleTimeout)]}
                   , {env, [{LibPath, NewLibPath}]}
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of
@@ -202,15 +203,16 @@ start_exe(Executable, Logging, ListenPort) ->
             {stop, Reason};
         Port ->
             %% TODO -- Logging is turned after port creation for the integration tests to run
+            PingRef = erlang:send_after(?IDLE_TIMEOUT, self(), ping),
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
                     ?Info("started log enabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_ON}};
+                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, pingref=PingRef}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_OFF})),
                     ?Info("started log disabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF}}
+                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, pingref=PingRef}}
             end
     end.
 
@@ -242,7 +244,7 @@ handle_call(close, _From, #state{port=Port} = State) ->
         _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
     end,
     {stop, normal, ok, State};
-handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
+handle_call({port_call, Msg}, From, #state{port=Port,pingref=PingRef} = State) ->
     %CmdBin = term_to_binary(Cmd),
     %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
     %?Info(">>>>>>>>>>>> TX ~p", [Cmd]),
@@ -250,16 +252,22 @@ handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     %    [_,C,S|Args] -> ?Info("PORT CMD : ~s ~p\n~p", [?CMDSTR(C),S,Args]);
     %    [_,C|Args] -> ?Info("PORT CMD : ~s\n~p", [?CMDSTR(C),Args])
     %end,
+    erlang:cancel_timer(PingRef),
     Cmd = [From | Msg],
     %io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
     % reply send from handle_info{Port, {data, Data}})
     true = port_command(Port, term_to_binary(list_to_tuple(Cmd))),
-    {noreply, State}. 
+    NewPingRef = erlang:send_after(?IDLE_TIMEOUT, self(), ping),
+    {noreply, State#state{pingref=NewPingRef}}. 
 
 handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
+handle_info(ping, #state{port=Port} = State) ->    
+    true = port_command(Port, term_to_binary({undefined, ?PORT_PING, ping})),
+    NewPingRef = erlang:send_after(?IDLE_TIMEOUT, self(), ping),
+    {noreply, State#state{pingref=NewPingRef}};
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),

@@ -559,7 +559,9 @@ intf_ret ocistmt::rows(void * row_list,
 					case SQLT_RDD:
 					case SQLT_AFC:
 					case SQLT_STR:
-					case SQLT_CHR: {
+					case SQLT_CHR:
+					default:
+						{
 							size_t str_len = strlen((char*)_columns[i].row_valp);
 							(*string_append)((char*)_columns[i].row_valp, str_len, &row);
 							memset(_columns[i].row_valp, 0, str_len);

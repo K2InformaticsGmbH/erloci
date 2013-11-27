@@ -487,6 +487,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 					break;
 				case SQLT_AFC:
 				case SQLT_CHR:
+				case SQLT_LNG:
 					if(ERL_IS_BINARY(arg) && (arg_len = ERL_BIN_SIZE(arg))) {
 						ind = 0;
 						tmp_arg = new char[arg_len];
@@ -509,6 +510,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						strcpy(r.gerrbuf, "Malformed string\\0 parameter value");
 						throw r;
 					}
+					break;
+				default:
+					strcpy(r.gerrbuf, "Unsupported type in bind");
+					throw r;
 					break;
 			}
 			vars[i].alen.push_back(arg_len);

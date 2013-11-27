@@ -73,6 +73,8 @@ typedef void (*fn_coldefappend)(const char *, size_t, const unsigned short, cons
 
 // External linkages (import)
 extern bool	log_flag;
+#define PORT_IDLE_TIMEOUT 1000
+extern unsigned long PortIdleTimeout;
 
 //
 // Exposed linkages (export)
