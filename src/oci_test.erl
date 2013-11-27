@@ -28,7 +28,8 @@
         , code_change/3]).
 
 -define(TablePrefix, "erloci_table_").
--define(NowMs, (fun() -> {M,S,Ms} = erlang:now(), ((M*1000000 + S)*1000000) + Ms end)()).
+-define(ToMs(__Now), begin {__M,__S,__Ms} = __Now, (((__M*1000000 + __S)*1000000) + __Ms) end).
+-define(NowMs, ?ToMs(erlang:now())).
 -define(Log(__Fmt,__Args),
 (fun(__F,__A) ->
     {{__Y,__M,__D},{__H,__Min,__S}} = calendar:now_to_datetime(erlang:now()),
@@ -39,65 +40,112 @@ end)(__Fmt,__Args)).
 -record(state,  { port
                 , session
                 , stats = []
+                , monitorrefs
+                , threads
+                , rowcount
+                , statTref
        }).
 
-start(Threads, InsertCount) ->
+start(Threads, RowCount) ->
     application:start(erloci),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
-    start(Tns,User,Pswd,Threads,InsertCount).
+    start(Tns,User,Pswd,Threads,RowCount).
 
-start(Tns,User,Pswd,Threads,InsertCount) ->
+start(Tns,User,Pswd,Threads,RowCount) ->
     application:start(erloci),
-    gen_server:start_link(?MODULE, [Tns,User,Pswd,Threads,InsertCount], []).
+    gen_server:start_link(?MODULE, [Tns,User,Pswd,Threads,RowCount], []).
 
-init([Tns,User,Pswd]) ->
+init([Tns,User,Pswd,Threads,RowCount]) ->
     OciPort = oci_port:start_link([{logging, true}]),
-    Session = setupi(OciPort,Tns,User,Pswd),
-    {ok, #state{port=OciPort, session=Session}}.
+    OciSession = setupi(OciPort,Tns,User,Pswd),
+    self() ! {start,Threads,RowCount},
+    StatTRef = erlang:send_after(1000, self(), stats),
+    {ok, #state{ port       = OciPort
+               , session    = OciSession
+               , threads    = Threads
+               , rowcount   = RowCount
+               , statTref   = StatTRef}}.
 
-%run(Threads, InsertCount) ->
-%    OciSession = setup(),
-%    run_test(OciSession, Threads, InsertCount),
-%    teardown(OciSession).
-
-handle_call({create_tables, -1}, From, State) ->
-    {reply,ok,State};
-handle_call({create_tables, N}, From, {session = OciSession} = State) ->
-    Table = lists:flatten([?TablePrefix, integer_to_list(N)]),
-    try
-        StartCreate = erlang:now(),
-        StmtDrop = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
-        print_if_error(StmtDrop, "drop prep failed"),
-        print_if_error(StmtDrop:exec_stmt(), "drop exec failed"),
-        print_if_error(StmtDrop:close(), "drop close failed"),
-        Stmt0 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
-                                       publisher varchar2(30),
-                                       rank float,
-                                       hero varchar2(30),
-                                       reality varchar2(30),
-                                       votes number,
-                                       createdate date default sysdate,
-                                       votes_first_rank number)"])),
-        throw_if_error(undefined, Stmt0, "create "++Table++" prep failed"),
-        throw_if_error(undefined, Stmt0:exec_stmt(), "create "++Table++" exec failed"),
-        throw_if_error(undefined, Stmt0:close(), "close statement for "++Table++" failed"),
-        EndCreate = erlang:now(),
-        gen_server:cast(self(), {create, Table, {StartCreate, EndCreate}}),
-        handle_call({create_tables, N-1}, From, State)
-    catch
-        _:Error -> ?Log("[OCI drop ~s] failed ~p~n", [Table, Error]),
-        {reply, {error, Error}, State}
-    end;
 handle_call(Msg, From, State) ->
     {stop,normal,{unknown_call, Msg, From},State}.
 
+handle_cast({log, Str}, State) ->
+    ?Log("~s", [Str]),
+    {noreply,State};
+handle_cast({Type, Table, Start, End}, #state{stats=Stats} = State) ->
+    NewStats = case lists:keyfind(Table, 1, Stats) of
+        false -> [{Table, [{Type, Start, End}]} | Stats];
+        {Table, TabStats} -> lists:keyreplace(Table, 1, Stats, {Table, [{Type, Start, End} | TabStats]})
+    end,
+    {noreply,State#state{stats=NewStats}};
 handle_cast(Request, State) ->
     ?Log("Unknown cast ~p from~p", [Request]),
     {stop, normal, State}.
 
+handle_info(stats, #state{stats = Stats, rowcount = RowCount} = State) ->
+    ?Log("------------------------------------------------------------------------~n"),
+    print_stats(Stats,RowCount),
+    StatTRef = erlang:send_after(1000, self(), stats),
+    {noreply,State#state{statTref = StatTRef}};
+handle_info({start,Threads,RowCount}, #state{session=OciSession} = State) ->
+    ?Log("========================================================================~n"),
+    ?Log("Starting tests processes ~p rows/process ~p~n", [Threads,RowCount]),
+    ?Log("========================================================================~n"),
+    Self = self(),
+    MonitorRefs = [{erlang:monitor(process, P), Tab}
+                  || {Tab,P} <- [begin
+                                    Table = ?TablePrefix++integer_to_list(T),
+                                    Pid = spawn(fun() ->
+                                        run_test(OciSession, Table, RowCount, Self)
+                                    end),
+                                    {Table,Pid}
+                                 end
+                                || T <- lists:seq(1,Threads)]],
+    {noreply, State#state{monitorrefs=MonitorRefs}};
+handle_info({'DOWN', MonRef, _, Pid, Info}, #state{ monitorrefs = MonitorRefs
+                                                  , stats       = Stats
+                                                  , rowcount    = RowCount
+                                                  , statTref    = StatTRef} = State) ->
+    {Table, NewMonitorRefs} = case lists:keytake(MonRef, 1, MonitorRefs) of
+        {value, {MonRef, Tab}, NewMonRefs} -> {Tab, NewMonRefs};
+        false -> {"", MonitorRefs}
+    end,
+    if Info =/= normal -> ?Log("Test table ~p process ~p died reason ~p~n", [Table, Pid, Info]); true -> ok end,
+    NewStatTRef = if NewMonitorRefs =:= [] ->
+        erlang:cancel_timer(StatTRef),
+        ?Log("========================================================================~n"),
+        print_stats(Stats,RowCount),
+        ?Log("========================================================================~n"),
+        undefined;
+        true -> StatTRef
+    end,
+    {noreply, State#state{monitorrefs=NewMonitorRefs, statTref = NewStatTRef}};
 handle_info(Info, State) ->
     ?Log("Unknown info ~p from~p", [Info]),
     {stop, normal, State}.
+
+print_stats(Stats, _RowCount) when Stats =:= [] -> ok;
+print_stats(Stats, RowCount) ->
+    try
+        [begin
+            FormatStats = [begin
+                        StartMs = (((element(1,Start)*1000000 + element(2,Start))*1000000) + element(3,Start)),
+                        EndMs = (((element(1,End)*1000000 + element(2,End))*1000000) + element(3,End)),
+                        ExecTime = (EndMs - StartMs) / 1000,
+                        RowPerS = RowCount / ExecTime,
+                        {Op, ExecTime, RowPerS}
+                    end || {Op,Start,End} <- TableStats],
+            OpsHeader = lists:flatten([io_lib:format("~*s ", [10,atom_to_list(Op)]) || {Op, _, _} <- FormatStats]),
+            ?Log("~s ~s rows ~p~n", [Tab, OpsHeader, RowCount]),
+            Times = lists:flatten([io_lib:format("~*.*f ", [10,4,ExecTime]) || {_, ExecTime, _} <- FormatStats]),
+            Rates = lists:flatten([io_lib:format("~*.*f ", [10,5,RowPerS]) || {_, _, RowPerS} <- FormatStats]),
+            ?Log("  Time(s):     ~s~n", [Times]),
+            ?Log("Rates(/s):     ~s~n", [Rates])
+        end || {Tab, TableStats} <- Stats]
+    catch
+        _:Error ->
+            ?Log("Error printing stats: ~p~n", [Error])
+    end.
 
 terminate(Reason, #state{session = Session, port = OciPort}) ->
     if Session =/= undefined -> Session:close(); true -> ok end,
@@ -116,115 +164,70 @@ setup() ->
 
 setupi(OciPort,Tns,User,Pswd) ->
     OciSession = OciPort:get_session(Tns, User, Pswd),
-    throw_if_error(undefined, OciSession, "session failed"),
+    throw_if_error(undefined, "", OciSession, "session failed"),
     ?Log("[OCI Session] ~p~n", [OciSession]),
     OciSession.
 
 teardown(_OciSession) ->
     application:stop(erloci).
 
-run_test(OciSession, Threads, InsertCount) ->
-    This = self(),
-    [(fun(Idx) ->
-        Table = "erloci_table_"++Idx,
-        try
-            create_table(OciSession, Table),            
-            spawn(fun() -> insert_select(OciSession, Table, InsertCount, This) end)
-        catch
-            Class:Reason -> ?Log("~p:~p~n", [Class,Reason])
-        end
-    end)(integer_to_list(I))
-    || I <- lists:seq(1,Threads)],
-    receive_all(OciSession, Threads).
+-define(RLog(__Target, __Fmt, __Vars), gen_server:cast(__Target, {log, lists:flatten(io_lib:format(__Fmt, __Vars))})).
+run_test(OciSession, Table, RowCount, Master) ->
+    %?RLog(Master, "[~s,~p] start >>>>~n", [Table,self()]),
 
-throw_if_error(Parent, {error, Error}, Msg) ->
-    if is_pid(Parent) -> Parent ! {{Msg, Error}, 0, 1, 0, 1, 1}; true -> ok end,
-    throw({Msg, Error});
-throw_if_error(_,_,_) -> ok.
+    % Drop
+    StartDrop = erlang:now(),
+    StmtDrop = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
+    print_if_error(Master, Table, StmtDrop, "drop prep for "++Table++" failed"),
+    print_if_error(Master, Table, StmtDrop:exec_stmt(), "drop exec for "++Table++" failed"),
+    print_if_error(Master, Table, StmtDrop:close(), "drop close for "++Table++" failed"),
+    EndDrop = erlang:now(),
+    ok = gen_server:cast(Master, {drop, Table, StartDrop, EndDrop}),
+    %?RLog(Master, "[~s] drop~n", [Table]),
 
-create_table(OciSession, Table) ->
-    try
-        Stmt = OciSession:prep_sql(list_to_binary(["drop table ",Table])),
-        print_if_error(Stmt, "drop prep failed"),
-        Res0 = Stmt:exec_stmt(),
-        print_if_error(Res0, "drop exec failed"),
-        Stmt:close(),
-        ?Log("[OCI drop ~s] ~p~n", [Table, Res0])
-    catch
-        _:_ -> ok % errors due to table doesn't exists bypassed
-    end,
-    Stmt0 = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
-                                       publisher varchar2(30),
-                                       rank float,
-                                       hero varchar2(30),
-                                       reality varchar2(30),
-                                       votes number,
-                                       createdate date default sysdate,
-                                       votes_first_rank number)"])),
-%                                       createtime timestamp default systimestamp,
-    throw_if_error(undefined, Stmt0, "create "++Table++" prep failed"),
-    Res = Stmt0:exec_stmt(),
-    throw_if_error(undefined, Res, "create "++Table++" exec failed"),
-    Stmt0:close(),
-    ?Log("[OCI create ~s] ~p~n", [Table, Res]).
+    % Create
+    StartCreate = erlang:now(),
+    StmtCreate = OciSession:prep_sql(list_to_binary(["create table ",Table,"(pkey number,
+                                   publisher varchar2(30),
+                                   rank float,
+                                   hero varchar2(30),
+                                   reality varchar2(30),
+                                   votes number,
+                                   createdate date default sysdate,
+                                   votes_first_rank number)"])),
+    throw_if_error(Master, Table, StmtCreate, "create pref for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtCreate:exec_stmt(), "create exec for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtCreate:close(), "create close for "++Table++" failed"),
+    EndCreate = erlang:now(),
+    ok = gen_server:cast(Master, {create, Table, StartCreate, EndCreate}),
+    %?RLog(Master, "[~s] create~n", [Table]),
 
-receive_all(OciSession, Count) -> receive_all(OciSession, Count, []).
-receive_all(OciSession, 0, Acc) ->
-    OciSession:close(),
-    [(fun(Table, InsertCount, InsertTime, SelectCount, SelectTime, UpdateTime) ->
-        InsRate = erlang:trunc(InsertCount / InsertTime),
-        SelRate = erlang:trunc(SelectCount / SelectTime),
-        UdpRate = erlang:trunc(SelectCount / UpdateTime),
-        io:format(user, "~p insert ~p(~p sec) ~p rows/sec;"
-                        " select ~p(~p sec) ~p rows/sec;"
-                        " update ~p(~p sec) sec ~p rows/sec~n", [Table, InsertCount, InsertTime, InsRate
-                                                                      , SelectCount, SelectTime, SelRate
-                                                                      , SelectCount, UpdateTime, UdpRate])
-    end)(T, Ic, It, Sc, St, Ut)
-    || {T, Ic, It, Sc, St, Ut} <- Acc];
-receive_all(OciSession, Count, Acc) ->
-    receive
-        {T, Ic, It, Sc, St, Ut} ->
-            receive_all(OciSession, Count-1, [{T, Ic, It, Sc, St, Ut}|Acc]);
-        {keep_alive, Op, Table} ->
-            io:format(user, ">>>> ~p on table ~s~n", [Op, Table]),
-            receive_all(OciSession, Count, Acc)
-    after
-        (100*1000) ->
-            io:format(user, ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> ~p~n", [timeout]),
-            receive_all(OciSession, 0, Acc)
-    end.
-
-insert_select(OciSession, Table, InsertCount, Parent) ->
-    try
-        Parent ! {keep_alive, insert_qry_prepare, Table},
-        InsertStart = ?NowMs,
-        BindInsQry = erlang:list_to_binary([
-                "insert into ", Table, " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values (",
-                ":pkey",
+    % Insert
+    StartInsert = erlang:now(),
+    StmtInsert = OciSession:prep_sql(list_to_binary([
+                "insert into ", Table,
+                " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank)",
+                " values (",
+                "  :pkey",
                 ", :publisher",
                 ", :rank",
                 ", :hero",
                 ", :reality",
                 ", :votes",
                 ", :createdate"
-                ", :votes_first_rank)"]),
-        ?Log("_[~p]_ ~p~n", [Table,BindInsQry]),
-        BoundInsStmt = OciSession:prep_sql(BindInsQry),
-        Parent ! {keep_alive, insert_qry_preped, Table},
-        throw_if_error(Parent, BoundInsStmt, binary_to_list(BindInsQry)),
-        Res0 = BoundInsStmt:bind_vars([ {<<":pkey">>, 'SQLT_INT'}
-                            , {<<":publisher">>, 'SQLT_CHR'}
-                            , {<<":rank">>, 'SQLT_FLT'}
-                            , {<<":hero">>, 'SQLT_CHR'}
-                            , {<<":reality">>, 'SQLT_CHR'}
-                            , {<<":votes">>, 'SQLT_INT'}
-                            , {<<":createdate">>, 'SQLT_DAT'}
-                            , {<<":votes_first_rank">>, 'SQLT_INT'}
-                            ]),
-        throw_if_error(Parent, Res0, "bind_vars_insert"),
-        Parent ! {keep_alive, insert_qry_var_bound, Table},
-        Res1 = BoundInsStmt:exec_stmt([{ I
+                ", :votes_first_rank)"])),
+    throw_if_error(Master, Table, StmtInsert, "insert prep for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtInsert:bind_vars([ {<<":pkey">>, 'SQLT_INT'}
+                                                    , {<<":publisher">>, 'SQLT_CHR'}
+                                                    , {<<":rank">>, 'SQLT_FLT'}
+                                                    , {<<":hero">>, 'SQLT_CHR'}
+                                                    , {<<":reality">>, 'SQLT_CHR'}
+                                                    , {<<":votes">>, 'SQLT_INT'}
+                                                    , {<<":createdate">>, 'SQLT_DAT'}
+                                                    , {<<":votes_first_rank">>, 'SQLT_INT'}
+                                                    ])
+                            , "insert bind for "++Table++" failed"),
+    InsertResult = StmtInsert:exec_stmt([{ I
                             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
                             , I+I/2
                             , list_to_binary(["_hero_",integer_to_list(I),"_"])
@@ -232,42 +235,16 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                             , I
                             , oci_util:edatetime_to_ora(erlang:now())
                             , I
-                            } || I <- lists:seq(1, InsertCount)]),
-        Parent ! {keep_alive, insert_qry_executed, Table},
-        case Res1 of
-            {error, ErrorIns} -> ?Log("[OCI insert ~s] ~p~n", [Table, ErrorIns]);
-            _ -> ok
-        end,
-        BoundInsStmt:close(),
-        Parent ! {keep_alive, insert_qry_closed, Table},
-        InsertEnd = ?NowMs,
-        Parent ! {keep_alive, select_qry_prepare, Table},
-        Statement = OciSession:prep_sql(list_to_binary(["select ",Table,".rowid, ",Table,".* from ", Table])),
-        Parent ! {keep_alive, select_qry_prepared, Table},
-        throw_if_error(Parent, Statement, "select "++Table++" prep failed"),
-        Cols = Statement:exec_stmt(),
-        Parent ! {keep_alive, select_qry_exec, Table},
-        throw_if_error(Parent, Cols, "select "++Table++" exec failed"),
-        ?Log("_[~p]_ columns~n~p~n", [Table,Cols]),
-        F = fun(Self,Rows) ->
-            {{rows, NewRows}, Finished} = Statement:fetch_rows(100),
-            %?Log("...[~p]... OCI select rows ~p finished ~p~n", [Table,length(Rows)+length(NewRows), Finished]),
-            case Finished of
-                false -> Self(Self,Rows++NewRows);
-                true ->
-                    Parent ! {keep_alive, select_qry_closed, Table},
-                    Statement:close(),
-                    Rows++NewRows
-            end
-        end,
-        Parent ! {keep_alive, select_qry_fetch, Table},
-        AllRows = F(F,[]),
-        Parent ! {keep_alive, select_qry_fetch_over, Table},
-        SelectEnd = ?NowMs,
-        AllKeys = [lists:last(R) || R <- AllRows],
-        UpdateStart = ?NowMs,
-        Parent ! {keep_alive, update_qry_prepare, Table},
-        BindUpdQry = erlang:list_to_binary([
+                            } || I <- lists:seq(1, RowCount)]),
+    throw_if_error(Master, Table, InsertResult, "insert exec for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtInsert:close(), "insert close for "++Table++" failed"),
+    EndInsert = erlang:now(),
+    ok = gen_server:cast(Master, {insert, Table, StartInsert, EndInsert}),
+    %?RLog(Master, "[~s] insert~n", [Table]),
+    
+    % Update
+    StartUpdate = erlang:now(),
+    StmtUpdate = OciSession:prep_sql(list_to_binary([
                 "update ", Table, " set ",
                 "pkey = :pkey",
                 ", publisher = :publisher",
@@ -276,53 +253,69 @@ insert_select(OciSession, Table, InsertCount, Parent) ->
                 ", reality = :reality",
                 ", votes = :votes",
                 ", createdate = :createdate"
-                ", votes_first_rank = :votes_first_rank where ", Table, ".rowid = :pri_rowid1"]),
-        ?Log("_[~p]_ ~p~n", [Table,BindUpdQry]),
-        BoundUpdStmt = OciSession:prep_sql(BindUpdQry),
-        Parent ! {keep_alive, update_qry_prepared, Table},
-        throw_if_error(Parent, BoundUpdStmt, binary_to_list(BindUpdQry)),
-        Parent ! {keep_alive, update_qry_var_bind, Table},
-        ResUdpBind = BoundUpdStmt:bind_vars([
-                              {<<":pkey">>, 'SQLT_INT'}
-                            , {<<":publisher">>, 'SQLT_CHR'}
-                            , {<<":rank">>, 'SQLT_FLT'}
-                            , {<<":hero">>, 'SQLT_CHR'}
-                            , {<<":reality">>, 'SQLT_CHR'}
-                            , {<<":votes">>, 'SQLT_INT'}
-                            , {<<":createdate">>, 'SQLT_DAT'}
-                            , {<<":votes_first_rank">>, 'SQLT_INT'}
-                            , {<<":pri_rowid1">>, 'SQLT_STR'}
-                            ]),
-        throw_if_error(Parent, ResUdpBind, "bind_vars_update"),
-        Parent ! {keep_alive, update_qry_var_bound, Table},
-        ResUdpBind1 = BoundUpdStmt:exec_stmt([{ I
-                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
-                            , I+I/3
-                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
-                            , I+1
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I+1
-                            , Key
-                            } || {Key, I} <- lists:zip(AllKeys, lists:seq(1, length(AllKeys)))]),
-        case ResUdpBind1 of
-            {error, ErrorUpdate} -> ?Log("[OCI update ~s] ~p~n", [Table, ErrorUpdate]);
-            _ -> ok
-        end,
-        Parent ! {keep_alive, update_qry_exec, Table},
-        BoundUpdStmt:close(),
-        Parent ! {keep_alive, update_qry_closed, Table},
-        UpdateEnd = ?NowMs,
-        TotalRowCount = length(AllRows),
-        InsertTime = (InsertEnd - InsertStart)/1000000,
-        SelectTime = (SelectEnd - InsertEnd)/1000000,
-        UpdateTime = (UpdateEnd - UpdateStart)/1000000,
-        Parent ! {Table, InsertCount, InsertTime, TotalRowCount, SelectTime, UpdateTime}
-    catch
-        Class:Reason ->
-            if is_pid(Parent) -> Parent ! {{Table,Class,Reason}, 0, 1, 0, 1}; true -> ok end,
-            ?Log(" ~p:~p~n", [Class,Reason])
+                ", votes_first_rank = :votes_first_rank where ", Table, ".rowid = :pri_rowid1"])),
+    throw_if_error(Master, Table, StmtUpdate, "update prep for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtUpdate:bind_vars([ {<<":pkey">>, 'SQLT_INT'}
+                                                    , {<<":publisher">>, 'SQLT_CHR'}
+                                                    , {<<":rank">>, 'SQLT_FLT'}
+                                                    , {<<":hero">>, 'SQLT_CHR'}
+                                                    , {<<":reality">>, 'SQLT_CHR'}
+                                                    , {<<":votes">>, 'SQLT_INT'}
+                                                    , {<<":createdate">>, 'SQLT_DAT'}
+                                                    , {<<":votes_first_rank">>, 'SQLT_INT'}
+                                                    , {<<":pri_rowid1">>, 'SQLT_STR'}
+                                                    ])
+                            , "update bind for "++Table++" failed"),
+    {rowids, AllKeys} = InsertResult,
+    UpdateResult = StmtUpdate:exec_stmt([{ I
+                                         , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
+                                         , I+I/3
+                                         , list_to_binary(["_Hero_",integer_to_list(I),"_"])
+                                         , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                                         , I+1
+                                         , oci_util:edatetime_to_ora(erlang:now())
+                                         , I+1
+                                         , Key
+                                         } || {Key, I} <- lists:zip(AllKeys, lists:seq(1, length(AllKeys)))]),
+    throw_if_error(Master, Table, UpdateResult, "update exec for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtUpdate:close(), "update close for "++Table++" failed"),
+    EndUpdate = erlang:now(),
+    ok = gen_server:cast(Master, {update, Table, StartUpdate, EndUpdate}),
+    %?RLog(Master, "[~s] update~n", [Table]),
+
+    % Select
+    StartSelect = erlang:now(),
+    StmtSelect = OciSession:prep_sql(list_to_binary(["select ",Table,".rowid, ",Table,".* from ", Table])),
+    throw_if_error(Master, Table, StmtSelect, "select prep for "++Table++" failed"),
+    throw_if_error(Master, Table, StmtSelect:exec_stmt(), "select exec for "++Table++" failed"),
+    fetch_all_rows(Master, Table, StmtSelect, RowCount),
+    EndSelect = erlang:now(),
+    ok = gen_server:cast(Master, {select, Table, StartSelect, EndSelect}).
+    %?RLog(Master, "[~s] select~n", [Table]),
+
+    %?RLog(Master, "[~s] end <<<<~n", [Table]).
+
+fetch_all_rows(Master, Table, Statement, RowCount) -> fetch_all_rows(Master, Table, Statement, RowCount, []).
+fetch_all_rows(Master, Table, Statement, RowCount, Rows) ->
+    {{rows, NewRows}, Finished} = Statement:fetch_rows(RowCount),
+    case Finished of
+        false -> fetch_all_rows(Master, Table, Statement, RowCount, Rows++NewRows);
+        true ->
+            throw_if_error(Master, Table, Statement:close(), "select close for "++Table++" failed"),
+            Rows++NewRows
     end.
 
-print_if_error({error, Error}, Msg) -> ?Log("___________----- continue after ~p ~p~n", [Msg,Error]);
-print_if_error(_, _) -> ok.
+throw_if_error(Parent,Table,{error,Error},Msg) ->
+    if is_pid(Parent) ->
+        ?RLog(Parent, "[~s] error "++Msg++": ~p~n", [Table, Error]);
+        true -> ok
+    end,
+    throw({Msg, Error});
+throw_if_error(_,_,_,_) -> ok.
+
+print_if_error(Parent,Table,{error, Error},Msg) ->
+    if is_pid(Parent) ->
+        ?RLog(Parent, "[~s] warning "++Msg++": ~p~n", [Table, Error]);
+        true -> ok
+    end;
+print_if_error(_,_,_,_) -> ok.

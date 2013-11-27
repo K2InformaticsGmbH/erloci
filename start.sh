@@ -28,6 +28,6 @@ case "$1" in
         $exename -pa deps/*/ebin -pa ebin
         ;;
     *)
-        $exename -pa deps/*/ebin -pa ebin -eval "oci_test:run(2,1000)."
+        $exename -pa deps/*/ebin -pa ebin -eval "oci_test:start(2,10000)."
         ;;
 esac

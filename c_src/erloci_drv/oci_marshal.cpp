@@ -380,6 +380,9 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
 void map_value_to_bind_args(void * _args, vector<var> & vars)
 {
     ETERM * args = (ETERM *)_args;
+	intf_ret r;
+	
+	r.fn_ret = CONTINUE_WITH_ERROR;
     if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
         return;
 
@@ -400,15 +403,21 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
     do {
         if ((item = erl_hd(args)) == NULL	||
             !ERL_IS_TUPLE(item)				||
-			erl_size(item) != vars.size())
-            break;
+			erl_size(item) != vars.size()) {
+			REMOTE_LOG("failed map_value_to_bind_args malformed ETERM\n");
+			strcpy(r.gerrbuf, "Malformed ETERM");
+            throw r;
+		}
 
 		len = erl_size(item);
 
-		// loop through each value of the list
+		// loop through each value of the tuple
 		for(int i=0; i<len; ++i) {
-			if ((arg = erl_element(i+1, item)) == NULL)
-		        break;
+			if ((arg = erl_element(i+1, item)) == NULL) {
+				REMOTE_LOG("failed map_value_to_bind_args missing parameter for %s\n", vars[i].name);
+				strcpy(r.gerrbuf, "Missing parameter term");
+				throw r;
+			}
 			
 			ind = -1;
 			tmp_arg = NULL;
@@ -422,6 +431,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						arg_len = sizeof(double);
 						tmp_arg = new double;
 						*(double*)tmp_arg = (double)(ERL_IS_INTEGER(arg) ? ERL_INT_VALUE(arg) : ERL_FLOAT_VALUE(arg));
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed float for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed float parameter value");
+						throw r;
 					}
 					break;
 				case SQLT_NUM:
@@ -431,6 +444,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						arg_len = sizeof(int);
 						tmp_arg = new int;
 						*(int*)tmp_arg = (int)ERL_INT_VALUE(arg);
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed integer for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed integer parameter value");
+						throw r;
 					}
 					break;
 				case SQLT_VNU:
@@ -438,6 +455,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						ind = 0;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed number for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed number parameter value");
+						throw r;
 					}
 					break;
 				case SQLT_RDD:
@@ -446,6 +467,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						ind = 0;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed binary for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed binary parameter value");
+						throw r;
 					}
 					break;
 				case SQLT_ODT:
@@ -454,6 +479,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 						((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed date for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed date parameter value");
+						throw r;
 					}
 					break;
 				case SQLT_AFC:
@@ -462,6 +491,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						ind = 0;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed string for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed string parameter value");
+						throw r;
 					}
 					break;
 				case SQLT_STR:
@@ -471,6 +504,10 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 						memcpy(tmp_arg, ERL_BIN_PTR(arg), arg_len);
 						((char*)tmp_arg)[arg_len] = '\0';
 						arg_len++;
+					} else {
+						REMOTE_LOG("failed map_value_to_bind_args malformed string\\0 for %s\n", vars[i].name);
+						strcpy(r.gerrbuf, "Malformed string\\0 parameter value");
+						throw r;
 					}
 					break;
 			}

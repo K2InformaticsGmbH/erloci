@@ -260,7 +260,7 @@ handle_cast(Msg, State) ->
     {noreply, State}.
 
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
-handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) ->
+handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),
     %?Info("RX ~p bytes", [byte_size(Data)]),
     %?Info("<<<<<<<<<<<< RX ~p", [Resp]),
