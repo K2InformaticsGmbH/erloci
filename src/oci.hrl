@@ -16,6 +16,8 @@
 %-define(PORT_TIMEOUT, 			15000).
 -define(PORT_TIMEOUT, 			infinity).
 -define(WAIT_RESULT_TIMEOUT, 	15000).
+-define(MAX_RESP_SIZE,          16#00040000).
+
 
 %% Exec name
 -define(EXE_NAME, "erloci").
