@@ -24,10 +24,11 @@ else
     exename='start //MAX werl.exe'
 fi
 case "$1" in
-    notest)
-        $exename -pa deps/*/ebin -pa ebin
+    test)
+        $exename -pa deps/*/ebin -pa ebin -eval "oci_test:start(20,10000)."
         ;;
     *)
-        $exename -pa deps/*/ebin -pa ebin -eval "oci_test:start(2,10000)."
+        echo "To run throughput tests use 'test' option"
+        $exename -pa deps/*/ebin -pa ebin
         ;;
 esac

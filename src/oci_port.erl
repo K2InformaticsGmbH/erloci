@@ -36,6 +36,10 @@
     close/1
 ]).
 
+-export([
+    split_binds/2
+]).
+
 %% gen_server callbacks
 -export([
     init/1,
@@ -147,11 +151,44 @@ exec_stmt({?MODULE, statement, PortPid, SessionId, StmtId}) ->
 exec_stmt(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
 exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, AutoCommit]}, ?PORT_TIMEOUT),
+    GroupedBindVars = split_binds(BindVars,?MAX_REQ_SIZE),
+    collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, []).
+
+collect_grouped_bind_request([], _, _, _, _, Acc) ->
+    UniqueResponses = sets:to_list(sets:from_list(Acc)),
+    Results = lists:foldl(fun({K, Vs}, Res) ->
+                                  case lists:keyfind(K, 1, Res) of
+                                      {K, Vals} -> lists:keyreplace(K, 1, Res, {K, Vals++Vs});
+                                      false -> [{K, Vs} | Res]
+                                  end
+                          end,
+                          [],
+                          UniqueResponses),
+    case Results of
+        [Result] -> Result;
+        _ -> Results
+    end;
+collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, StmtId, AutoCommit, Acc) ->
+    NewAutoCommit = if length(GroupedBindVars) > 0 -> false; true -> AutoCommit end,
+    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, NewAutoCommit]}, ?PORT_TIMEOUT),
     ?DriverSleep,
     case R of
-        {cols, Clms} -> {ok, lists:reverse([{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms])};
-        R -> R
+        {error, Error}      -> {error, Error};
+        {cols, Clms}        -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
+                                                           , [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
+        R                   -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
+    end.
+
+split_binds(BindVars,MaxReqSize)    -> split_binds(BindVars, MaxReqSize, length(BindVars), []).
+split_binds(BindVars, _, 0, [])     -> [BindVars];
+split_binds(BindVars, _, 0, Acc)    -> lists:reverse([B || B <- [BindVars | Acc], length(B) > 0]);
+split_binds([], _, _, Acc)          -> lists:reverse([B || B <- Acc, length(B) > 0]);
+split_binds(BindVars, MaxReqSize, At, Acc) when is_list(BindVars) ->
+    {Head,Tail} = lists:split(At, BindVars),
+    ReqSize = byte_size(term_to_binary(Head)),
+    if ReqSize > MaxReqSize -> split_binds(BindVars, MaxReqSize, At-1, Acc);
+        true ->
+            split_binds(Tail, MaxReqSize, length(Tail), [lists:reverse(Head)|Acc])
     end.
 
 fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
@@ -274,8 +311,8 @@ handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data
     %?Info("RX ~p bytes", [byte_size(Data)]),
     %?Info("<<<<<<<<<<<< RX ~p", [Resp]),
     case handle_result(State#state.logging, Resp) of
-        {undefined, Result} ->
-            ?Info("no reply for ~p", [Result]);
+        {undefined, pong} -> ok;
+        {undefined, Result} -> ?Info("no reply for ~p", [Result]);
         {From, {error, Reason}} ->
             ?Error("~p", [Reason]), % Just in case its ignored later
             gen_server:reply(From, {error, Reason});
@@ -534,7 +571,7 @@ insert_select_update(OciSession) ->
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _, _}, SelStmt),
-    {ok, Cols} = SelStmt:exec_stmt(),
+    {cols, Cols} = SelStmt:exec_stmt(),
     ?ELog("selected columns ~p from table ~s", [Cols, ?TESTTABLE]),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows0}, false} = SelStmt:fetch_rows(2),
@@ -612,7 +649,7 @@ auto_rollback_test(OciSession) ->
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _, _}, SelStmt),
-    {ok, Cols} = SelStmt:exec_stmt(),
+    {cols, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
@@ -637,7 +674,7 @@ auto_rollback_test(OciSession) ->
     ?ELog("testing rollback table ~s", [?TESTTABLE]),
     SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _, _}, SelStmt1),
-    ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
+    ?assertEqual({cols, Cols}, SelStmt1:exec_stmt()),
     ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(RowCount)),
     ?assertEqual(ok, SelStmt1:close()).
 
@@ -669,7 +706,7 @@ commit_rollback_test(OciSession) ->
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _, _}, SelStmt),
-    {ok, Cols} = SelStmt:exec_stmt(),
+    {cols, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(ok, SelStmt:close()),
@@ -699,7 +736,7 @@ commit_rollback_test(OciSession) ->
     ?assertEqual(ok, OciSession:rollback()),
     SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
     ?assertMatch({?MODULE, statement, _, _, _}, SelStmt1),
-    ?assertEqual({ok, Cols}, SelStmt1:exec_stmt()),
+    ?assertEqual({cols, Cols}, SelStmt1:exec_stmt()),
     {{rows, NewRows}, false} = SelStmt1:fetch_rows(RowCount),
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
     ?assertEqual(ok, SelStmt1:close()).
