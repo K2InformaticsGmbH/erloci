@@ -14,6 +14,7 @@
  */
 #pragma once
 
+#define PORT_IDLE_TIMEOUT 1000
 //#define MAX_RESP_SIZE 0xFFFFFFF0
 #define MAX_RESP_SIZE 0x00040000UL
 #define MAX_COLUMNS 500
@@ -73,8 +74,7 @@ typedef void (*fn_coldefappend)(const char *, size_t, const unsigned short, cons
 
 // External linkages (import)
 extern bool	log_flag;
-#define PORT_IDLE_TIMEOUT 1000
-extern unsigned long PortIdleTimeout;
+extern unsigned long max_term_byte_size;
 
 //
 // Exposed linkages (export)

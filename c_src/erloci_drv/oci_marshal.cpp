@@ -261,7 +261,7 @@ int write_resp(void * resp_term)
     unsigned char * tx_buf;
     ETERM * resp = (ETERM *)resp_term;
 
-    if (resp == NULL) {
+    if (!resp) {
         pkt_len = -1;
         goto error_exit;
     }
@@ -307,7 +307,8 @@ int write_resp(void * resp_term)
     EXIT();
 
 error_exit:
-    erl_free_compound(resp);
+    if (resp)
+		erl_free_compound(resp);
     return pkt_len;
 }
 

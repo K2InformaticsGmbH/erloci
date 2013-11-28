@@ -573,7 +573,7 @@ intf_ret ocistmt::rows(void * row_list,
 		}
     } while (res != OCI_NO_DATA
 			&& num_rows < maxrowcount
-			&& total_est_row_size < MAX_RESP_SIZE);
+			&& total_est_row_size < max_term_byte_size);
 
 	if(r.fn_ret != SUCCESS) {
 		REMOTE_LOG("this should never happen reason %s (%s)\n", r.gerrbuf, _stmtstr);

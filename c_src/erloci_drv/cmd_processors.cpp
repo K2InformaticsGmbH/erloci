@@ -23,7 +23,7 @@
 bool change_log_flag(ETERM * command)
 {
     bool ret = false;
-    ETERM *resp;
+    ETERM *resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), command, args);
@@ -58,9 +58,12 @@ bool change_log_flag(ETERM * command)
 			REMOTE_LOG("ERROR badarg %d\n", log);
             break;
         }
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -73,7 +76,7 @@ error_exit:
 bool cmd_get_session(ETERM * command)
 {
     bool ret = false;
-	ETERM *resp;
+	ETERM *resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), command, args);
@@ -111,9 +114,12 @@ bool cmd_get_session(ETERM * command)
 				REMOTE_LOG("ERROR unknown\n");
 				resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], GET_SESSN);
 		   }
+	} else {
+		REMOTE_LOG("argument type(s) missmatch\n");
 	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -126,7 +132,7 @@ error_exit:
 bool cmd_release_conn(ETERM * command)
 {
     bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), command, args);
@@ -161,9 +167,12 @@ bool cmd_release_conn(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PUT_SESSN);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -176,7 +185,7 @@ error_exit:
 bool cmd_commit(ETERM * command)
 {
     bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), command, args);
@@ -211,9 +220,12 @@ bool cmd_commit(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMT_SESSN);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -226,7 +238,7 @@ error_exit:
 bool cmd_rollback(ETERM * command)
 {
     bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), command, args);
@@ -261,9 +273,12 @@ bool cmd_rollback(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], RBK_SESSN);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -276,7 +291,7 @@ error_exit:
 bool cmd_describe(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), command, args);
@@ -325,9 +340,12 @@ bool cmd_describe(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_DSCRB);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -340,7 +358,7 @@ error_exit:
 bool cmd_prep_sql(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), command, args);
@@ -385,9 +403,12 @@ bool cmd_prep_sql(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PREP_STMT);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -400,7 +421,7 @@ error_exit:
 bool cmd_bind_args(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), command, args);
@@ -447,9 +468,12 @@ bool cmd_bind_args(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], BIND_ARGS);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
 	if(write_resp(resp) < 0)
         ret = true;
 
@@ -462,7 +486,7 @@ error_exit:
 bool cmd_exec_stmt(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
@@ -527,9 +551,12 @@ bool cmd_exec_stmt(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], EXEC_STMT);
 			ret = true;
 		}
+	} else {
+		REMOTE_LOG("argument type(s) missmatch\n");
 	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -542,7 +569,7 @@ error_exit:
 bool cmd_fetch_rows(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), command, args);
@@ -606,9 +633,12 @@ bool cmd_fetch_rows(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], FTCH_ROWS);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
 	if(write_resp(resp) < 0)
         ret = true;
 
@@ -621,7 +651,7 @@ error_exit:
 bool cmd_close_stmt(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), command, args);
@@ -666,9 +696,12 @@ bool cmd_close_stmt(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
 error_exit:
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -681,7 +714,7 @@ error_exit:
 bool cmd_ping(ETERM * command)
 {
 	bool ret = false;
-    ETERM * resp;
+    ETERM * resp = NULL;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PORT_PING), command, args);
@@ -717,9 +750,12 @@ bool cmd_ping(ETERM * command)
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
 		}
-    }
+    } else {
+		REMOTE_LOG("argument type(s) missmatch\n");
+	}
 
-error_exit:
+error_exit:	
+	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 

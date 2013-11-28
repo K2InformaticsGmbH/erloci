@@ -15,6 +15,7 @@
 #include "stdafx.h"
 
 #include "oci_marshal.h"
+#include "oci_lib_intf.h"
 
 #include "erl_interface.h"
 #include "ei.h"
@@ -110,39 +111,54 @@ int main(int argc, char * argv[])
     erl_init(NULL, 0);
     log_flag = false;
 
-    if (argc >= 2) {
+	// Max term byte size
+	if (argc >= 2) {
+		max_term_byte_size =
+#ifdef __WIN32__
+			_wtol(argv[1]);
+#else
+            atoi(argv[1]);
+#endif
+	}
+
+	// Enable Logging
+    if (argc >= 3) {
         if (
 #ifdef __WIN32__
-            wcscmp(argv[1], L"true") == 0
+            wcscmp(argv[2], L"true") == 0
 #else
-            strcmp(argv[1], "true") == 0
+            strcmp(argv[2], "true") == 0
 #endif
         ) log_flag = true;
     }
 
-	if (argc >= 3) {
-		int ListenPortNo = 
-#ifdef __WIN32__
-            _wtoi(argv[2]);
-#else
-            atoi(argv[2]);
-#endif
-		char * ret = connect_tcp(ListenPortNo);
-		if(ret != NULL) {
-			return -1;
-		} else
-			REMOTE_LOG("Port native process logs sent over TCP port %d\n", ListenPortNo);
-	}
-
+	// Log listner port
+	int log_tcp_port = 0;
 	if (argc >= 4) {
-		port_idle_timeout =
+		log_tcp_port = 
 #ifdef __WIN32__
-			_wtol(argv[3]);
+            _wtoi(argv[3]);
 #else
             atoi(argv[3]);
 #endif
-		REMOTE_LOG("Port native process idle timeout %ul ms\n", port_idle_timeout);
+		char * ret = connect_tcp(log_tcp_port);
+		if(ret != NULL) {
+			return -1;
+		}
 	}
+
+	// Ping Timeout
+	if (argc >= 5) {
+		port_idle_timeout =
+#ifdef __WIN32__
+			_wtol(argv[4]);
+#else
+            atoi(argv[4]);
+#endif
+	}
+
+	REMOTE_LOG("Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d, idle timeout %ul ms\n"
+		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port, port_idle_timeout);
 
     init_marshall();
 

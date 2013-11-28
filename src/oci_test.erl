@@ -173,7 +173,7 @@ teardown(_OciSession) ->
 
 -define(RLog(__Target, __Fmt, __Vars), gen_server:cast(__Target, {log, lists:flatten(io_lib:format(__Fmt, __Vars))})).
 run_test(OciSession, Table, RowCount, Master) ->
-    %?RLog(Master, "[~s,~p] start >>>>~n", [Table,self()]),
+    ?RLog(Master, "[~s,~p] start >>>>~n", [Table,self()]),
 
     % Drop
     StartDrop = erlang:now(),
@@ -183,7 +183,7 @@ run_test(OciSession, Table, RowCount, Master) ->
     print_if_error(Master, Table, StmtDrop:close(), "drop close for "++Table++" failed"),
     EndDrop = erlang:now(),
     ok = gen_server:cast(Master, {drop, Table, StartDrop, EndDrop}),
-    %?RLog(Master, "[~s] drop~n", [Table]),
+    ?RLog(Master, "[~s] drop~n", [Table]),
 
     % Create
     StartCreate = erlang:now(),
@@ -200,9 +200,18 @@ run_test(OciSession, Table, RowCount, Master) ->
     throw_if_error(Master, Table, StmtCreate:close(), "create close for "++Table++" failed"),
     EndCreate = erlang:now(),
     ok = gen_server:cast(Master, {create, Table, StartCreate, EndCreate}),
-    %?RLog(Master, "[~s] create~n", [Table]),
+    ?RLog(Master, "[~s] create~n", [Table]),
 
     % Insert
+    InsertRows = [{ I
+                  , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+                  , I+I/2
+                  , list_to_binary(["_hero_",integer_to_list(I),"_"])
+                  , list_to_binary(["_reality_",integer_to_list(I),"_"])
+                  , I
+                  , oci_util:edatetime_to_ora(erlang:now())
+                  , I
+                  } || I <- lists:seq(1, RowCount)],
     StartInsert = erlang:now(),
     StmtInsert = OciSession:prep_sql(list_to_binary([
                 "insert into ", Table,
@@ -227,22 +236,25 @@ run_test(OciSession, Table, RowCount, Master) ->
                                                     , {<<":votes_first_rank">>, 'SQLT_INT'}
                                                     ])
                             , "insert bind for "++Table++" failed"),
-    InsertResult = StmtInsert:exec_stmt([{ I
-                            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
-                            , I+I/2
-                            , list_to_binary(["_hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_reality_",integer_to_list(I),"_"])
-                            , I
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I
-                            } || I <- lists:seq(1, RowCount)]),
+    InsertResult = StmtInsert:exec_stmt(InsertRows),
     throw_if_error(Master, Table, InsertResult, "insert exec for "++Table++" failed"),
     throw_if_error(Master, Table, StmtInsert:close(), "insert close for "++Table++" failed"),
     EndInsert = erlang:now(),
     ok = gen_server:cast(Master, {insert, Table, StartInsert, EndInsert}),
-    %?RLog(Master, "[~s] insert~n", [Table]),
+    ?RLog(Master, "[~s] insert~n", [Table]),
     
     % Update
+    {rowids, AllKeys} = InsertResult,
+    UpdateRows = [{ I
+                  , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
+                  , I+I/3
+                  , list_to_binary(["_Hero_",integer_to_list(I),"_"])
+                  , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                  , I+1
+                  , oci_util:edatetime_to_ora(erlang:now())
+                  , I+1
+                  , Key
+                  } || {Key, I} <- lists:zip(AllKeys, lists:seq(1, length(AllKeys)))],
     StartUpdate = erlang:now(),
     StmtUpdate = OciSession:prep_sql(list_to_binary([
                 "update ", Table, " set ",
@@ -266,22 +278,12 @@ run_test(OciSession, Table, RowCount, Master) ->
                                                     , {<<":pri_rowid1">>, 'SQLT_STR'}
                                                     ])
                             , "update bind for "++Table++" failed"),
-    {rowids, AllKeys} = InsertResult,
-    UpdateResult = StmtUpdate:exec_stmt([{ I
-                                         , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
-                                         , I+I/3
-                                         , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                                         , list_to_binary(["_Reality_",integer_to_list(I),"_"])
-                                         , I+1
-                                         , oci_util:edatetime_to_ora(erlang:now())
-                                         , I+1
-                                         , Key
-                                         } || {Key, I} <- lists:zip(AllKeys, lists:seq(1, length(AllKeys)))]),
+    UpdateResult = StmtUpdate:exec_stmt(UpdateRows),
     throw_if_error(Master, Table, UpdateResult, "update exec for "++Table++" failed"),
     throw_if_error(Master, Table, StmtUpdate:close(), "update close for "++Table++" failed"),
     EndUpdate = erlang:now(),
     ok = gen_server:cast(Master, {update, Table, StartUpdate, EndUpdate}),
-    %?RLog(Master, "[~s] update~n", [Table]),
+    ?RLog(Master, "[~s] update~n", [Table]),
 
     % Select
     StartSelect = erlang:now(),
@@ -290,10 +292,11 @@ run_test(OciSession, Table, RowCount, Master) ->
     throw_if_error(Master, Table, StmtSelect:exec_stmt(), "select exec for "++Table++" failed"),
     fetch_all_rows(Master, Table, StmtSelect, RowCount),
     EndSelect = erlang:now(),
-    ok = gen_server:cast(Master, {select, Table, StartSelect, EndSelect}).
-    %?RLog(Master, "[~s] select~n", [Table]),
+    ok = gen_server:cast(Master, {select, Table, StartSelect, EndSelect}),
 
-    %?RLog(Master, "[~s] end <<<<~n", [Table]).
+    ?RLog(Master, "[~s] select~n", [Table]),
+    %?RLog(Master, "[~s] end <<<<~n", [Table]),
+    ok.
 
 fetch_all_rows(Master, Table, Statement, RowCount) -> fetch_all_rows(Master, Table, Statement, RowCount, []).
 fetch_all_rows(Master, Table, Statement, RowCount, Rows) ->
@@ -315,7 +318,8 @@ throw_if_error(_,_,_,_) -> ok.
 
 print_if_error(Parent,Table,{error, Error},Msg) ->
     if is_pid(Parent) ->
-        ?RLog(Parent, "[~s] warning "++Msg++": ~p~n", [Table, Error]);
+        %?RLog(Parent, "[~s] warning "++Msg++": ~p~n", [Table, Error]);
+        ?Log("[~s] warning "++Msg++": ~p~n", [Table, Error]);
         true -> ok
     end;
 print_if_error(_,_,_,_) -> ok.

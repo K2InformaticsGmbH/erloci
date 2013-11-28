@@ -169,14 +169,14 @@ collect_grouped_bind_request([], _, _, _, _, Acc) ->
         _ -> Results
     end;
 collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, StmtId, AutoCommit, Acc) ->
-    NewAutoCommit = if length(GroupedBindVars) > 0 -> false; true -> AutoCommit end,
+    NewAutoCommit = if length(GroupedBindVars) > 0 -> 0; true -> AutoCommit end,
     R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, NewAutoCommit]}, ?PORT_TIMEOUT),
     ?DriverSleep,
     case R of
-        {error, Error}      -> {error, Error};
-        {cols, Clms}        -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
-                                                           , [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
-        R                   -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
+        {error, Error}  -> {error, Error};
+        {cols, Clms}    -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
+                                                       , [{cols, lists:reverse([{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms])} | Acc]);
+        R               -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
     end.
 
 split_binds(BindVars,MaxReqSize)    -> split_binds(BindVars, MaxReqSize, length(BindVars), []).
@@ -186,7 +186,11 @@ split_binds([], _, _, Acc)          -> lists:reverse([B || B <- Acc, length(B) >
 split_binds(BindVars, MaxReqSize, At, Acc) when is_list(BindVars) ->
     {Head,Tail} = lists:split(At, BindVars),
     ReqSize = byte_size(term_to_binary(Head)),
-    if ReqSize > MaxReqSize -> split_binds(BindVars, MaxReqSize, At-1, Acc);
+    if
+        ReqSize > MaxReqSize ->
+            NewAt = round(At / (ReqSize / MaxReqSize)),
+            ?Info("req size ~p, max ~p -- BindVar(~p) splitting at ~p", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
+            split_binds(BindVars, MaxReqSize, NewAt, Acc);
         true ->
             split_binds(Tail, MaxReqSize, length(Tail), [lists:reverse(Head)|Acc])
     end.
@@ -196,7 +200,6 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
         {{rows, Rows}, Completed} -> {{rows, lists:reverse(Rows)}, Completed};
         Other -> Other
     end.
-
 
 %% Callbacks
 init([Logging, ListenPort, IdleTimeout]) ->
@@ -231,7 +234,10 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
                   , binary
                   , exit_status
                   , use_stdio
-                  , {args, ["true", integer_to_list(ListenPort), integer_to_list(2*IdleTimeout)]}
+                  , {args, [ integer_to_list(?MAX_REQ_SIZE)
+                           , "true"
+                           , integer_to_list(ListenPort)
+                           , integer_to_list(2*IdleTimeout)]}
                   , {env, [{LibPath, NewLibPath}]}
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of

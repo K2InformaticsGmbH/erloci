@@ -16,6 +16,7 @@
 %-define(PORT_TIMEOUT, 			15000).
 -define(PORT_TIMEOUT, 			infinity).
 -define(WAIT_RESULT_TIMEOUT, 	15000).
+%-define(MAX_REQ_SIZE,           16#0FFFFFFF).
 -define(MAX_REQ_SIZE,           16#00040000).
 
 

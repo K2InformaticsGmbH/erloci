@@ -26,6 +26,8 @@
 #define	SPRINT snprintf
 #endif
 
+unsigned long max_term_byte_size = MAX_RESP_SIZE;
+
 /*
  * checkerr0: This function prints a detail error report.
  *			  Used to "warp" invocation of OCI calls.
@@ -95,78 +97,3 @@ void checkerr0(intf_ret *r, ub4 htype, sword status, const char * function_name,
         break;
     }
 }
-
-#if 0
-INTF_RET describe(const void *conn_handle, unsigned char * objptr)
-{
-REMOTE_LOG("..........................TRACE...\n");
-	int i=0;
-	ub2          numcols, col_width;
-	ub1          char_semantics;
-	ub2  coltyp;
-	ub4 objp_len = (ub4) strlen((char *)objptr);
-	OCISvcCtx *svchp = (OCISvcCtx *)conn_handle;
-	OCIParam *parmh = (OCIParam *) 0;         /* parameter handle */
-	OCIParam *collsthd = (OCIParam *) 0;      /* handle to list of columns */
-	OCIParam *colhd = (OCIParam *) 0;         /* column handle */
-	OCIDescribe *dschp = (OCIDescribe *)0;      /* describe handle */
-
-	OCIHandleAlloc((dvoid *)envhp, (dvoid **)&dschp,
-			(ub4)OCI_HTYPE_DESCRIBE, (size_t)0, (dvoid **)0);
-
-	/* get the describe handle for the table */
-	if (OCIDescribeAny(svchp, (OCIError*)errhp, (dvoid *)objptr, objp_len, OCI_OTYPE_NAME, 0,
-		 OCI_PTYPE_TABLE, dschp))
-	   return FAILURE;
-
-	/* get the parameter handle */
-	if (OCIAttrGet((dvoid *)dschp, OCI_HTYPE_DESCRIBE, (dvoid *)&parmh, (ub4 *)0,
-					OCI_ATTR_PARAM, (OCIError*)errhp))
-		return FAILURE;
-
-	/* The type information of the object, in this case, OCI_PTYPE_TABLE,
-	is obtained from the parameter descriptor returned by the OCIAttrGet(). */
-	/* get the number of columns in the table */
-	numcols = 0;
-	if (OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&numcols, (ub4 *)0,
-		 OCI_ATTR_NUM_COLS, (OCIError*)errhp))
-		return FAILURE;
-
-	/* get the handle to the column list of the table */
-	if (OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&collsthd, (ub4 *)0,
-		 OCI_ATTR_LIST_COLUMNS, (OCIError*)errhp)==OCI_NO_DATA)
-	   return FAILURE;
-
-	/* go through the column list and retrieve the data-type of each column,
-	and then recursively describe column types. */
-
-	for (i = 1; i <= numcols; i++)
-	{
-		/* get parameter for column i */
-		if (OCIParamGet((dvoid *)collsthd, OCI_DTYPE_PARAM, (OCIError*)errhp, (dvoid **)&colhd, (ub4)i))
-			return FAILURE;
-
-		/* for example, get datatype for ith column */
-		coltyp = 0;
-		if (OCIAttrGet((dvoid *)colhd, OCI_DTYPE_PARAM, (dvoid *)&coltyp, (ub4 *)0, OCI_ATTR_DATA_TYPE, (OCIError*)errhp))
-			return FAILURE;
-
-		/* Retrieve the length semantics for the column */
-		char_semantics = 0;
-		OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &char_semantics,(ub4 *) 0, (ub4) OCI_ATTR_CHAR_USED, (OCIError *) errhp);
-
-		col_width = 0;
-		if (char_semantics)
-			/* Retrieve the column width in characters */
-			OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_SIZE, (OCIError *) errhp);
-		else
-			/* Retrieve the column width in bytes */
-			OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width,(ub4 *) 0, (ub4) OCI_ATTR_DATA_SIZE, (OCIError *) errhp);
-	}
-
-	if (dschp)
-		OCIHandleFree((dvoid *) dschp, OCI_HTYPE_DESCRIBE);
-
-	return SUCCESS;
-}
-#endif
