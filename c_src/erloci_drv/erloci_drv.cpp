@@ -40,6 +40,7 @@ bool log_flag;
 bool exit_loop = false;
 unsigned long port_idle_timeout = PORT_IDLE_TIMEOUT;
 bool is_idle = false;
+extern bool command_idle;
 
 #ifdef __WIN32__
 DWORD WINAPI check_idle_thread( LPVOID lpParam )
@@ -56,8 +57,8 @@ void *check_idle_thread(void * argument)
 		usleep(port_idle_timeout*1000);
 		//sleep(port_idle_timeout / 1000);
 #endif
-		// is set in cmd_ping
-		if (is_idle) {
+		// managed in cmd_processors
+		if (command_idle && is_idle) {
 			REMOTE_LOG("No ping from port master erlang process after %d ms. dying...\n", port_idle_timeout);
 			break;
 		}
