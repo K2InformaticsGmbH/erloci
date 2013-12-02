@@ -39,59 +39,6 @@ typedef unsigned char byte;
 bool log_flag;
 bool exit_loop = false;
 unsigned long port_idle_timeout = PORT_IDLE_TIMEOUT;
-extern unsigned long long command_counter;
-
-#ifdef __WIN32__
-DWORD WINAPI check_idle_thread( LPVOID lpParam )
-#else
-void *check_idle_thread(void * argument)
-#endif
-{
-	REMOTE_LOG("Idle timeout checker thread started with %d ms timeout\n", port_idle_timeout);
-	do {
-#ifdef __WIN32__
-		Sleep(port_idle_timeout);
-#else
-		usleep(port_idle_timeout*1000);
-#endif
-		// managed in cmd_processors
-		if (lock_cmd_counter() && command_counter == 0) {
-			REMOTE_LOG("No ping from port master erlang process after %d ms. dying...\n", port_idle_timeout);
-			unlock_cmd_counter();
-			break;
-		}
-	} while(true);
-#ifdef __WIN32__
-	ExitProcess(3);
-	return 0;
-#else
-    exit(0);
-	return NULL;
-#endif
-}
-
-#ifdef __WIN32__
-HANDLE check_idle_thread_handle;
-DWORD  check_idle_thread_id;
-#else
-pthread_t check_idle_thread_handle;
-int  check_idle_thread_id;
-#endif
-void create_start_idle_check_thread()
-{
-	check_idle_thread_handle =
-#ifdef __WIN32__
-		CreateThread( 
-            NULL,                   // default security attributes
-            0,                      // use default stack size  
-            check_idle_thread,		// thread function name
-            NULL,					// argument to thread function 
-            0,                      // use default creation flags 
-            &check_idle_thread_id);
-#else
-	check_idle_thread_id = pthread_create(&check_idle_thread_handle, NULL, check_idle_thread, NULL);
-#endif
-}
 
 #ifdef __WIN32__
 int _tmain(int argc, _TCHAR* argv[])
@@ -167,10 +114,10 @@ int main(int argc, char * argv[])
     if(threaded)
         REMOTE_LOG("Port: Thread pool created...\n");
 
-    REMOTE_LOG("Port: Initialized Oracle OCI\n");
+	set_timer(port_idle_timeout);
+    REMOTE_LOG("Port Idle timeout set\n");
 
-	create_start_idle_check_thread();
-    REMOTE_LOG("Idle check thread started\n");
+	REMOTE_LOG("Port: Initialized Oracle OCI\n");
 
     while(!exit_loop && (cmd_tuple = (ETERM *)read_cmd()) != NULL) {
         if(threaded && ProcessCommand(cmd_tuple)) {

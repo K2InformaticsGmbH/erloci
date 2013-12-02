@@ -37,9 +37,35 @@ static PTP_POOL pool = NULL;
 static TP_CALLBACK_ENVIRON CallBackEnviron;
 static PTP_CLEANUP_GROUP cleanupgroup = NULL;
 static UINT rollback = 0;
+static PTP_TIMER idle_timer = NULL;
+static FILETIME FileDueTime;
+static ULARGE_INTEGER ulDueTime;
 #else
 static threadpool_t *pTp = NULL;
 #endif
+
+//
+// Thread pool timer callback function template
+//
+VOID
+CALLBACK
+IdleTimerCb(
+    PTP_CALLBACK_INSTANCE Instance,
+    PVOID                 Parameter,
+    PTP_TIMER             Timer
+    )
+{
+    // Instance, Parameter, and Timer not used in this example.
+    UNREFERENCED_PARAMETER(Instance);
+    UNREFERENCED_PARAMETER(Parameter);
+    UNREFERENCED_PARAMETER(Timer);
+
+    //
+    // Do something when the timer fires.
+    //
+    _tprintf(_T("IdleTimerCb: timer has fired.\n"));
+
+}
 
 bool InitializeThreadPool(void)
 {
@@ -100,6 +126,18 @@ bool InitializeThreadPool(void)
     //
     SetThreadpoolCallbackCleanupGroup(&CallBackEnviron, cleanupgroup, NULL);
 
+	//
+    // Create a timer with the same callback environment.
+    //
+    idle_timer = CreateThreadpoolTimer(IdleTimerCb,
+                                  NULL,
+                                  &CallBackEnviron);
+
+    if (NULL == idle_timer) {
+        _tprintf(_T("CreateThreadpoolTimer failed. LastError: %u\n"), GetLastError());
+        goto main_cleanup;
+    }
+
     return true;
 
 main_cleanup:
@@ -145,6 +183,7 @@ main_cleanup:
     //
 
     switch (rollback) {
+    case 4:
     case 3:
         // Clean up the cleanup group members.
         CloseThreadpoolCleanupGroupMembers(cleanupgroup,FALSE,NULL);
@@ -235,4 +274,24 @@ bool ProcessCommand(void * param)
 #endif
 
     return true;
+}
+
+void set_timer(unsigned long delayms)
+{
+    //
+    // Set the timer to fire in delayms.
+    //
+    ulDueTime.QuadPart = (ULONGLONG) -(delayms * 10 * 1000);
+    FileDueTime.dwHighDateTime = ulDueTime.HighPart;
+    FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
+
+    SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
+}
+
+void reset_timer()
+{
+    FileDueTime.dwHighDateTime = ulDueTime.HighPart;
+    FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
+
+    SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
 }

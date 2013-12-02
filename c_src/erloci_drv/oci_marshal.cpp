@@ -38,10 +38,8 @@
 
 #ifdef __WIN32__
 static HANDLE write_mutex;
-static HANDLE cmd_mutex;
 #else
 static pthread_mutex_t write_mutex;
-static pthread_mutex_t cmd_mutex;
 #endif
 
 // 32 bit packet header
@@ -195,11 +193,6 @@ bool init_marshall(void)
         REMOTE_LOG("Write Mutex creation failed\n");
         return false;
     }
-    cmd_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == cmd_mutex) {
-        REMOTE_LOG("Log Mutex creation failed\n");
-        return false;
-    }
 #else
     if(pthread_mutex_init(&write_mutex, NULL) != 0) {
         REMOTE_LOG("Write Mutex creation failed");
@@ -212,9 +205,6 @@ bool init_marshall(void)
 #endif
     return true;
 }
-
-bool lock_cmd_counter() { return lock_mutex(cmd_mutex); }
-void unlock_cmd_counter() { unlock_mutex(cmd_mutex); }
 
 void * read_cmd(void)
 {

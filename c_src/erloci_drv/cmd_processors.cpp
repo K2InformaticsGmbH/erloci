@@ -761,10 +761,6 @@ bool cmd_processor(void * param)
 	delete tmpbuf;
 #endif
 
-	if(lock_cmd_counter()) {
-		++command_counter;
-		unlock_cmd_counter();
-	}
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
         case GET_SESSN:	ret = cmd_get_session(command);		break;
@@ -785,12 +781,7 @@ bool cmd_processor(void * param)
             break;
         }
     }
-	if(lock_cmd_counter()) {
-		--command_counter;
-		if(command_counter < 0)
-			command_counter = 0;
-		unlock_cmd_counter();
-	}
+	reset_timer();
 
 	erl_free_term(cmd);
 
