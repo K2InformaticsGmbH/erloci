@@ -197,5 +197,3 @@ extern void unlock_cmd_counter();
 #else
 #define LOG_DUMP(__len, __buf)
 #endif
-
-extern bool is_idle;

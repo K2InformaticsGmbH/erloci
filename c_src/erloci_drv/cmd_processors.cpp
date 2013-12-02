@@ -714,7 +714,6 @@ bool cmd_ping(ETERM * command)
 			if (strncmp(ping, "ping", 4) != 0) {
 				resp = erl_format((char*)"{~w,~i,{error,bad_ping}}", args[0], PORT_PING);
 			} else {
-				is_idle = false;
 				resp = erl_format((char*)"{~w,~i,pong}", args[0], PORT_PING);
 			}
 		} catch (intf_ret r) {

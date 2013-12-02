@@ -39,7 +39,6 @@ typedef unsigned char byte;
 bool log_flag;
 bool exit_loop = false;
 unsigned long port_idle_timeout = PORT_IDLE_TIMEOUT;
-bool is_idle = false;
 extern unsigned long long command_counter;
 
 #ifdef __WIN32__
@@ -50,16 +49,15 @@ void *check_idle_thread(void * argument)
 {
 	REMOTE_LOG("Idle timeout checker thread started with %d ms timeout\n", port_idle_timeout);
 	do {
-		is_idle = true;
 #ifdef __WIN32__
 		Sleep(port_idle_timeout);
 #else
 		usleep(port_idle_timeout*1000);
-		//sleep(port_idle_timeout / 1000);
 #endif
 		// managed in cmd_processors
-		if (command_counter == 0 && is_idle) {
+		if (lock_cmd_counter() && command_counter == 0) {
 			REMOTE_LOG("No ping from port master erlang process after %d ms. dying...\n", port_idle_timeout);
+			unlock_cmd_counter();
 			break;
 		}
 	} while(true);
