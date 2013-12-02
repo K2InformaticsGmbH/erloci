@@ -20,7 +20,7 @@
 #include "cmd_processors.h"
 #include "ocisession.h"
 
-bool command_idle = true;
+unsigned long long command_counter = 0;
 
 bool change_log_flag(ETERM * command)
 {
@@ -762,7 +762,10 @@ bool cmd_processor(void * param)
 	delete tmpbuf;
 #endif
 
-	command_idle = false;
+	if(lock_cmd_counter()) {
+		++command_counter;
+		unlock_cmd_counter();
+	}
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
         case GET_SESSN:	ret = cmd_get_session(command);		break;
@@ -783,7 +786,13 @@ bool cmd_processor(void * param)
             break;
         }
     }
-	command_idle = true;
+	if(lock_cmd_counter()) {
+		--command_counter;
+		if(command_counter < 0)
+			command_counter = 0;
+		unlock_cmd_counter();
+	}
+
 	erl_free_term(cmd);
 
 //	PRINT_ERL_ALLOC("end");

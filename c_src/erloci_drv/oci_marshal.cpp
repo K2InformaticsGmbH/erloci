@@ -36,6 +36,14 @@
 #define EXIT()
 #endif
 
+#ifdef __WIN32__
+static HANDLE write_mutex;
+static HANDLE cmd_mutex;
+#else
+static pthread_mutex_t write_mutex;
+static pthread_mutex_t cmd_mutex;
+#endif
+
 // 32 bit packet header
 typedef union _pack_hdr {
     char len_buf[4];
@@ -179,13 +187,6 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
     (*(ETERM**)list) = new_container_list;
 }
 
-#ifdef __WIN32__
-static HANDLE write_mutex;
-static HANDLE log_mutex;
-#else
-static pthread_mutex_t write_mutex;
-static pthread_mutex_t log_mutex;
-#endif
 bool init_marshall(void)
 {
 #ifdef __WIN32__
@@ -194,8 +195,8 @@ bool init_marshall(void)
         REMOTE_LOG("Write Mutex creation failed\n");
         return false;
     }
-    log_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == log_mutex) {
+    cmd_mutex = CreateMutex(NULL, FALSE, NULL);
+    if (NULL == cmd_mutex) {
         REMOTE_LOG("Log Mutex creation failed\n");
         return false;
     }
@@ -204,13 +205,16 @@ bool init_marshall(void)
         REMOTE_LOG("Write Mutex creation failed");
         return false;
     }
-    if(pthread_mutex_init(&log_mutex, NULL) != 0) {
+    if(pthread_mutex_init(&cmd_mutex, NULL) != 0) {
         REMOTE_LOG("Log Mutex creation failed");
         return false;
     }
 #endif
     return true;
 }
+
+bool lock_cmd_counter() { return lock_mutex(cmd_mutex); }
+void unlock_cmd_counter() { unlock_mutex(cmd_mutex); }
 
 void * read_cmd(void)
 {
@@ -280,20 +284,10 @@ int write_resp(void * resp_term)
 
 	LOG_DUMP(pkt_len, tx_buf);
 
-    if(
-#ifdef __WIN32__
-        WAIT_OBJECT_0 == WaitForSingleObject(write_mutex,INFINITE)
-#else
-        0 == pthread_mutex_lock(&write_mutex)
-#endif
-    ) {
+    if(lock_mutex(write_mutex)) {
         cout.write((char *) tx_buf, pkt_len);
         cout.flush();
-#ifdef __WIN32__
-        ReleaseMutex(write_mutex);
-#else
-        pthread_mutex_unlock(&write_mutex);
-#endif
+		unlock_mutex(write_mutex);
     }
 
     // Free the temporary allocated buffer
@@ -310,29 +304,6 @@ error_exit:
     if (resp)
 		erl_free_compound(resp);
     return pkt_len;
-}
-
-bool lock_log()
-{
-	if(
-#ifdef __WIN32__
-    WAIT_OBJECT_0 == WaitForSingleObject(log_mutex,INFINITE)
-#else
-    0 == pthread_mutex_lock(&log_mutex)
-#endif
-	)
-		return true;
-	else
-		return false;
-}
-
-void unlock_log()
-{
-#ifdef __WIN32__
-        ReleaseMutex(log_mutex);
-#else
-        pthread_mutex_unlock(&log_mutex);
-#endif
 }
 
 void map_schema_to_bind_args(void * _args, vector<var> & vars)

@@ -152,8 +152,13 @@ extern void * build_term_from_bind_args(inp_t *);*/
 #define LOG_ARGS(_count,_args,_str)
 #endif
 
-extern bool lock_log();
-extern void unlock_log();
+#ifdef __WIN32__
+	#define lock_mutex(__mutex) (WAIT_OBJECT_0 == WaitForSingleObject((__mutex),INFINITE))
+	#define unlock_mutex(__mutex) (ReleaseMutex((__mutex)))
+#else
+    #define lock_mutex(__mutex) (0 == pthread_mutex_lock(&(__mutex)))
+    #define unlock_mutex(__mutex) (pthread_mutex_unlock(&(__mutex)))
+#endif
 
 // ThreadPool
 extern bool InitializeThreadPool(void);
@@ -170,6 +175,9 @@ extern void append_coldef_to_list(const char * col_name, size_t len,
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
 extern void map_schema_to_bind_args(void *, vector<var> &);
 extern void map_value_to_bind_args(void *, vector<var> &);
+
+extern bool lock_cmd_counter();
+extern void unlock_cmd_counter();
 
 #define MAX_FORMATTED_STR_LEN 1024
 
