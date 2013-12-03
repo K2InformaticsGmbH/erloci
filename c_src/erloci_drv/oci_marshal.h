@@ -19,6 +19,9 @@
 
 using namespace std;
 
+// Features
+#define IDLE_TIMEOUT
+
 // Protocol spec
 #define PKT_LEN_BYTES	4
 
@@ -43,7 +46,6 @@ typedef enum _ERL_DEBUG {
     DBG_FLAG_OFF	= 0,
     DBG_FLAG_ON		= 1,
 } ERL_DEBUG;
-
 
 /* MUST use conteneous and monotonically
  * increasing number codes for new commands
@@ -160,10 +162,17 @@ extern void * build_term_from_bind_args(inp_t *);*/
     #define unlock(__mutex) pthread_mutex_unlock(&(__mutex))
 #endif
 
-// ThreadPool
+// ThreadPool and IdleTimer
 extern bool InitializeThreadPool(void);
 extern void CleanupThreadPool(void);
 extern bool ProcessCommand(void *);
+#ifdef IDLE_TIMEOUT
+extern void set_timer(unsigned long);
+extern void reset_timer(void);
+#endif
+
+extern bool command_in_progress;
+
 
 extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);

@@ -103,7 +103,7 @@ int main(int argc, char * argv[])
 #endif
 	}
 
-	REMOTE_LOG("Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d, idle timeout %ul ms\n"
+	REMOTE_LOG("Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d, idle timeout %lu ms\n"
 		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port, port_idle_timeout);
 
     init_marshall();
@@ -113,6 +113,11 @@ int main(int argc, char * argv[])
     threaded = InitializeThreadPool();
     if(threaded)
         REMOTE_LOG("Port: Thread pool created...\n");
+
+#ifdef IDLE_TIMEOUT
+	set_timer(port_idle_timeout);
+    REMOTE_LOG("Port Idle timeout set\n");
+#endif
 
     REMOTE_LOG("Port: Initialized Oracle OCI\n");
 

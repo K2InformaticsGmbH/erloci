@@ -33,6 +33,7 @@
     exec_stmt/2,
     exec_stmt/3,
     fetch_rows/2,
+    keep_alive/2,
     close/1
 ]).
 
@@ -52,6 +53,7 @@
 -record(state, {
     port,
     pingref,
+    waiting_resp = false,
     logging = ?DBG_FLAG_OFF
 }).
 
@@ -97,6 +99,9 @@ logging(enable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]}, ?PORT_TIMEOUT);
 logging(disable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_OFF]}, ?PORT_TIMEOUT).
+
+keep_alive(KeepAlive, {?MODULE, PortPid}) ->
+    gen_server:call(PortPid, {keep_alive, KeepAlive}, ?PORT_TIMEOUT).
 
 get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
 when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
@@ -237,7 +242,7 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
                   , {args, [ integer_to_list(?MAX_REQ_SIZE)
                            , "true"
                            , integer_to_list(ListenPort)
-                           , integer_to_list(2*IdleTimeout)]}
+                           , integer_to_list(3*IdleTimeout)]}
                   , {env, [{LibPath, NewLibPath}]}
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of
@@ -280,6 +285,19 @@ log(Sock,Fun) ->
         {error, closed} -> ok
     end.
 
+handle_call({keep_alive, KeepAlive}, _From, #state{pingref=PingRef} = State) ->
+    NewPingRef = case {PingRef, KeepAlive} of
+        {undefined, false} -> undefined;
+        {_, false} ->
+            erlang:cancel_timer(PingRef),
+            undefined;
+        {undefined, true} ->
+            erlang:send_after(?IDLE_TIMEOUT, self(), ping);
+        {_, true} ->
+            erlang:cancel_timer(PingRef),
+            erlang:send_after(?IDLE_TIMEOUT, self(), ping)
+    end,
+    {reply, ok, State#state{pingref=NewPingRef}};
 handle_call(close, _From, #state{port=Port} = State) ->
     try
         erlang:port_close(Port)
@@ -287,46 +305,35 @@ handle_call(close, _From, #state{port=Port} = State) ->
         _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
     end,
     {stop, normal, ok, State};
-handle_call({port_call, Msg}, From, #state{port=Port,pingref=PingRef} = State) ->
-    %CmdBin = term_to_binary(Cmd),
-    %?Debug("TX ~p bytes", [byte_size(CmdBin)]),
-    %?Info(">>>>>>>>>>>> TX ~p", [Cmd]),
-    %case Cmd of
-    %    [_,C,S|Args] -> ?Info("PORT CMD : ~s ~p\n~p", [?CMDSTR(C),S,Args]);
-    %    [_,C|Args] -> ?Info("PORT CMD : ~s\n~p", [?CMDSTR(C),Args])
-    %end,
-    erlang:cancel_timer(PingRef),
+handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
     Cmd = [From | Msg],
-    %io:format(user, "_____________________________________ request ~p_____________________________________ ~n", [From]),
-    % reply send from handle_info{Port, {data, Data}})
     true = port_command(Port, term_to_binary(list_to_tuple(Cmd))),
-    NewPingRef = erlang:send_after(?IDLE_TIMEOUT, self(), ping),
-    {noreply, State#state{pingref=NewPingRef}}. 
+    {noreply, State#state{waiting_resp=true}}.
 
 handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
-handle_info(ping, #state{port=Port} = State) ->    
+handle_info(ping, #state{waiting_resp=true} = State) ->
+    %?Info("ping not sent!"),
+    {noreply, State#state{pingref=erlang:send_after(?IDLE_TIMEOUT, self(), ping)}};
+handle_info(ping, #state{port=Port} = State) ->
     true = port_command(Port, term_to_binary({undefined, ?PORT_PING, ping})),
-    NewPingRef = erlang:send_after(?IDLE_TIMEOUT, self(), ping),
-    {noreply, State#state{pingref=NewPingRef}};
+    %?Info("ping sent!"),
+    {noreply, State#state{pingref=erlang:send_after(?IDLE_TIMEOUT, self(), ping)}};
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),
-    %?Info("RX ~p bytes", [byte_size(Data)]),
-    %?Info("<<<<<<<<<<<< RX ~p", [Resp]),
     case handle_result(State#state.logging, Resp) of
-        {undefined, pong} -> ok;
+        %{undefined, pong} -> ok;
         {undefined, Result} -> ?Info("no reply for ~p", [Result]);
         {From, {error, Reason}} ->
             ?Error("~p", [Reason]), % Just in case its ignored later
             gen_server:reply(From, {error, Reason});
         {From, Result} ->
-            %io:format(user, "_____________________________________ reply ~p_____________________________________ ~n", [From]),
             gen_server:reply(From, Result) % regular reply
     end,
-    {noreply, State};
+    {noreply, State#state{waiting_resp=false}};
 handle_info({Port, {exit_status, Status}}, #state{port = Port} = State) ->
     ?log(State#state.logging, "port ~p exited with status ~p", [Port, Status]),
     case Status of

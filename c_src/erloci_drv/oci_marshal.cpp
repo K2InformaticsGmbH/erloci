@@ -44,6 +44,12 @@ typedef union _pack_hdr {
 
 const erlcmdtable cmdtbl[] = CMDTABLE;
 
+#ifdef __WIN32__
+static HANDLE write_mutex;
+#else
+static pthread_mutex_t write_mutex;
+#endif
+
 char * print_term(void *term)
 {
 	FILE *tfp = NULL;
@@ -179,11 +185,6 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
     (*(ETERM**)list) = new_container_list;
 }
 
-#ifdef __WIN32__
-static HANDLE write_mutex;
-#else
-static pthread_mutex_t write_mutex;
-#endif
 bool init_marshall(void)
 {
 #ifdef __WIN32__

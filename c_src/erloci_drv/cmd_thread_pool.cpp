@@ -32,13 +32,65 @@
 
 #include <stdio.h>
 
+bool command_in_progress = true;
+
 #ifdef __WIN32__
-static PTP_POOL pool = NULL;
-static TP_CALLBACK_ENVIRON CallBackEnviron;
-static PTP_CLEANUP_GROUP cleanupgroup = NULL;
-static UINT rollback = 0;
+	static PTP_POOL pool = NULL;
+	static TP_CALLBACK_ENVIRON CallBackEnviron;
+	static PTP_CLEANUP_GROUP cleanupgroup = NULL;
+	static UINT rollback = 0;
+	#ifdef IDLE_TIMEOUT
+		static PTP_TIMER idle_timer = NULL;
+		static FILETIME FileDueTime;
+		static ULARGE_INTEGER ulDueTime;
+	#endif
 #else
-static threadpool_t *pTp = NULL;
+	static threadpool_t *pTp = NULL;
+#endif
+
+#ifdef IDLE_TIMEOUT
+void set_timer(unsigned long delayms)
+{
+    //
+    // Set the timer to fire in delayms.
+    //
+    ulDueTime.QuadPart = -((ULONGLONG)delayms) * 10 * 1000;
+    FileDueTime.dwHighDateTime = ulDueTime.HighPart;
+    FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
+
+    SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
+}
+
+void reset_timer()
+{
+    FileDueTime.dwHighDateTime = ulDueTime.HighPart;
+    FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
+
+    SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
+}
+//
+// Thread pool timer callback function template
+//
+VOID
+CALLBACK
+IdleTimerCb(
+    PTP_CALLBACK_INSTANCE Instance,
+    PVOID                 Parameter,
+    PTP_TIMER             Timer
+    )
+{
+    // Instance, Parameter, and Timer not used in this example.
+    UNREFERENCED_PARAMETER(Instance);
+    UNREFERENCED_PARAMETER(Parameter);
+    UNREFERENCED_PARAMETER(Timer);
+
+	if (command_in_progress)
+		reset_timer();
+	else {
+		REMOTE_LOG("Master erlang process keep-alive timeout. dying...\n");
+		ExitProcess(3);
+	}
+}
 #endif
 
 bool InitializeThreadPool(void)
@@ -100,6 +152,20 @@ bool InitializeThreadPool(void)
     //
     SetThreadpoolCallbackCleanupGroup(&CallBackEnviron, cleanupgroup, NULL);
 
+#ifdef IDLE_TIMEOUT
+	//
+    // Create a timer with the same callback environment.
+    //
+    idle_timer = CreateThreadpoolTimer(IdleTimerCb,
+                                  NULL,
+                                  &CallBackEnviron);
+    if (NULL == idle_timer) {
+        _tprintf(_T("CreateThreadpoolTimer failed. LastError: %u\n"), GetLastError());
+        goto main_cleanup;
+    }
+	rollback = 3;
+#endif
+
     return true;
 
 main_cleanup:
@@ -145,6 +211,9 @@ main_cleanup:
     //
 
     switch (rollback) {
+#ifdef IDLE_TIMEOUT
+    case 4:
+#endif
     case 3:
         // Clean up the cleanup group members.
         CloseThreadpoolCleanupGroupMembers(cleanupgroup,FALSE,NULL);
