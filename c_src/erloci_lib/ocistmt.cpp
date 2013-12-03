@@ -201,7 +201,7 @@ unsigned int ocistmt::execute(void * column_list,
 									(OCISnapshot *)NULL, (OCISnapshot *)NULL,
 									OCI_DEFAULT));
 		if(r.fn_ret != SUCCESS) {
-			//REMOTE_LOG("failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+			REMOTE_LOG("failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
 			if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 			ocisess->release_stmt(this);
 			throw r;
@@ -226,7 +226,7 @@ unsigned int ocistmt::execute(void * column_list,
 				//OCIHandleAlloc(envhp, (void**)&pError, OCI_HTYPE_ERROR, 0, NULL);
 				checkerr(&r, OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL));
 				if(r.fn_ret != SUCCESS) {
-					REMOTE_LOG("failed OCIDescriptorAlloc error %s (%s)\n", r.gerrbuf, _stmtstr);
+					REMOTE_LOG("failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
 					if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 					ocisess->release_stmt(this);
 					throw r;
@@ -234,7 +234,7 @@ unsigned int ocistmt::execute(void * column_list,
 
 				checkerr(&r, OCIAttrGet((OCIStmt*)_stmthp, OCI_HTYPE_STMT, pRowID, 0, OCI_ATTR_ROWID, (OCIError*)_errhp));
 				if(r.fn_ret != SUCCESS) {
-					REMOTE_LOG("failed OCIAttrGet error %s (%s)\n", r.gerrbuf, _stmtstr);
+					REMOTE_LOG("failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
 					if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 					ocisess->release_stmt(this);
 					throw r;
@@ -242,7 +242,7 @@ unsigned int ocistmt::execute(void * column_list,
 
 				checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
 				if(r.fn_ret != SUCCESS) {
-					REMOTE_LOG("failed OCIRowidToChar error %s (%s)\n", r.gerrbuf, _stmtstr);
+					REMOTE_LOG("failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
 					if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 					ocisess->release_stmt(this);
 					throw r;

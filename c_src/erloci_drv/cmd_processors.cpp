@@ -20,8 +20,6 @@
 #include "cmd_processors.h"
 #include "ocisession.h"
 
-unsigned long long command_counter = 0;
-
 bool change_log_flag(ETERM * command)
 {
     bool ret = false;
@@ -29,6 +27,8 @@ bool change_log_flag(ETERM * command)
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), command, args);
+
+	is_idle = false;
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(RMOTE_MSG)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RMOTE_MSG);
@@ -81,9 +81,11 @@ bool cmd_get_session(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), command, args);
 
+	is_idle = false;
+
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], GET_SESSN);
-		REMOTE_LOG("ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), ARG_COUNT(command));
+		if(!resp) REMOTE_LOG("ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), ARG_COUNT(command));
 		ret = true;
 	    goto error_exit;
 	}
@@ -103,14 +105,14 @@ bool cmd_get_session(ETERM * command)
 				resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSN, conh);
 				erl_free_term(conh);
 		   } catch (intf_ret r) {
-				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], GET_SESSN, r.gerrcode, r.gerrbuf);
+				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 		   } catch (string str) {
-				REMOTE_LOG("ERROR %s\n", str.c_str());
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], GET_SESSN, str.c_str());
+				if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		   } catch (...) {
-				REMOTE_LOG("ERROR unknown\n");
 				resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], GET_SESSN);
+				if(!resp) REMOTE_LOG("ERROR unknown\n");
 		   }
 	} else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -135,9 +137,11 @@ bool cmd_release_conn(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PUT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PUT_SESSN);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -151,17 +155,17 @@ bool cmd_release_conn(ETERM * command)
 			delete conn_handle;
             resp = erl_format((char*)"{~w,~i,ok}", args[0], PUT_SESSN);
 		} catch (intf_ret r) {
-			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
             resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], PUT_SESSN, r.gerrcode, r.gerrbuf);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], PUT_SESSN, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PUT_SESSN);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -186,9 +190,11 @@ bool cmd_commit(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMT_SESSN);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -202,17 +208,17 @@ bool cmd_commit(ETERM * command)
 			conn_handle->commit();
             resp = erl_format((char*)"{~w,~i,ok}", args[0], CMT_SESSN);
 		} catch (intf_ret r) {
-			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
             resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMT_SESSN, r.gerrcode, r.gerrbuf);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMT_SESSN, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMT_SESSN);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -237,9 +243,11 @@ bool cmd_rollback(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(RBK_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RBK_SESSN);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -253,17 +261,17 @@ bool cmd_rollback(ETERM * command)
 			conn_handle->rollback();
             resp = erl_format((char*)"{~w,~i,ok}", args[0], RBK_SESSN);
 		} catch (intf_ret r) {
-			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
             resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], RBK_SESSN, r.gerrcode, r.gerrbuf);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], RBK_SESSN, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], RBK_SESSN);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -288,9 +296,11 @@ bool cmd_describe(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_DSCRB)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_DSCRB);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -316,19 +326,19 @@ bool cmd_describe(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+				if(!resp) REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
 			else {
-				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMD_DSCRB, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_DSCRB);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -353,9 +363,11 @@ bool cmd_prep_sql(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PREP_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PREP_STMT);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -377,19 +389,19 @@ bool cmd_prep_sql(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], PREP_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+				if(!resp) REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
 			else {
-				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], PREP_STMT, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PREP_STMT);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -414,9 +426,11 @@ bool cmd_bind_args(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_ARGS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], BIND_ARGS);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -443,16 +457,16 @@ bool cmd_bind_args(ETERM * command)
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
-			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 			ret = true;
 		} catch (string & str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], BIND_ARGS, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], BIND_ARGS);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -477,9 +491,11 @@ bool cmd_exec_stmt(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
 	    resp = erl_format((char*)"{~w,~i,{error,badargcount,~i,~i}}", args[0], EXEC_STMT, ARG_COUNT(command), CMD_ARGS_COUNT(EXEC_STMT));
-		REMOTE_LOG("ERROR bad arguments count\n");
+		if(!resp) REMOTE_LOG("ERROR bad arguments count\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -502,6 +518,7 @@ bool cmd_exec_stmt(ETERM * command)
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+				if(!resp) REMOTE_LOG("ERROR invalid statement handle\n");
 			} else {
 				map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
@@ -520,20 +537,20 @@ bool cmd_exec_stmt(ETERM * command)
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR) {
+			if (r.fn_ret == CONTINUE_WITH_ERROR)
 				if(!resp) REMOTE_LOG("Continue with ERROR Execute STMT %s\n", r.gerrbuf);
-			} else {
+			else {
 				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], EXEC_STMT, str.c_str());
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], EXEC_STMT);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
 	} else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -558,9 +575,11 @@ bool cmd_fetch_rows(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(FTCH_ROWS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], FTCH_ROWS);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -583,6 +602,7 @@ bool cmd_fetch_rows(ETERM * command)
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+				if(!resp) REMOTE_LOG("ERROR invalid statement handle\n");
 			} else {
 				intf_ret r = statement_handle->rows(&rows,
 												   append_string_to_list,
@@ -600,20 +620,20 @@ bool cmd_fetch_rows(ETERM * command)
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR) {
+			if (r.fn_ret == CONTINUE_WITH_ERROR)
 				if(!resp) REMOTE_LOG("Continue with ERROR fetch STMT %s\n", r.gerrbuf);
-			} else {
-				REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			else {
+				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], FTCH_ROWS, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], FTCH_ROWS);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -638,9 +658,11 @@ bool cmd_close_stmt(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), command, args);
 
+	is_idle = false;
+
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CLSE_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CLSE_STMT);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -659,22 +681,23 @@ bool cmd_close_stmt(ETERM * command)
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+				if(!resp) REMOTE_LOG("ERROR invalid statement handle\n");
 			} else {
 				statement_handle->close();
 				resp = erl_format((char*)"{~w,~i,ok}", args[0], CLSE_STMT);
 			}
 		} catch (intf_ret r) {
-			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CLSE_STMT, r.gerrcode, r.gerrbuf);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -701,7 +724,7 @@ bool cmd_ping(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PORT_PING)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PORT_PING);
-		REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG("ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -713,21 +736,23 @@ bool cmd_ping(ETERM * command)
 			strncpy(ping, ERL_ATOM_PTR(args[1]), 4);
 			if (strncmp(ping, "ping", 4) != 0) {
 				resp = erl_format((char*)"{~w,~i,{error,bad_ping}}", args[0], PORT_PING);
+				if(!resp) REMOTE_LOG("ERROR bad ping\n");
 			} else {
+				is_idle = false;
 				resp = erl_format((char*)"{~w,~i,pong}", args[0], PORT_PING);
 			}
 		} catch (intf_ret r) {
-			REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CLSE_STMT, r.gerrcode, r.gerrbuf);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
-			REMOTE_LOG("ERROR %s\n", str.c_str());
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, str.c_str());
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
 		} catch (...) {
-			REMOTE_LOG("ERROR unknown\n");
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
+			if(!resp) REMOTE_LOG("ERROR unknown\n");
 		}
     } else {
 		REMOTE_LOG("argument type(s) missmatch\n");
@@ -781,8 +806,6 @@ bool cmd_processor(void * param)
             break;
         }
     }
-	reset_timer();
-
 	erl_free_term(cmd);
 
 //	PRINT_ERL_ALLOC("end");

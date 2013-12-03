@@ -152,20 +152,13 @@ extern void * build_term_from_bind_args(inp_t *);*/
 #define LOG_ARGS(_count,_args,_str)
 #endif
 
-#ifdef __WIN32__
-	#define lock_mutex(__mutex) (WAIT_OBJECT_0 == WaitForSingleObject((__mutex),INFINITE))
-	#define unlock_mutex(__mutex) (ReleaseMutex((__mutex)))
-#else
-    #define lock_mutex(__mutex) (0 == pthread_mutex_lock(&(__mutex)))
-    #define unlock_mutex(__mutex) (pthread_mutex_unlock(&(__mutex)))
-#endif
+extern bool lock_log();
+extern void unlock_log();
 
 // ThreadPool
 extern bool InitializeThreadPool(void);
 extern void CleanupThreadPool(void);
 extern bool ProcessCommand(void *);
-extern void set_timer(unsigned long);
-extern void reset_timer(void);
 
 extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);
@@ -196,3 +189,5 @@ extern void map_value_to_bind_args(void *, vector<var> &);
 #else
 #define LOG_DUMP(__len, __buf)
 #endif
+
+extern bool is_idle;
