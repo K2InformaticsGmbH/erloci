@@ -152,8 +152,13 @@ extern void * build_term_from_bind_args(inp_t *);*/
 #define LOG_ARGS(_count,_args,_str)
 #endif
 
-extern bool lock_log();
-extern void unlock_log();
+#ifdef __WIN32__
+	#define lock(__mutex) (WAIT_OBJECT_0 == WaitForSingleObject((__mutex),INFINITE))
+    #define unlock(__mutex) ReleaseMutex(__mutex);
+#else
+	#define lock(__mutex) (0 == pthread_mutex_lock(&(__mutex)))
+    #define unlock(__mutex) pthread_mutex_unlock(&(__mutex))
+#endif
 
 // ThreadPool
 extern bool InitializeThreadPool(void);
@@ -189,5 +194,3 @@ extern void map_value_to_bind_args(void *, vector<var> &);
 #else
 #define LOG_DUMP(__len, __buf)
 #endif
-
-extern bool is_idle;

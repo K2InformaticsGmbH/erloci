@@ -181,10 +181,8 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
 
 #ifdef __WIN32__
 static HANDLE write_mutex;
-static HANDLE log_mutex;
 #else
 static pthread_mutex_t write_mutex;
-static pthread_mutex_t log_mutex;
 #endif
 bool init_marshall(void)
 {
@@ -194,18 +192,9 @@ bool init_marshall(void)
         REMOTE_LOG("Write Mutex creation failed\n");
         return false;
     }
-    log_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == log_mutex) {
-        REMOTE_LOG("Log Mutex creation failed\n");
-        return false;
-    }
 #else
     if(pthread_mutex_init(&write_mutex, NULL) != 0) {
         REMOTE_LOG("Write Mutex creation failed");
-        return false;
-    }
-    if(pthread_mutex_init(&log_mutex, NULL) != 0) {
-        REMOTE_LOG("Log Mutex creation failed");
         return false;
     }
 #endif
@@ -280,20 +269,10 @@ int write_resp(void * resp_term)
 
 	LOG_DUMP(pkt_len, tx_buf);
 
-    if(
-#ifdef __WIN32__
-        WAIT_OBJECT_0 == WaitForSingleObject(write_mutex,INFINITE)
-#else
-        0 == pthread_mutex_lock(&write_mutex)
-#endif
-    ) {
+    if(lock(write_mutex)) {
         cout.write((char *) tx_buf, pkt_len);
         cout.flush();
-#ifdef __WIN32__
-        ReleaseMutex(write_mutex);
-#else
-        pthread_mutex_unlock(&write_mutex);
-#endif
+		unlock(write_mutex);
     }
 
     // Free the temporary allocated buffer
@@ -310,29 +289,6 @@ error_exit:
     if (resp)
 		erl_free_compound(resp);
     return pkt_len;
-}
-
-bool lock_log()
-{
-	if(
-#ifdef __WIN32__
-    WAIT_OBJECT_0 == WaitForSingleObject(log_mutex,INFINITE)
-#else
-    0 == pthread_mutex_lock(&log_mutex)
-#endif
-	)
-		return true;
-	else
-		return false;
-}
-
-void unlock_log()
-{
-#ifdef __WIN32__
-        ReleaseMutex(log_mutex);
-#else
-        pthread_mutex_unlock(&log_mutex);
-#endif
 }
 
 void map_schema_to_bind_args(void * _args, vector<var> & vars)

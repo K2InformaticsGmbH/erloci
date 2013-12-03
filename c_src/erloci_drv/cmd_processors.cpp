@@ -28,8 +28,6 @@ bool change_log_flag(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), command, args);
 
-	is_idle = false;
-
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(RMOTE_MSG)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RMOTE_MSG);
 		REMOTE_LOG("ERROR badarg\n");
@@ -80,8 +78,6 @@ bool cmd_get_session(ETERM * command)
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), command, args);
-
-	is_idle = false;
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], GET_SESSN);
@@ -137,8 +133,6 @@ bool cmd_release_conn(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), command, args);
 
-	is_idle = false;
-
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PUT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PUT_SESSN);
 		if(!resp) REMOTE_LOG("ERROR badarg\n");
@@ -189,8 +183,6 @@ bool cmd_commit(ETERM * command)
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), command, args);
-
-	is_idle = false;
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMT_SESSN);
@@ -243,8 +235,6 @@ bool cmd_rollback(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), command, args);
 
-	is_idle = false;
-
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(RBK_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RBK_SESSN);
 		if(!resp) REMOTE_LOG("ERROR badarg\n");
@@ -295,8 +285,6 @@ bool cmd_describe(ETERM * command)
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), command, args);
-
-	is_idle = false;
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_DSCRB)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_DSCRB);
@@ -363,8 +351,6 @@ bool cmd_prep_sql(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), command, args);
 
-	is_idle = false;
-
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PREP_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PREP_STMT);
 		if(!resp) REMOTE_LOG("ERROR badarg\n");
@@ -425,8 +411,6 @@ bool cmd_bind_args(ETERM * command)
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), command, args);
-
-	is_idle = false;
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_ARGS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], BIND_ARGS);
@@ -490,8 +474,6 @@ bool cmd_exec_stmt(ETERM * command)
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
-
-	is_idle = false;
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
 	    resp = erl_format((char*)"{~w,~i,{error,badargcount,~i,~i}}", args[0], EXEC_STMT, ARG_COUNT(command), CMD_ARGS_COUNT(EXEC_STMT));
@@ -575,8 +557,6 @@ bool cmd_fetch_rows(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), command, args);
 
-	is_idle = false;
-
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(FTCH_ROWS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], FTCH_ROWS);
 		if(!resp) REMOTE_LOG("ERROR badarg\n");
@@ -658,8 +638,6 @@ bool cmd_close_stmt(ETERM * command)
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), command, args);
 
-	is_idle = false;
-
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CLSE_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CLSE_STMT);
 		if(!resp) REMOTE_LOG("ERROR badarg\n");
@@ -738,7 +716,6 @@ bool cmd_ping(ETERM * command)
 				resp = erl_format((char*)"{~w,~i,{error,bad_ping}}", args[0], PORT_PING);
 				if(!resp) REMOTE_LOG("ERROR bad ping\n");
 			} else {
-				is_idle = false;
 				resp = erl_format((char*)"{~w,~i,pong}", args[0], PORT_PING);
 			}
 		} catch (intf_ret r) {
