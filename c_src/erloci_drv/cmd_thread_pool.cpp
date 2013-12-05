@@ -35,7 +35,7 @@
 
 #include <stdio.h>
 
-bool command_in_progress = true;
+bool *command_in_progress = NULL;
 
 #ifdef __WIN32__
 	static PTP_POOL pool = NULL;
@@ -48,8 +48,9 @@ bool command_in_progress = true;
 		static ULARGE_INTEGER ulDueTime;
 	#endif
 #else
-	static threadpool_t *pTp = NULL;
-    static struct event ev;
+	static threadpool_t *pTp            = NULL;
+    static struct event *ev             = NULL;
+    static struct event_base *ev_base   = NULL;
     static struct timeval tv;
 #endif
 
@@ -78,12 +79,8 @@ IdleTimerCb(
     UNREFERENCED_PARAMETER(Timer);
 #endif
 
-	if (command_in_progress)
-#ifdef __WIN32__
+	if (*command_in_progress)
 		reset_timer();
-#else
-        evtimer_add(&ev, &tv);
-#endif
 	else {
 		REMOTE_LOG("Master erlang process keep-alive timeout. dying...\n");
 #ifdef __WIN32__
@@ -99,9 +96,10 @@ IdleTimerCb(
 void timer_thread_start_function(void *ptr)
 {
     event_init();
-    evtimer_set(&ev, IdleTimerCb, NULL);
-    evtimer_add(&ev, &tv);
-    event_dispatch();
+    ev_base = event_base_new();
+    ev = event_new(ev_base, 0, EV_TIMEOUT|EV_READ, IdleTimerCb, NULL);
+    event_add(ev, &tv);
+    event_base_dispatch(ev_base);
 }
 #endif
 
@@ -128,6 +126,9 @@ void reset_timer()
     FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
 
     SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
+#else
+    if(ev)
+        event_add(ev, &tv);
 #endif
 }
 
@@ -135,6 +136,8 @@ bool InitializeThreadPool(void)
 {
     REMOTE_LOG("Port: Initializing Thread pool...\n");
 
+    command_in_progress = new bool;
+    *command_in_progress = true;
 #ifdef __WIN32__
     BOOL bRet = FALSE;
 
@@ -222,6 +225,8 @@ void CleanupThreadPool(void)
 {
     REMOTE_LOG("Port: Cleanup Thread pool...");
 
+    if(command_in_progress)
+        delete command_in_progress;  
 #ifdef __WIN32__
     BOOL bRet = FALSE;
 

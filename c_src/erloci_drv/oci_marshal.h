@@ -171,7 +171,7 @@ extern void set_timer(unsigned long);
 extern void reset_timer(void);
 #endif
 
-extern bool command_in_progress;
+extern bool *command_in_progress;
 
 
 extern size_t calculate_resp_size(void * resp);

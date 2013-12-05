@@ -763,7 +763,7 @@ bool cmd_processor(void * param)
 	delete tmpbuf;
 #endif
 
-	command_in_progress = true;
+	*command_in_progress = true;
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
         case GET_SESSN:	ret = cmd_get_session(command);		break;
@@ -785,7 +785,7 @@ bool cmd_processor(void * param)
         }
     }
 #ifdef IDLE_TIMEOUT
-	command_in_progress = false;
+	*command_in_progress = false;
 	reset_timer();
 #endif
 	erl_free_term(cmd);
