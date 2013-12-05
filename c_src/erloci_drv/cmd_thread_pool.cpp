@@ -25,6 +25,9 @@
 #include <windows.h>
 #include <tchar.h>
 #else
+#include <sys/time.h>
+#include <event.h>
+#include <stdlib.h>
 #include "threadpool.h"
 #define THREAD          10
 #define QUEUE           256
@@ -46,52 +49,87 @@ bool command_in_progress = true;
 	#endif
 #else
 	static threadpool_t *pTp = NULL;
+    static struct event ev;
+    static struct timeval tv;
 #endif
 
 #ifdef IDLE_TIMEOUT
+#ifdef __WIN32__
+VOID CALLBACK
+#else
+void
+#endif
+IdleTimerCb(
+#ifdef __WIN32__
+    PTP_CALLBACK_INSTANCE Instance,
+    PVOID                 Parameter,
+    PTP_TIMER             Timer
+#else
+    int fd,
+    short event,
+    void *arg 
+#endif
+    )
+{
+#ifdef __WIN32__
+    // Instance, Parameter, and Timer not used in this example.
+    UNREFERENCED_PARAMETER(Instance);
+    UNREFERENCED_PARAMETER(Parameter);
+    UNREFERENCED_PARAMETER(Timer);
+#endif
+
+	if (command_in_progress)
+#ifdef __WIN32__
+		reset_timer();
+#else
+        evtimer_add(&ev, &tv);
+#endif
+	else {
+		REMOTE_LOG("Master erlang process keep-alive timeout. dying...\n");
+#ifdef __WIN32__
+		ExitProcess(3);
+#else
+        exit(0);
+#endif
+	}
+}
+#endif
+
+#ifndef __WIN32__
+void timer_thread_start_function(void *ptr)
+{
+    event_init();
+    evtimer_set(&ev, IdleTimerCb, NULL);
+    evtimer_add(&ev, &tv);
+    event_dispatch();
+}
+#endif
+
 void set_timer(unsigned long delayms)
 {
-    //
     // Set the timer to fire in delayms.
-    //
+#ifdef __WIN32__
     ulDueTime.QuadPart = -((ULONGLONG)delayms) * 10 * 1000;
     FileDueTime.dwHighDateTime = ulDueTime.HighPart;
     FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
 
     SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
+#else
+    tv.tv_sec = (delayms / 1000);
+    tv.tv_usec = ((delayms % 1000) * 1000);
+    threadpool_add(pTp, &timer_thread_start_function, NULL, 0);
+#endif
 }
 
 void reset_timer()
 {
+#ifdef __WIN32__
     FileDueTime.dwHighDateTime = ulDueTime.HighPart;
     FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
 
     SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
-}
-//
-// Thread pool timer callback function template
-//
-VOID
-CALLBACK
-IdleTimerCb(
-    PTP_CALLBACK_INSTANCE Instance,
-    PVOID                 Parameter,
-    PTP_TIMER             Timer
-    )
-{
-    // Instance, Parameter, and Timer not used in this example.
-    UNREFERENCED_PARAMETER(Instance);
-    UNREFERENCED_PARAMETER(Parameter);
-    UNREFERENCED_PARAMETER(Timer);
-
-	if (command_in_progress)
-		reset_timer();
-	else {
-		REMOTE_LOG("Master erlang process keep-alive timeout. dying...\n");
-		ExitProcess(3);
-	}
-}
 #endif
+}
 
 bool InitializeThreadPool(void)
 {
@@ -228,7 +266,7 @@ main_cleanup:
         break;
     }
 #else
-    if(NULL != pTp)
+    if(pTp)
         threadpool_destroy(pTp, 0);
 #endif
 }
