@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <event.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "threadpool.h"
 #define THREAD          10
 #define QUEUE           256
@@ -49,8 +50,7 @@ bool *command_in_progress = NULL;
 	#endif
 #else
 	static threadpool_t *pTp            = NULL;
-    static struct event *ev             = NULL;
-    static struct event_base *ev_base   = NULL;
+    static struct event ev;
     static struct timeval tv;
 #endif
 
@@ -78,9 +78,11 @@ IdleTimerCb(
     UNREFERENCED_PARAMETER(Parameter);
     UNREFERENCED_PARAMETER(Timer);
 #endif
-
-	if (*command_in_progress)
+    //REMOTE_LOG("Timer fired command_in_progress %s\n", *command_in_progress ? "true": "false");
+	if (*command_in_progress) {
+		REMOTE_LOG("resetting... %d, %d\n", tv.tv_sec, tv.tv_usec);
 		reset_timer();
+    }
 	else {
 		REMOTE_LOG("Master erlang process keep-alive timeout. dying...\n");
 #ifdef __WIN32__
@@ -93,13 +95,23 @@ IdleTimerCb(
 #endif
 
 #ifndef __WIN32__
+unsigned long timeout_remaining()
+{
+    struct timeval t;
+    struct timeval now;
+    memset(&t, 0, sizeof(struct timeval));
+    event_pending(&ev, EV_TIMEOUT, &t);
+    gettimeofday(&now, NULL);
+    return (t.tv_sec - now.tv_sec);
+}
+
 void timer_thread_start_function(void *ptr)
 {
     event_init();
-    ev_base = event_base_new();
-    ev = event_new(ev_base, 0, EV_TIMEOUT|EV_READ, IdleTimerCb, NULL);
-    event_add(ev, &tv);
-    event_base_dispatch(ev_base);
+    event_set(&ev, 0, EV_TIMEOUT, IdleTimerCb, NULL);
+    event_add(&ev, &tv);
+    REMOTE_LOG("IdleTimerCb firing if idle for %d sec\n", timeout_remaining());
+    event_dispatch();
 }
 #endif
 
@@ -127,8 +139,23 @@ void reset_timer()
 
     SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
 #else
-    if(ev)
-        event_add(ev, &tv);
+    if (!event_pending(&ev, EV_TIMEOUT, NULL)) {
+        if(event_del(&ev) < 0) {
+            REMOTE_LOG("Event del failure\n");
+        } else {
+            REMOTE_LOG("Event del\n");
+        }
+    }
+    // else {
+    //    REMOTE_LOG("Timeout remaining %d sec, not pending\n", timeout_remaining());
+    //}
+
+    if(event_add(&ev, &tv) < 0) {
+        REMOTE_LOG("Event add failure\n");
+    }
+    // else {
+    //    REMOTE_LOG("Event %d sec added.............................\n", tv.tv_sec);
+    //}
 #endif
 }
 

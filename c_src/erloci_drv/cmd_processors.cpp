@@ -764,6 +764,7 @@ bool cmd_processor(void * param)
 #endif
 
 	*command_in_progress = true;
+    //REMOTE_LOG("command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
         case GET_SESSN:	ret = cmd_get_session(command);		break;
@@ -785,9 +786,10 @@ bool cmd_processor(void * param)
         }
     }
 #ifdef IDLE_TIMEOUT
-	*command_in_progress = false;
 	reset_timer();
 #endif
+    //REMOTE_LOG("command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
+	*command_in_progress = false;
 	erl_free_term(cmd);
 
 //	PRINT_ERL_ALLOC("end");
