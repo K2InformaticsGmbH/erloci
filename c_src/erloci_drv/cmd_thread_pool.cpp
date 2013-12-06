@@ -72,15 +72,15 @@ IdleTimerCb(
 #endif
     )
 {
+    //REMOTE_LOG("Timer fired command_in_progress %s\n", *command_in_progress ? "true": "false");
 #ifdef __WIN32__
     // Instance, Parameter, and Timer not used in this example.
     UNREFERENCED_PARAMETER(Instance);
     UNREFERENCED_PARAMETER(Parameter);
     UNREFERENCED_PARAMETER(Timer);
 #endif
-    //REMOTE_LOG("Timer fired command_in_progress %s\n", *command_in_progress ? "true": "false");
 	if (*command_in_progress) {
-		REMOTE_LOG("resetting... %d, %d\n", tv.tv_sec, tv.tv_usec);
+		REMOTE_LOG("resetting...\n");
 		reset_timer();
     }
 	else {
