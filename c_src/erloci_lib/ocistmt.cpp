@@ -429,7 +429,7 @@ unsigned int ocistmt::execute(void * column_list,
                 break;
 			case SQLT_RDD:
 			case SQLT_RID:
-				cur_clm.dlen = 19;
+				cur_clm.dlen = (cur_clm.dlen < 19 ? 19 : cur_clm.dlen);
 				cur_clm.row_valp = new text[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
