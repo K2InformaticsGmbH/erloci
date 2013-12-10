@@ -21,6 +21,9 @@
 
 #include "cmd_processors.h"
 
+#define THREAD          10
+#define QUEUE           256
+
 #ifdef __WIN32__
 #include <windows.h>
 #include <tchar.h>
@@ -30,8 +33,6 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include "threadpool.h"
-#define THREAD          10
-#define QUEUE           256
 #endif
 
 #include <stdio.h>
@@ -72,7 +73,7 @@ IdleTimerCb(
 #endif
     )
 {
-    //REMOTE_LOG("Timer fired command_in_progress %s\n", *command_in_progress ? "true": "false");
+    //REMOTE_LOG("Timer fired command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
 #ifdef __WIN32__
     // Instance, Parameter, and Timer not used in this example.
     UNREFERENCED_PARAMETER(Instance);
@@ -186,7 +187,7 @@ bool InitializeThreadPool(void)
     // The thread pool is made persistent simply by setting
     // both the minimum and maximum threads to 1.
     //
-    SetThreadpoolThreadMaximum(pool, 1);
+    SetThreadpoolThreadMaximum(pool, THREAD);
 
     bRet = SetThreadpoolThreadMinimum(pool, 1);
 
