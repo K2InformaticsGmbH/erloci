@@ -20,6 +20,7 @@
 #include <netinet/in.h>
 #else
 #include <Winsock2.h>
+#include <Windows.h>
 #endif
 
 #include <cstring>
@@ -490,6 +491,7 @@ unsigned int ocistmt::execute(void * column_list,
 		}
 	}
 
+	//Sleep(50000);
 	return row_count;
 }
 
@@ -586,6 +588,7 @@ intf_ret ocistmt::rows(void * row_list,
 	else
 		r.fn_ret = DONE;
 
+	//Sleep(50000);
 	return r;
 }
 
