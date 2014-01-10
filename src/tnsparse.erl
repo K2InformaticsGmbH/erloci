@@ -9,7 +9,7 @@
 
 
 
--file("d:/Programs/erlang/ERL510~1.1/lib/parsetools-2.0.9/include/yeccpre.hrl", 0).
+-file("c:/PROGRA~1/erlang/ERL510~1.1/lib/parsetools-2.0.9/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%

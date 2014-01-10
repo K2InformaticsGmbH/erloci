@@ -41,7 +41,7 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
                             (void **) NULL));	/* returned extra memeory */
 
 	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG("failed OCISessionGet %s\n", r.gerrbuf);
+   		REMOTE_LOG(ERR, "failed OCISessionGet %s\n", r.gerrbuf);
         throw r;
 	}
 
@@ -69,13 +69,13 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
                                NULL, 0, NULL, NULL, NULL,				/* session tagging parameters: optional */
                                OCI_DEFAULT));					        /* modes */
 	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCISessionGet %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCISessionGet %s\n", r.gerrbuf);
         throw r;
 	}
 
 	(void) OCIHandleFree(authp, OCI_HTYPE_AUTHINFO);
 
-	REMOTE_LOG("got session %p %.*s user %.*s\n", _svchp, connect_str_len, connect_str, user_name_len, user_name);
+	REMOTE_LOG(INF, "got session %p %.*s user %.*s\n", _svchp, connect_str_len, connect_str, user_name_len, user_name);
 
 	_sessions.push_back(this);
 }
@@ -86,7 +86,7 @@ void ocisession::commit()
 
 	checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
 	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCITransCommit %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCITransCommit %s\n", r.gerrbuf);
         throw r;
 	}
 }
@@ -97,7 +97,7 @@ void ocisession::rollback()
 
 	checkerr(&r, OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
 	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCITransRollback %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCITransRollback %s\n", r.gerrbuf);
         throw r;
 	}
 }
@@ -128,7 +128,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 					   objptr, objptr_len, OCI_OTYPE_NAME,
                        OCI_DEFAULT, objtyp, dschp));
 	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCIDescribeAny(OCI_OTYPE_NAME) %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCIDescribeAny(OCI_OTYPE_NAME) %s\n", r.gerrbuf);
         throw r;
 	}
 
@@ -136,7 +136,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 	checkerr(&r, OCIAttrGet((dvoid *)dschp, OCI_HTYPE_DESCRIBE, (dvoid *)&parmh, (ub4 *)0,
 					OCI_ATTR_PARAM, (OCIError*)_errhp));
     if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCIAttrGet(OCI_HTYPE_DESCRIBE, OCI_ATTR_PARAM) %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_HTYPE_DESCRIBE, OCI_ATTR_PARAM) %s\n", r.gerrbuf);
 		goto error_exit;
 	}
 
@@ -144,7 +144,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 	checkerr(&r, OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&numcols, (ub4 *)0,
 					OCI_ATTR_NUM_COLS, (OCIError*)_errhp));
     if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NUM_COLS) %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NUM_COLS) %s\n", r.gerrbuf);
 		goto error_exit;
 	}
 
@@ -152,10 +152,10 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 	checkerr(&r, OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&collsthd, (ub4 *)0,
 					OCI_ATTR_LIST_COLUMNS, (OCIError*)_errhp));
 	if(r.fn_ret == OCI_NO_DATA) {
-		REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) -> OCI_NO_DATA %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) -> OCI_NO_DATA %s\n", r.gerrbuf);
 		goto error_exit;
 	} else if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) %s\n", r.gerrbuf);
 		goto error_exit;
 	} 
 
@@ -164,7 +164,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 		/* get parameter for column i */
 		checkerr(&r, OCIParamGet((dvoid *)collsthd, OCI_DTYPE_PARAM, (OCIError*)_errhp, (dvoid **)&colhd, (ub4)i));
 		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG("failed OCIParamGet(OCI_DTYPE_PARAM) %s\n", r.gerrbuf);
+			REMOTE_LOG(ERR, "failed OCIParamGet(OCI_DTYPE_PARAM) %s\n", r.gerrbuf);
 			goto error_exit;
 		}
 
@@ -172,7 +172,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 		coltyp = 0;
 		checkerr(&r, OCIAttrGet((dvoid *)colhd, OCI_DTYPE_PARAM, (dvoid *)&coltyp, (ub4 *)0, OCI_ATTR_DATA_TYPE, (OCIError*)_errhp));
 		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_TYPE) %s\n", r.gerrbuf);
+			REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_TYPE) %s\n", r.gerrbuf);
 			goto error_exit;
 		}
 
@@ -180,7 +180,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 		char_semantics = 0;
 		checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &char_semantics, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_USED, (OCIError*)_errhp));
 		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_USED) %s\n", r.gerrbuf);
+			REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_USED) %s\n", r.gerrbuf);
 			goto error_exit;
 		}
 
@@ -189,7 +189,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 			/* Retrieve the column width in characters */
 			checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_SIZE, (OCIError*)_errhp));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_SIZE) %s\n", r.gerrbuf);
+				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_SIZE) %s\n", r.gerrbuf);
 				goto error_exit;
 			}
 		} else {
@@ -197,7 +197,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 			checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width,(ub4 *) 0, (ub4) OCI_ATTR_DATA_SIZE,
 					 (OCIError*)_errhp));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_SIZE) %s\n", r.gerrbuf);
+				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_SIZE) %s\n", r.gerrbuf);
 				goto error_exit;
 			}
 		}
@@ -208,7 +208,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
                                 (dvoid**) &col_name, (ub4 *) &col_name_len, (ub4) OCI_ATTR_NAME,
                                 (OCIError*)_errhp));
 		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG("failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NAME) error %s\n", r.gerrbuf);
+			REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NAME) error %s\n", r.gerrbuf);
 			goto error_exit;
 		}
 
@@ -260,7 +260,7 @@ ocisession::~ocisession(void)
 
 	checkerr(&r, OCISessionRelease((OCISvcCtx*)_svchp, (OCIError*)_errhp, NULL, 0, OCI_DEFAULT));
 	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCISessionRelease %s\n", r.gerrbuf);
+		REMOTE_LOG(ERR, "failed OCISessionRelease %s\n", r.gerrbuf);
         throw r;
 	}
 

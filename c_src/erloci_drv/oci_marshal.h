@@ -143,9 +143,9 @@ extern void * build_term_from_bind_args(inp_t *);*/
 #define sprintf_s(_a, _b, _c, ...)				sprintf((_a), (_c), __VA_ARGS__)
 #define strncpy_s(_a, _b, _c, _d)               strncpy((_a), (_c), (_d))
 #define vsprintf_s(_a, _b, _c, _d)              vsprintf((_a), (_c), (_d))
-#define REMOTE_LOG(_str, ...)		if (log_flag) log_remote(("[debug] [_PRT_] {%s:%s:%d} "_str),__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__)
+#define REMOTE_LOG(_level,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_str,##__VA_ARGS__)
 #else
-#define REMOTE_LOG(_str, ...)		if (log_flag) log_remote(("[debug] [_PRT_] {%s:%s:%d} "_str),__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#define REMOTE_LOG(_level,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_str,__VA_ARGS__)
 #endif
 
 #if DEBUG <= DBG_3
@@ -203,3 +203,9 @@ extern void map_value_to_bind_args(void *, vector<var> &);
 #else
 #define LOG_DUMP(__len, __buf)
 #endif
+
+// 32 bit packet header
+typedef union _pack_hdr {
+    char len_buf[4];
+    unsigned long len;
+} pkt_hdr;

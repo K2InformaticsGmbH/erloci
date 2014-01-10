@@ -81,11 +81,11 @@ IdleTimerCb(
     UNREFERENCED_PARAMETER(Timer);
 #endif
 	if (*command_in_progress) {
-		REMOTE_LOG("resetting...\n");
+		REMOTE_LOG(INF, "resetting...\n");
 		reset_timer();
     }
 	else {
-		REMOTE_LOG("Master erlang process keep-alive timeout. dying...\n");
+		REMOTE_LOG(CRT, "Master erlang process keep-alive timeout. dying...\n");
 #ifdef __WIN32__
 		ExitProcess(3);
 #else
@@ -162,7 +162,7 @@ void reset_timer()
 
 bool InitializeThreadPool(void)
 {
-    REMOTE_LOG("Port: Initializing Thread pool...\n");
+    REMOTE_LOG(DBG, "Port: Initializing Thread pool...\n");
 
     command_in_progress = new bool;
     *command_in_progress = true;
@@ -251,7 +251,7 @@ main_cleanup:
 
 void CleanupThreadPool(void)
 {
-    REMOTE_LOG("Port: Cleanup Thread pool...");
+    REMOTE_LOG(DBG, "Port: Cleanup Thread pool...");
 
     if(command_in_progress)
         delete command_in_progress;  

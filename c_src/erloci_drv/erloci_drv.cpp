@@ -103,23 +103,23 @@ int main(int argc, char * argv[])
 #endif
 	}
 
-	REMOTE_LOG("Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d, idle timeout %lu ms\n"
+	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d, idle timeout %lu ms\n"
 		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port, port_idle_timeout);
 
     init_marshall();
 
-    REMOTE_LOG("Port: OCI Process started...\n");
+    REMOTE_LOG(DBG, "Port: OCI Process started...\n");
 
     threaded = InitializeThreadPool();
     if(threaded)
-        REMOTE_LOG("Port: Thread pool created...\n");
+        REMOTE_LOG(DBG, "Port: Thread pool created...\n");
 
 #ifdef IDLE_TIMEOUT
 	set_timer(port_idle_timeout);
-    REMOTE_LOG("Port Idle timeout set\n");
+    REMOTE_LOG(DBG, "Port Idle timeout set\n");
 #endif
 
-    REMOTE_LOG("Port: Initialized Oracle OCI\n");
+    REMOTE_LOG(DBG, "Port: Initialized Oracle OCI\n");
 
     while(!exit_loop && (cmd_tuple = (ETERM *)read_cmd()) != NULL) {
         if(threaded && ProcessCommand(cmd_tuple)) {
@@ -128,11 +128,11 @@ int main(int argc, char * argv[])
     }
 
     CleanupThreadPool();
-    REMOTE_LOG("Port: Thread pool destroyed\n");
+    REMOTE_LOG(DBG, "Port: Thread pool destroyed\n");
 
 	close_tcp();
-    REMOTE_LOG("Port: tcp log socket closed\n");
+    REMOTE_LOG(DBG, "Port: tcp log socket closed\n");
 
-    REMOTE_LOG("Port: Process oci terminating...\n");
+    REMOTE_LOG(DBG, "Port: Process oci terminating...\n");
     return 0;
 }

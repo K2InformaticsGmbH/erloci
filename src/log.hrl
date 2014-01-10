@@ -53,3 +53,15 @@ end)()
 -else.
 -define(LOG(__T,__L,__M,__F,__A), ok = ok).
 -endif.
+
+-define(LLVL(__N), case __N of
+                       0 -> dbg;
+                       1 -> inf;
+                       2 -> ntc;
+                       3 -> err;
+                       4 -> wrn;
+                       5 -> crt;
+                       6 -> fat;
+                       _ -> unn
+                   end).
+

@@ -30,7 +30,7 @@ bool change_log_flag(ETERM * command)
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(RMOTE_MSG)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RMOTE_MSG);
-		REMOTE_LOG("ERROR badarg\n");
+		REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -41,27 +41,27 @@ bool change_log_flag(ETERM * command)
 
         switch(log) {
         case DBG_FLAG_OFF:
-            REMOTE_LOG("Disabling logging...");
+            REMOTE_LOG(INF, "Disabling logging...");
             log_flag = false;
-            REMOTE_LOG("This line will never show up!!\n");
+            REMOTE_LOG(CRT, "This line will never show up!!\n");
             resp = erl_format((char*)"{~w,~i,log_disabled}", args[0], RMOTE_MSG);
             break;
         case DBG_FLAG_ON:
             log_flag = true;
             resp = erl_format((char*)"{~w,~i,log_enabled}", args[0], RMOTE_MSG);
-            REMOTE_LOG("Enabled logging...\n");
+            REMOTE_LOG(INF, "Enabled logging...\n");
             break;
         default:
             resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RMOTE_MSG);
-			REMOTE_LOG("ERROR badarg %d\n", log);
+			REMOTE_LOG(ERR, "ERROR badarg %d\n", log);
             break;
         }
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -81,7 +81,7 @@ bool cmd_get_session(ETERM * command)
 
 	if(ARG_COUNT(command) != CMD_ARGS_COUNT(GET_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], GET_SESSN);
-		if(!resp) REMOTE_LOG("ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), ARG_COUNT(command));
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), ARG_COUNT(command));
 		ret = true;
 	    goto error_exit;
 	}
@@ -96,26 +96,26 @@ bool cmd_get_session(ETERM * command)
 					(char*)ERL_BIN_PTR(args[1]), ERL_BIN_SIZE(args[1]),		// Connect String
 					(char*)ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]),		// User Name String
 					(char*)ERL_BIN_PTR(args[3]), ERL_BIN_SIZE(args[3]));	// Password String
-		        REMOTE_LOG("got connection %lu\n", (unsigned long long)conn_handle);
+		        REMOTE_LOG(INF, "got connection %lu\n", (unsigned long long)conn_handle);
 				ETERM *conh = erl_mk_ulonglong((unsigned long long)conn_handle);
 				resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSN, conh);
 				erl_free_term(conh);
 		   } catch (intf_ret r) {
 				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], GET_SESSN, r.gerrcode, r.gerrbuf);
-				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		   } catch (string str) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], GET_SESSN, str.c_str());
-				if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		   } catch (...) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], GET_SESSN);
-				if(!resp) REMOTE_LOG("ERROR unknown\n");
+				if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		   }
 	} else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -135,7 +135,7 @@ bool cmd_release_conn(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PUT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PUT_SESSN);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -151,22 +151,22 @@ bool cmd_release_conn(ETERM * command)
 		} catch (intf_ret r) {
             resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], PUT_SESSN, r.gerrcode, r.gerrbuf);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], PUT_SESSN, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PUT_SESSN);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -186,7 +186,7 @@ bool cmd_commit(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMT_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMT_SESSN);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -202,22 +202,22 @@ bool cmd_commit(ETERM * command)
 		} catch (intf_ret r) {
             resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMT_SESSN, r.gerrcode, r.gerrbuf);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMT_SESSN, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMT_SESSN);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -237,7 +237,7 @@ bool cmd_rollback(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(RBK_SESSN)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], RBK_SESSN);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -253,22 +253,22 @@ bool cmd_rollback(ETERM * command)
 		} catch (intf_ret r) {
             resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], RBK_SESSN, r.gerrcode, r.gerrbuf);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], RBK_SESSN, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], RBK_SESSN);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -288,7 +288,7 @@ bool cmd_describe(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_DSCRB)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_DSCRB);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -314,26 +314,26 @@ bool cmd_describe(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				if(!resp) REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
 			else {
-				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMD_DSCRB, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_DSCRB);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -353,7 +353,7 @@ bool cmd_prep_sql(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PREP_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PREP_STMT);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -375,26 +375,26 @@ bool cmd_prep_sql(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], PREP_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				if(!resp) REMOTE_LOG("Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
 			else {
-				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], PREP_STMT, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], PREP_STMT);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -414,7 +414,7 @@ bool cmd_bind_args(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_ARGS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], BIND_ARGS);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -441,23 +441,23 @@ bool cmd_bind_args(ETERM * command)
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
-			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 			ret = true;
 		} catch (string & str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], BIND_ARGS, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], BIND_ARGS);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
 	if(write_resp(resp) < 0)
         ret = true;
 
@@ -477,7 +477,7 @@ bool cmd_exec_stmt(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
 	    resp = erl_format((char*)"{~w,~i,{error,badargcount,~i,~i}}", args[0], EXEC_STMT, ARG_COUNT(command), CMD_ARGS_COUNT(EXEC_STMT));
-		if(!resp) REMOTE_LOG("ERROR bad arguments count\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR bad arguments count\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -500,7 +500,7 @@ bool cmd_exec_stmt(ETERM * command)
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
-				if(!resp) REMOTE_LOG("ERROR invalid statement handle\n");
+				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
@@ -520,26 +520,26 @@ bool cmd_exec_stmt(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				if(!resp) REMOTE_LOG("Continue with ERROR Execute STMT %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute STMT %s\n", r.gerrbuf);
 			else {
-				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], EXEC_STMT, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], EXEC_STMT);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
 	} else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -559,7 +559,7 @@ bool cmd_fetch_rows(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(FTCH_ROWS)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], FTCH_ROWS);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -582,7 +582,7 @@ bool cmd_fetch_rows(ETERM * command)
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
-				if(!resp) REMOTE_LOG("ERROR invalid statement handle\n");
+				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				intf_ret r = statement_handle->rows(&rows,
 												   append_string_to_list,
@@ -601,26 +601,26 @@ bool cmd_fetch_rows(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR)
-				if(!resp) REMOTE_LOG("Continue with ERROR fetch STMT %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
 			else {
-				if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], FTCH_ROWS, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], FTCH_ROWS);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
 	if(write_resp(resp) < 0)
         ret = true;
 
@@ -640,7 +640,7 @@ bool cmd_close_stmt(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(CLSE_STMT)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CLSE_STMT);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -659,7 +659,7 @@ bool cmd_close_stmt(ETERM * command)
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
-				if(!resp) REMOTE_LOG("ERROR invalid statement handle\n");
+				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				statement_handle->close();
 				resp = erl_format((char*)"{~w,~i,ok}", args[0], CLSE_STMT);
@@ -667,22 +667,22 @@ bool cmd_close_stmt(ETERM * command)
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CLSE_STMT, r.gerrcode, r.gerrbuf);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 
@@ -702,7 +702,7 @@ bool cmd_ping(ETERM * command)
 
     if(ARG_COUNT(command) != CMD_ARGS_COUNT(PORT_PING)) {
 	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PORT_PING);
-		if(!resp) REMOTE_LOG("ERROR badarg\n");
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
 		ret = true;
 	    goto error_exit;
 	}
@@ -714,29 +714,29 @@ bool cmd_ping(ETERM * command)
 			strncpy(ping, ERL_ATOM_PTR(args[1]), 4);
 			if (strncmp(ping, "ping", 4) != 0) {
 				resp = erl_format((char*)"{~w,~i,{error,bad_ping}}", args[0], PORT_PING);
-				if(!resp) REMOTE_LOG("ERROR bad ping\n");
+				if(!resp) REMOTE_LOG(ERR, "ERROR bad ping\n");
 			} else {
 				resp = erl_format((char*)"{~w,~i,pong}", args[0], PORT_PING);
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CLSE_STMT, r.gerrcode, r.gerrbuf);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, str.c_str());
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR %s\n", str.c_str());
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
 			ret = true;
-			if(!resp) REMOTE_LOG("ERROR unknown\n");
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG("argument type(s) missmatch\n");
+		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
 	}
 
 error_exit:	
-	if(!resp) REMOTE_LOG("driver error: no resp generated, shutting down port\n");
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     if(write_resp(resp) < 0)
         ret = true;
 

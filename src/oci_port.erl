@@ -78,8 +78,8 @@ start_link(Options) ->
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
+    spawn(fun() -> oci_logger:accept(LSock, LogFun) end),
     ?Info("listening at ~p for log connections...", [ListenPort]),
-    spawn(fun() -> server(LSock,LogFun) end),
     case Options of
         undefined ->
             gen_server:start_link(?MODULE, [false, ListenPort], []);
@@ -264,19 +264,6 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
             end
     end.
 
-server(LSock,Fun) ->
-    ?Info("~p waiting for log connections...", [LSock]),
-    case gen_tcp:accept(LSock) of
-        {ok, Sock} ->
-            ?Info("logger connected at ~p, now waiting to receive in tight loop and log", [Sock]),
-            log(Sock,Fun),
-            ?Info("closing tcp connection"),
-            ok = gen_tcp:close(Sock),
-            ok = gen_tcp:close(LSock);
-        {error, Error} ->
-            ?Error("listener failed ~p!", [Error])
-    end.
-
 log(Sock,Fun) ->
     case gen_tcp:recv(Sock, 0) of
         {ok, B} ->
@@ -325,7 +312,7 @@ handle_info(ping, #state{port=Port} = State) ->
 handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),
     case handle_result(State#state.logging, Resp) of
-        %{undefined, pong} -> ok;
+        {undefined, pong} -> ok;
         {undefined, Result} -> ?Info("no reply for ~p", [Result]);
         {From, {error, Reason}} ->
             ?Error("~p", [Reason]), % Just in case its ignored later

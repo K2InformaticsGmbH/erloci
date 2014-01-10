@@ -14,6 +14,16 @@
  */
 #pragma once
 
+typedef enum _LOG_LEVEL {
+    DBG	= 0,
+    INF	= 1,
+	NTC = 2,
+    ERR	= 3,
+    WRN	= 4,
+    CRT	= 5,
+    FAT	= 6,
+} LOG_LEVEL;
+
 #define PORT_IDLE_TIMEOUT 1000
 //#define MAX_RESP_SIZE 0xFFFFFFF0
 #define MAX_RESP_SIZE 0x00040000UL
@@ -27,10 +37,10 @@
 #define sprintf_s(_a, _b, _c, ...)				sprintf((_a), (_c), __VA_ARGS__)
 #define strncpy_s(_a, _b, _c, _d)               strncpy((_a), (_c), (_d))
 #define vsprintf_s(_a, _b, _c, _d)              vsprintf((_a), (_c), (_d))
-#define REMOTE_LOG(_str, ...)		if (log_flag) log_remote(("[debug] [_PRT_] {%s:%s:%d} "_str),__FILE__,__FUNCTION__,__LINE__,##__VA_ARGS__)
+#define REMOTE_LOG(_level,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_str,##__VA_ARGS__)
 #define REMOTE_LOG_SINGLE(_str, ...)	if (log_flag) log_remote((_str),##__VA_ARGS__)
 #else
-#define REMOTE_LOG(_str, ...)			if (log_flag) log_remote(("[debug] [_PRT_] {%s:%s:%d} "_str),__FILE__,__FUNCTION__,__LINE__,__VA_ARGS__)
+#define REMOTE_LOG(_level,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_str,__VA_ARGS__)
 #define REMOTE_LOG_SINGLE(_str, ...)	if (log_flag) log_remote((_str),__VA_ARGS__)
 #endif
 
@@ -57,7 +67,7 @@ typedef enum _INTF_RET {
     SUCCESS				= 0,
     CONTINUE_WITH_ERROR	= 1,
     FAILURE				= 2,
-    ERROR				= 3,
+    ERROR_VAL			= 3,
     MORE				= 4,
     DONE				= 5,
 } INTF_RET;
@@ -80,7 +90,7 @@ extern unsigned long max_term_byte_size;
 // Exposed linkages (export)
 //
 
-extern void log_remote(const char *, ...);
+extern void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, const char *, ...);
 
 /* Error checking functions and macros */
 #define checkerr(errhp, status) checkerr0((errhp), OCI_HTYPE_ERROR, (status), __FUNCTION__, __LINE__)

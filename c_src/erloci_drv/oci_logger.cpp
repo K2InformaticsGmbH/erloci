@@ -107,10 +107,17 @@ void close_tcp()
 #endif
 }
 
-#include <iostream>
+#include "oci_marshal.h"
+#include "erl_interface.h"
+
 #define MAX_FORMATTED_STR_LEN 1024
-void log_remote(const char *fmt, ...)
+void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, const char *fmt, ...)
 {
+    int tx_len;
+    int pkt_len = -1;
+    pkt_hdr *hdr;
+    unsigned char * tx_buf;
+
     char log_str[MAX_FORMATTED_STR_LEN];
     va_list arguments;
     va_start(arguments, fmt);
@@ -122,7 +129,19 @@ void log_remote(const char *fmt, ...)
 #endif
     (log_str, MAX_FORMATTED_STR_LEN, fmt, arguments);
 
-	send(log_socket, log_str, (int)strlen(log_str), 0);
+	// Borrowed from write_resp
+	ETERM * log = erl_format((char*)"{~i,~s,~s,~i,~s}", level, filename, funcname, linenumber, log_str);
+	tx_len = erl_term_len(log);	
+    pkt_len = tx_len+PKT_LEN_BYTES;
+    tx_buf = new unsigned char[pkt_len];
+    hdr = (pkt_hdr *)tx_buf;
+    hdr->len = htonl(tx_len);
+    erl_encode(log, tx_buf+PKT_LEN_BYTES);
+
+//	send(log_socket, log_str, (int)strlen(log_str), 0);
+	send(log_socket, (char*) tx_buf, pkt_len, 0);
+
+	delete tx_buf;
 
     va_end(arguments);
 

@@ -549,9 +549,9 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 int _tmain(int argc, _TCHAR* argv[])
 {
 	const char
-		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=5437)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 		*usr = "scott",
-		*pwd = "tiger";
+		*pwd = "regit";
 	intf_ret r;
 
 	// tests for memory leak detection
@@ -564,7 +564,7 @@ int _tmain(int argc, _TCHAR* argv[])
 }
 
 bool log_flag = true;
-void log_remote(const char *fmt, ...)
+void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, const char *fmt, ...)
 {
     va_list arguments;
     va_start(arguments, fmt);
