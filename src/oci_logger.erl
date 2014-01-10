@@ -37,6 +37,8 @@
 accept(LSock, LogFun) ->
     gen_server:call(?MODULE, {accept, LSock, LogFun}).
 
+log({Lvl, Tag, File, Func, Line, Msg}) ->
+    log(lists:flatten(io_lib:format(?T++"[~p]"++Tag++" {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])));
 log(Msg) ->
     case [R || R <- erlang:registered(), R =:= ?MODULE] of
         [] ->
@@ -53,7 +55,7 @@ handle_cast(Msg, State) ->
     io:format(user, Msg, []),
     {noreply, State}.
 
-handle_info({tcp, Socket, Data}, #state{sock = Socket, buf = OldBuf, logfun = LogFun} = State) ->
+handle_info({tcp, Socket, Data}, #state{sock = Socket, logfun = LogFun} = State) ->
     << Size:32/integer, Payload/binary >> = NewBuf = list_to_binary([State#state.buf, Data]),
     inet:setopts(Socket,[{active,once}]),
     if Size > byte_size(Payload) ->
@@ -61,7 +63,7 @@ handle_info({tcp, Socket, Data}, #state{sock = Socket, buf = OldBuf, logfun = Lo
         {noreply, State#state{buf = NewBuf}};
     true ->
         case binary_to_term(Payload) of
-        {Lvl,File,Func,Line,Msg} = LogLine ->
+        {Lvl,File,Func,Line,Msg} ->
             if is_function(LogFun, 1) ->
                 LogFun({?LLVL(Lvl), "_PRT_", File, Func, Line, Msg});
             true -> io:format(user, ?T++" [~p] [_PRT_] {~s,~s,~p} ~s~n", [?LLVL(Lvl), File, Func, Line, Msg])
@@ -81,7 +83,7 @@ handle_call({accept, LSock, LogFun}, _From, State) ->
             inet:setopts(Sock,[{active,once}]),
             {reply, ok, State#state{sock = Sock, logfun = LogFun}};
         {error, Error} ->
-            {reply, {error, accept_failed}, State}
+            {reply, {error, {accept_failed, Error}}, State}
     end;
 handle_call(Msg, _From, State) ->
     io:format(user, "~p unsupported handle_call ~p", [{?MODULE, ?LINE}, Msg]),

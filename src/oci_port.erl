@@ -64,17 +64,24 @@
 
 %% External API
 start_link(Options) ->
-    start_link(Options, fun(B) ->
-        case re:run(B, <<"\n">>) of
-            nomatch -> oci_logger:log(binary_to_list(B));
-            _ ->
-                [(fun
-                    ("") -> ok;
-                    (Txt) ->
-                        oci_logger:log(?T++" "++Txt++"~n")
-                end)(Log) || Log <- re:split(B, <<"\n">>, [{return, list}])]
-        end
-    end).
+    %start_link(Options, fun(B) ->
+    %    case re:run(B, <<"\n">>) of
+    %        nomatch -> oci_logger:log(binary_to_list(B));
+    %        _ ->
+    %            [(fun
+    %                ("") -> ok;
+    %                (Txt) ->
+    %                    oci_logger:log(?T++" "++Txt++"~n")
+    %            end)(Log) || Log <- re:split(B, <<"\n">>, [{return, list}])]
+    %    end
+    %end).
+    LogFun = fun
+                 ({_, _, _, _, _, _} = Log) -> oci_logger:log(Log);
+                 (Log) when is_list(Log) -> oci_logger:log(Log);
+                 (Log) -> io:format(user, "Log in unsupported format ~p~n", [Log])
+             end,
+    start_link(Options, LogFun).
+
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}]),
     {ok, ListenPort} = inet:port(LSock),
