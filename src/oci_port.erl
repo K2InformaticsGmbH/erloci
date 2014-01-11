@@ -64,26 +64,15 @@
 
 %% External API
 start_link(Options) ->
-    %start_link(Options, fun(B) ->
-    %    case re:run(B, <<"\n">>) of
-    %        nomatch -> oci_logger:log(binary_to_list(B));
-    %        _ ->
-    %            [(fun
-    %                ("") -> ok;
-    %                (Txt) ->
-    %                    oci_logger:log(?T++" "++Txt++"~n")
-    %            end)(Log) || Log <- re:split(B, <<"\n">>, [{return, list}])]
-    %    end
-    %end).
-    LogFun = fun
-                 ({_, _, _, _, _, _} = Log) -> oci_logger:log(Log);
-                 (Log) when is_list(Log) -> oci_logger:log(Log);
-                 (Log) -> io:format(user, "Log in unsupported format ~p~n", [Log])
-             end,
-    start_link(Options, LogFun).
+    start_link(Options,
+            fun
+                ({_, _, _, _, _, _} = Log) -> oci_logger:log(Log);
+                (Log) when is_list(Log) -> oci_logger:log(Log);
+                (Log) -> io:format(user, "Log in unsupported format ~p~n", [Log])
+            end).
 
 start_link(Options,LogFun) ->
-    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}]),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
     spawn(fun() -> oci_logger:accept(LSock, LogFun) end),
     ?Info("listening at ~p for log connections...", [ListenPort]),
@@ -271,14 +260,6 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
             end
     end.
 
-log(Sock,Fun) ->
-    case gen_tcp:recv(Sock, 0) of
-        {ok, B} ->
-            Fun(B),
-            log(Sock,Fun);
-        {error, closed} -> ok
-    end.
-
 handle_call({keep_alive, KeepAlive}, _From, #state{pingref=PingRef} = State) ->
     NewPingRef = case {PingRef, KeepAlive} of
         {undefined, false} -> undefined;
@@ -410,63 +391,9 @@ signal_str(N)  -> {udefined,        ignore, N}.
 %
 -ifdef(TEST).
 
--define(ELog(__F), ?ELog(__F,[])).
--define(ELog(__F,__A), io:format(user, "[~p:~p] "__F"~n", [?MODULE,?LINE|__A])).
 -include_lib("eunit/include/eunit.hrl").
 
--define(TESTTABLE, "erloci_test_1").
--define(DROP,   <<"drop table "?TESTTABLE>>).
--define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
-                  "publisher varchar2(30),"
-                  "rank float,"
-                  "hero varchar2(30),"
-                  "reality varchar2(30),"
-                  "votes number(1,-10),"
-                  "createdate date default sysdate,"
-                  "chapters int,"
-                  "votes_first_rank number)">>).
--define(INSERT, <<"insert into "?TESTTABLE
-                  " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values ("
-                  ":pkey"
-                  ", :publisher"
-                  ", :rank"
-                  ", :hero"
-                  ", :reality"
-                  ", :votes"
-                  ", :createdate"
-                  ", :votes_first_rank)">>).
--define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE".* from "?TESTTABLE>>).
--define(SELECT_ROWID_ASC, <<"select rowid from ", ?TESTTABLE, " order by pkey">>).
--define(SELECT_ROWID_DESC, <<"select rowid from ", ?TESTTABLE, " order by pkey desc">>).
--define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
-                   , {<<":publisher">>, 'SQLT_CHR'}
-                   , {<<":rank">>, 'SQLT_FLT'}
-                   , {<<":hero">>, 'SQLT_CHR'}
-                   , {<<":reality">>, 'SQLT_CHR'}
-                   , {<<":votes">>, 'SQLT_INT'}
-                   , {<<":createdate">>, 'SQLT_DAT'}
-                   , {<<":votes_first_rank">>, 'SQLT_INT'}
-                   ]).
--define(UPDATE, <<"update "?TESTTABLE" set "
-                  "pkey = :pkey"
-                  ", publisher = :publisher"
-                  ", rank = :rank"
-                  ", hero = :hero"
-                  ", reality = :reality"
-                  ", votes = :votes"
-                  ", createdate = :createdate"
-                  ", votes_first_rank = :votes_first_rank"
-                  " where "?TESTTABLE".rowid = :pri_rowid1">>).
--define(UPDATE_BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
-                          , {<<":publisher">>, 'SQLT_CHR'}
-                          , {<<":rank">>, 'SQLT_FLT'}
-                          , {<<":hero">>, 'SQLT_CHR'}
-                          , {<<":reality">>, 'SQLT_CHR'}
-                          , {<<":votes">>, 'SQLT_STR'}
-                          , {<<":createdate">>, 'SQLT_DAT'}
-                          , {<<":votes_first_rank">>, 'SQLT_INT'}
-                          , {<<":pri_rowid1">>, 'SQLT_STR'}
-                          ]).
+-include("oci_test.hrl").
 
 flush_table(OciSession) ->
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),

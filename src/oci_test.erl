@@ -15,9 +15,14 @@
 -module(oci_test).
 -behavior(gen_server).
 
+%-ifdef(TEST).
+
+-include("oci_test.hrl").
+
 -export([ start/2
         , setup/0
-        , teardown/1]).
+        , teardown/1
+        , bigtable_test/1]).
 
 %gen_server callbacks
 -export([ init/1
@@ -323,3 +328,57 @@ print_if_error(Parent,Table,{error, Error},Msg) ->
         true -> ok
     end;
 print_if_error(_,_,_,_) -> ok.
+
+bigtable_test(RowCount) ->
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("|                       bigtable_test                            |"),
+    ?ELog("------------------------------------------------------------------"),
+    ?ELog("Creating and loading ~p with ~p rows", [?TESTTABLE, RowCount]),
+    OciSession = setup(),
+    DropStmt = OciSession:prep_sql(?DROP),
+    {oci_port, statement, _, _, _} = DropStmt,
+    case DropStmt:exec_stmt() of
+        {error, _} -> ok; 
+        _ -> ok = DropStmt:close()
+    end,
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
+    {oci_port, statement, _, _, _} = StmtCreate,
+    {executed, 0} = StmtCreate:exec_stmt(),
+    ok = StmtCreate:close(),
+
+    ?ELog("inserting into table ~s", [?TESTTABLE]),
+    BoundInsStmt = OciSession:prep_sql(?INSERT),
+    {oci_port, statement, _, _, _} = BoundInsStmt,
+    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
+    ok = BoundInsStmtRes,
+    {rowids, RowIds} = BoundInsStmt:exec_stmt(
+        [{ (fun() -> io:format(user, ".", []), I end)()
+         , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+         , I+I/2
+         , list_to_binary(["_hero_",integer_to_list(I),"_"])
+         , list_to_binary(["_reality_",integer_to_list(I),"_"])
+         , I
+         , oci_util:edatetime_to_ora(erlang:now())
+         , I
+         } || I <- lists:seq(1, RowCount)]),
+    ?ELog("", []),
+    ?ELog("inserted into table ~s ~p rows", [?TESTTABLE, length(RowIds)]),
+    RowCount = length(RowIds),
+    ok = BoundInsStmt:close(),
+
+    ?ELog("selecting from table ~s", [?TESTTABLE]),
+    SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
+    {oci_port, statement, _, _, _} = SelStmt,
+    {cols, Cols} = SelStmt:exec_stmt(),
+    ?ELog("selected columns ~p from table ~s", [Cols, ?TESTTABLE]),
+    10 = length(Cols),
+    load_rows_to_end(SelStmt:fetch_rows(100), SelStmt),
+    ok = SelStmt:close().
+
+load_rows_to_end({{rows, Rows}, true}, _) -> ?ELog("Loaded ~p rows - Finished", [length(Rows)]);
+load_rows_to_end({{rows, Rows}, false}, SelStmt) ->
+    ?ELog("Loaded ~p rows", [length(Rows)]),
+    load_rows_to_end(SelStmt:fetch_rows(100), SelStmt).
+
+%-endif.
