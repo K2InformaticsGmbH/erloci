@@ -38,7 +38,7 @@ accept(LSock, LogFun) ->
     gen_server:call(?MODULE, {accept, LSock, LogFun}).
 
 log({Lvl, Tag, File, Func, Line, Msg}) ->
-    log(lists:flatten(io_lib:format(?T++"[~p]"++Tag++" {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])));
+    log(lists:flatten(io_lib:format(?T++" [~p] ["++Tag++"] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])));
 log(Msg) ->
     case [R || R <- erlang:registered(), R =:= ?MODULE] of
         [] ->
@@ -78,9 +78,14 @@ handle_info(Msg, State) ->
     {noreply, State}.
 
 handle_call({accept, LSock, LogFun}, _From, State) ->
+    {ok, {_,LPort}} = inet:sockname(LSock),
+    io:format(user, ?T++" [debug] [_OCI_] Waiting for peer to connect on ~p~n", [LPort]),
     case gen_tcp:accept(LSock) of
         {ok, Sock} ->
             inet:setopts(Sock,[{active,once}]),
+            {ok, {_,RemPort}} = inet:peername(Sock),
+            {ok, {_,LclPort}} = inet:sockname(Sock),
+            io:format(user, ?T++" [debug] [_OCI_] Connection from ~p to ~p~n", [RemPort, LclPort]),
             {reply, ok, State#state{sock = Sock, logfun = LogFun}};
         {error, Error} ->
             {reply, {error, {accept_failed, Error}}, State}

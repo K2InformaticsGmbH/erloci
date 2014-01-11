@@ -29,8 +29,8 @@
 #endif
 
 #if DEBUG <= DBG_1
-#define ENTRY()	{REMOTE_LOG("Entry\n");}
-#define EXIT()	{REMOTE_LOG("Exit\n");}
+#define ENTRY()	{REMOTE_LOG(DBG, "Entry\n");}
+#define EXIT()	{REMOTE_LOG(DBG, "Exit\n");}
 #else
 #define ENTRY()
 #define EXIT()
@@ -73,22 +73,22 @@ void log_args(int argc, void * argv, const char * str)
     int sz = 0, idx = 0;
     char *arg = NULL;
     ETERM **args = (ETERM **)argv;
-    REMOTE_LOG("CMD: %s Args(\n", str);
+    REMOTE_LOG(DBG, "CMD: %s Args(\n", str);
     for(idx=0; idx<argc; ++idx) {
         if (ERL_IS_BINARY(args[idx])) {
             sz = ERL_BIN_SIZE(args[idx]);
             arg = new char[sz+1];
             memcpy_s(arg, sz+1, ERL_BIN_PTR(args[idx]), sz);
             arg[sz] = '\0';
-            REMOTE_LOG("%s,\n", arg);
+            REMOTE_LOG(DBG, "%s,\n", arg);
             if (arg != NULL) delete arg;
         }
-		else if (ERL_IS_INTEGER(args[idx]))				{REMOTE_LOG("%d,",	ERL_INT_VALUE(args[idx])); }
-		else if (ERL_IS_UNSIGNED_INTEGER(args[idx]))	{REMOTE_LOG("%u,",	ERL_INT_UVALUE(args[idx]));}
-		else if (ERL_IS_FLOAT(args[idx]))				{REMOTE_LOG("%lf,",	ERL_FLOAT_VALUE(args[idx]));}
-		else if (ERL_IS_ATOM(args[idx]))				{REMOTE_LOG("%.*s,", ERL_ATOM_SIZE(args[idx]), ERL_ATOM_PTR(args[idx]));}
+		else if (ERL_IS_INTEGER(args[idx]))				{REMOTE_LOG(DBG, "%d,",	ERL_INT_VALUE(args[idx])); }
+		else if (ERL_IS_UNSIGNED_INTEGER(args[idx]))	{REMOTE_LOG(DBG, "%u,",	ERL_INT_UVALUE(args[idx]));}
+		else if (ERL_IS_FLOAT(args[idx]))				{REMOTE_LOG(DBG, "%lf,",	ERL_FLOAT_VALUE(args[idx]));}
+		else if (ERL_IS_ATOM(args[idx]))				{REMOTE_LOG(DBG, "%.*s,", ERL_ATOM_SIZE(args[idx]), ERL_ATOM_PTR(args[idx]));}
     }
-    REMOTE_LOG(")\n");
+    REMOTE_LOG(DBG, ")\n");
 }
 #else
 void log_args(int argc, void * argv, const char * str) {}
@@ -189,7 +189,7 @@ bool init_marshall(void)
     }
 #else
     if(pthread_mutex_init(&write_mutex, NULL) != 0) {
-        REMOTE_LOG("Write Mutex creation failed");
+        REMOTE_LOG(CRT, "Write Mutex creation failed");
         return false;
     }
 #endif
@@ -212,7 +212,7 @@ void * read_cmd(void)
     }
     rx_len = ntohl(hdr.len);
 
-    //REMOTE_LOG("RX Packet length %d\n", rx_len);
+    //REMOTE_LOG(DBG, "RX Packet length %d\n", rx_len);
 
 	// allocate for the entire term
 	// to be freeded in the caller's scope
@@ -253,7 +253,7 @@ int write_resp(void * resp_term)
     tx_len = erl_term_len(resp);				// Length of the required binary buffer
     pkt_len = tx_len+PKT_LEN_BYTES;
 
-    //REMOTE_LOG("TX Packet length %d\n", tx_len);
+    //REMOTE_LOG(DBG, "TX Packet length %d\n", tx_len);
 
     // Allocate temporary buffer for transmission of the Term
     tx_buf = new unsigned char[pkt_len];
@@ -292,7 +292,6 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
     if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
         return;
 
-    int num_vars = erl_length(args);
     var v;
 
     ETERM * item = NULL;
@@ -346,7 +345,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 	unsigned short arg_len = 0;
 	
 	// remove any old bind from the vars
-	for(int i=0; i < vars.size(); ++i) {
+	for(unsigned int i=0; i < vars.size(); ++i) {
 		vars[i].valuep.clear();
 		vars[i].alen.clear();
 	}
@@ -355,7 +354,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
     do {
         if ((item = erl_hd(args)) == NULL	||
             !ERL_IS_TUPLE(item)				||
-			erl_size(item) != vars.size()) {
+			(unsigned int)erl_size(item) != vars.size()) {
 			REMOTE_LOG(ERR, "failed map_value_to_bind_args malformed ETERM\n");
 			strcpy(r.gerrbuf, "Malformed ETERM");
             throw r;
@@ -364,7 +363,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 		len = erl_size(item);
 
 		// loop through each value of the tuple
-		for(int i=0; i<len; ++i) {
+		for(size_t i=0; i<len; ++i) {
 			if ((arg = erl_element(i+1, item)) == NULL) {
 				REMOTE_LOG(ERR, "failed map_value_to_bind_args missing parameter for %s\n", vars[i].name);
 				strcpy(r.gerrbuf, "Missing parameter term");
@@ -491,7 +490,7 @@ void * walk_term(void * _term)
 
 	if(ERL_IS_TUPLE(term)) {
 		len = erl_size(term);
-		for(int i=0; i<len; ++i) {
+		for(size_t i=0; i<len; ++i) {
 			if ((tuple_arg = erl_element(i+1, term)) == NULL)
 				break;
 			walk_term(tuple_arg);

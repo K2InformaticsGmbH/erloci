@@ -74,14 +74,14 @@ start_link(Options) ->
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
-    spawn(fun() -> oci_logger:accept(LSock, LogFun) end),
+    AcceptLogFun = fun() -> oci_logger:accept(LSock, LogFun) end,
     ?Info("listening at ~p for log connections...", [ListenPort]),
     case Options of
         undefined ->
-            gen_server:start_link(?MODULE, [false, ListenPort], []);
+            gen_server:start_link(?MODULE, [false, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            StartRes = gen_server:start_link(?MODULE, [Logging, ListenPort, ?IDLE_TIMEOUT], []),
+            StartRes = gen_server:start_link(?MODULE, [Logging, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], []),
             case StartRes of
                 {ok, Pid} -> {?MODULE, Pid};
                 Error -> throw({error, Error})
@@ -203,7 +203,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     end.
 
 %% Callbacks
-init([Logging, ListenPort, IdleTimeout]) ->
+init([Logging, ListenPort, IdleTimeout, AcceptLogFun]) ->
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -212,9 +212,15 @@ init([Logging, ListenPort, IdleTimeout]) ->
         false ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
                 false -> {stop, bad_executable};
-                Executable -> start_exe(Executable, Logging, ListenPort, IdleTimeout)
+                Executable ->
+                    Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout),
+                    AcceptLogFun(),
+                    Ret
             end;
-        Executable -> start_exe(Executable, Logging, ListenPort, IdleTimeout)
+        Executable ->
+            Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout),
+            AcceptLogFun(),
+            Ret
     end.
 
 start_exe(Executable, Logging, ListenPort, IdleTimeout) ->

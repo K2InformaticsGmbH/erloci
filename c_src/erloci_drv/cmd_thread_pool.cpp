@@ -14,12 +14,12 @@
  */ 
 #include "stdafx.h"
 
-#include "oci_marshal.h"
-
 #include "erl_interface.h"
 #include "ei.h"
 
+#include "oci_marshal.h"
 #include "cmd_processors.h"
+#include "oci_lib_intf.h"
 
 #define THREAD          10
 #define QUEUE           256
@@ -73,7 +73,7 @@ IdleTimerCb(
 #endif
     )
 {
-    //REMOTE_LOG("Timer fired command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
+    //REMOTE_LOG(DBG, "Timer fired command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
 #ifdef __WIN32__
     // Instance, Parameter, and Timer not used in this example.
     UNREFERENCED_PARAMETER(Instance);
@@ -111,7 +111,7 @@ void timer_thread_start_function(void *ptr)
     event_init();
     event_set(&ev, 0, EV_TIMEOUT, IdleTimerCb, NULL);
     event_add(&ev, &tv);
-    REMOTE_LOG("IdleTimerCb firing if idle for %d sec\n", timeout_remaining());
+    REMOTE_LOG(DBG, "IdleTimerCb firing if idle for %d sec\n", timeout_remaining());
     event_dispatch();
 }
 #endif
@@ -142,20 +142,20 @@ void reset_timer()
 #else
     if (!event_pending(&ev, EV_TIMEOUT, NULL)) {
         if(event_del(&ev) < 0) {
-            REMOTE_LOG("Event del failure\n");
+            REMOTE_LOG(ERR, "Event del failure\n");
         } else {
-            REMOTE_LOG("Event del\n");
+            REMOTE_LOG(ERR, "Event del\n");
         }
     }
     // else {
-    //    REMOTE_LOG("Timeout remaining %d sec, not pending\n", timeout_remaining());
+    //    REMOTE_LOG(DBG, "Timeout remaining %d sec, not pending\n", timeout_remaining());
     //}
 
     if(event_add(&ev, &tv) < 0) {
-        REMOTE_LOG("Event add failure\n");
+        REMOTE_LOG(ERR, "Event add failure\n");
     }
     // else {
-    //    REMOTE_LOG("Event %d sec added.............................\n", tv.tv_sec);
+    //    REMOTE_LOG(DBG, "Event %d sec added.............................\n", tv.tv_sec);
     //}
 #endif
 }
@@ -323,7 +323,7 @@ ProcessCommandCb(
 #endif
 )
 {
-    //REMOTE_LOG("Port: WorkThread processing command...\n");
+    //REMOTE_LOG(DBG, "Port: WorkThread processing command...\n");
 #ifdef __WIN32__
     // Instance, Parameter, and Work not used in this example.
     UNREFERENCED_PARAMETER(Instance);
@@ -349,7 +349,7 @@ ProcessCommandCb(
 
 bool ProcessCommand(void * param)
 {
-    //REMOTE_LOG("Port: Delegating command processing to WorkThread...");
+    //REMOTE_LOG(DBG, "Port: Delegating command processing to WorkThread...");
 #ifdef __WIN32__
     PTP_WORK work = NULL;
     //

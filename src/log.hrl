@@ -55,13 +55,13 @@ end)()
 -endif.
 
 -define(LLVL(__N), case __N of
-                       0 -> dbg;
-                       1 -> inf;
-                       2 -> ntc;
-                       3 -> err;
-                       4 -> wrn;
-                       5 -> crt;
-                       6 -> fat;
-                       _ -> unn
+                       0 -> drbug;
+                       1 -> info;
+                       2 -> notice;
+                       3 -> error;
+                       4 -> warn;
+                       5 -> critical;
+                       6 -> fatal;
+                       _ -> unknown
                    end).
 
