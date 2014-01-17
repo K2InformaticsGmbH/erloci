@@ -27,14 +27,22 @@ void append_coldef_to_list(const char * col_name, size_t len,
 	printf("\t%s\n", col_name);
 }
 
+static unsigned int string_count = 0;
 void string_append(const char * string, size_t len, void * list)
 {
-	printf("%.*s\t", len, string);
+	//printf("%.*s\t", len, string);
+	string_count++;
+	if (string_count % 100 == 0)
+		printf("string items %d\n", string_count);
 }
 
+static unsigned int list_count = 0;
 void list_append(const void * sub_list, void * list)
 {
-	printf("\t");
+	//printf("\t");
+	list_count++;
+	if (list_count % 100 == 0)
+		printf("list items %d\n", list_count);
 }
 
 size_t sizeof_resp(void * resp)
@@ -351,6 +359,8 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 	}
 
 	// insert some rows
+	string_count = 0;
+	list_count = 0;
 	qry = "insert into erloci_table values (:pkey,:publisher,:rank,:hero,:real,:votes,:votes_first_rank)";
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
@@ -391,8 +401,9 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 	char tmp[100];
 	int tmp_len = 0;
 	char * tmpp = NULL;
-	int *tmpint = NULL;	
-	for(int i=10; i>0; --i) {
+	int *tmpint = NULL;
+	unsigned int rows = 50000;
+	for(unsigned int i=rows; i>0; --i) {
 
 		// :pkey
 		tmpint = new int;
@@ -400,6 +411,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[0].valuep.push_back(tmpint);
 		if (sizeof(int)+1 > varsin[0].value_sz) varsin[0].value_sz = sizeof(int);
 		varsin[0].alen.push_back(sizeof(int));
+		varsin[0].ind.push_back(0);
 
 		// :publisher
 		sprintf(tmp, "publisher%d", i);
@@ -409,6 +421,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[1].valuep.push_back(tmpp);
 		if (tmp_len > varsin[1].value_sz) varsin[1].value_sz = tmp_len;
 		varsin[1].alen.push_back(tmp_len);
+		varsin[1].ind.push_back(0);
 
 		// :rank
 		tmpint = new int;
@@ -416,6 +429,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[2].valuep.push_back(tmpint);
 		if (sizeof(int)+1 > varsin[2].value_sz) varsin[2].value_sz = sizeof(int);
 		varsin[2].alen.push_back(sizeof(int));
+		varsin[2].ind.push_back(0);
 
 		// :hero
 		sprintf(tmp, "hero%d", i);
@@ -425,6 +439,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[3].valuep.push_back(tmpp);
 		if (tmp_len > varsin[3].value_sz) varsin[3].value_sz = tmp_len;
 		varsin[3].alen.push_back(tmp_len);
+		varsin[3].ind.push_back(0);
 
 		// :real
 		sprintf(tmp, "real%d", i);
@@ -434,6 +449,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[4].valuep.push_back(tmpp);
 		if (tmp_len > varsin[4].value_sz) varsin[4].value_sz = tmp_len;
 		varsin[4].alen.push_back(tmp_len);
+		varsin[4].ind.push_back(0);
 
 		// :votes
 		tmpint = new int;
@@ -441,6 +457,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[5].valuep.push_back(tmpint);
 		if (sizeof(int)+1 > varsin[5].value_sz) varsin[5].value_sz = sizeof(int);
 		varsin[5].alen.push_back(sizeof(int));
+		varsin[5].ind.push_back(0);
 
 		// :votes_first_rank
 		tmpint = new int;
@@ -448,8 +465,10 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		varsin[6].valuep.push_back(tmpint);
 		if (sizeof(int)+1 > varsin[6].value_sz) varsin[6].value_sz = sizeof(int);
 		varsin[6].alen.push_back(sizeof(int));
+		varsin[6].ind.push_back(0);
 	}
 
+	printf("inserting %d rows\n", rows);
 	try {
 		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
 	}
@@ -497,19 +516,22 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 		}
 	}
 
-	try {
-		stmt->rows(NULL,string_append, list_append, sizeof_resp, 100);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_produce_rows error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
-				return -1;
+	do {
+		try {
+			r = stmt->rows(NULL,string_append, list_append, sizeof_resp, 100);
 		}
-	}
+		catch (intf_ret r) {
+			switch(r.fn_ret) {
+				case CONTINUE_WITH_ERROR:
+					printf("oci_produce_rows error... %s!\n", r.gerrbuf);
+					return -1;
+				case FAILURE:
+					printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
+					return -1;
+			}
+		}
+	} while (r.fn_ret == MORE);
+
 	
 	try {
 		stmt->close();

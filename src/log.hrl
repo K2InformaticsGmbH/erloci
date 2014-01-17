@@ -55,7 +55,7 @@ end)()
 -endif.
 
 -define(LLVL(__N), case __N of
-                       0 -> drbug;
+                       0 -> debug;
                        1 -> info;
                        2 -> notice;
                        3 -> error;
