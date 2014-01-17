@@ -20,7 +20,7 @@
 end)()).
 
 -ifndef(NOLOGGING).
--define(LOG(__T,__L,__M,__F,__A),
+-define(LOG(__LMod,__T,__L,__M,__F,__A),
 (fun() ->    
     case [A || {A,_,_} <- application:which_applications(), A =:= erloci] of
         [erloci] -> ok;
@@ -47,11 +47,11 @@ end)()).
         end;
     _ -> ok
     end,
-    oci_logger:log(__S)
+    __LMod:log(__S)
 end)()
 ).
 -else.
--define(LOG(__T,__L,__M,__F,__A), ok = ok).
+-define(LOG(__Mod,__T,__L,__M,__F,__A), ok = ok).
 -endif.
 
 -define(LLVL(__N), case __N of

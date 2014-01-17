@@ -54,38 +54,31 @@
     port,
     pingref,
     waiting_resp = false,
-    logging = ?DBG_FLAG_OFF
+    logging = ?DBG_FLAG_OFF,
+    logger
 }).
 
--define(log(__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Format, __Args); true -> ok end).
+-define(log(__Lgr,__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Lgr, __Format, __Args); true -> ok end).
 % Port driver breaks on faster pipe access
 %-define(DriverSleep, timer:sleep(100)).
 -define(DriverSleep, ok).
 
 %% External API
-start_link(Options) ->
-    start_link(Options,
-            fun
-                ({_, _, _, _, _, _} = Log) -> oci_logger:log(Log);
-                (Log) when is_list(Log) -> oci_logger:log(Log);
-                (Log) -> io:format(user, "Log in unsupported format ~p~n", [Log])
-            end).
-
+start_link(Options) -> start_link(Options, fun(Log) -> io:format(user, "~p~n", [Log]) end).
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
-    AcceptLogFun = fun() -> oci_logger:accept(LSock, LogFun) end,
-    ?Info("listening at ~p for log connections...", [ListenPort]),
-    case Options of
+    AcceptLogFun = fun(Logger) -> Logger:accept(LSock, LogFun) end,
+    StartRes = case Options of
         undefined ->
             gen_server:start_link(?MODULE, [false, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            StartRes = gen_server:start_link(?MODULE, [Logging, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], []),
-            case StartRes of
-                {ok, Pid} -> {?MODULE, Pid};
-                Error -> throw({error, Error})
-            end
+            gen_server:start_link(?MODULE, [Logging, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], [])
+    end,
+    case StartRes of
+        {ok, Pid} -> {?MODULE, Pid};
+        Error -> throw({error, Error})
     end.
 
 stop(PortPid) ->
@@ -190,7 +183,7 @@ split_binds(BindVars, MaxReqSize, At, Acc) when is_list(BindVars) ->
     if
         ReqSize > MaxReqSize ->
             NewAt = round(At / (ReqSize / MaxReqSize)),
-            ?Info("req size ~p, max ~p -- BindVar(~p) splitting at ~p", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
+            io:format(user,"req size ~p, max ~p -- BindVar(~p) splitting at ~p", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
             split_binds(BindVars, MaxReqSize, NewAt, Acc);
         true ->
             split_binds(Tail, MaxReqSize, length(Tail), [lists:reverse(Head)|Acc])
@@ -204,6 +197,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
 
 %% Callbacks
 init([Logging, ListenPort, IdleTimeout, AcceptLogFun]) ->
+    PortLogger = oci_logger:start_link(),
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -213,17 +207,17 @@ init([Logging, ListenPort, IdleTimeout, AcceptLogFun]) ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
                 false -> {stop, bad_executable};
                 Executable ->
-                    Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout),
-                    AcceptLogFun(),
+                    Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger),
+                    AcceptLogFun(PortLogger),
                     Ret
             end;
         Executable ->
-            Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout),
-            AcceptLogFun(),
+            Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger),
+            AcceptLogFun(PortLogger),
             Ret
     end.
 
-start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
+start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger) ->
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -236,7 +230,7 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
         false -> "";
         LdLibPath -> LdLibPath ++ ":"
     end ++ PrivDir,
-    ?Info("New ~s path: ~s", [LibPath, NewLibPath]),
+    ?Info(PortLogger, "New ~s path: ~s", [LibPath, NewLibPath]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status
@@ -249,7 +243,7 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of
         {'EXIT', Reason} ->
-            ?Error("oci could not open port: ~p", [Reason]),
+            ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
             %% TODO -- Logging is turned after port creation for the integration tests to run
@@ -257,12 +251,12 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout) ->
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
-                    ?Info("started log enabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, pingref=PingRef}};
+                    ?Info(PortLogger, "started log enabled new port:~n~p", [erlang:port_info(Port)]),
+                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, pingref=PingRef, logger=PortLogger}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_OFF})),
-                    ?Info("started log disabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, pingref=PingRef}}
+                    ?Info(PortLogger, "started log disabled new port:~n~p", [erlang:port_info(Port)]),
+                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, pingref=PingRef, logger=PortLogger}}
             end
     end.
 
@@ -303,20 +297,20 @@ handle_info(ping, #state{port=Port} = State) ->
     %?Info("ping sent!"),
     {noreply, State#state{pingref=erlang:send_after(?IDLE_TIMEOUT, self(), ping)}};
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
-handle_info({Port, {data, Data}}, #state{port=Port} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
+handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),
-    case handle_result(State#state.logging, Resp) of
+    case handle_result(State#state.logging, Resp, L) of
         {undefined, pong} -> ok;
-        {undefined, Result} -> ?Info("no reply for ~p", [Result]);
+        {undefined, Result} -> ?Info(L,"no reply for ~p", [Result]);
         {From, {error, Reason}} ->
-            ?Error("~p", [Reason]), % Just in case its ignored later
+            ?Error(L, "~p", [Reason]), % Just in case its ignored later
             gen_server:reply(From, {error, Reason});
         {From, Result} ->
             gen_server:reply(From, Result) % regular reply
     end,
     {noreply, State#state{waiting_resp=false}};
-handle_info({Port, {exit_status, Status}}, #state{port = Port} = State) ->
-    ?log(State#state.logging, "port ~p exited with status ~p", [Port, Status]),
+handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = Logger} = State) ->
+    ?log(Logger, State#state.logging, "port ~p exited with status ~p", [Port, Status]),
     case Status of
         0 ->
             {stop, normal, State};
@@ -330,8 +324,8 @@ handle_info(Info, State) ->
     error_logger:error_report("ORA: received unexpected info: ~p~n", [Info]),
     {noreply, State}.
 
-terminate(Reason, #state{port=Port}) ->
-    ?Error("Terminating ~p", [Reason]),
+terminate(Reason, #state{port=Port, logger=L}) ->
+    ?Error(L, "Terminating ~p", [Reason]),
     catch port_close(Port),
     ok.
 
@@ -340,18 +334,18 @@ code_change(_OldVsn, State, _Extra) ->
 
 
 %% log on and off -- mostly called from an undefined context so logged the status here
-handle_result(L, {Ref, ?RMOTE_MSG, En} = _Resp) ->
-    ?log(L, "Remote ~p", [En]),
+handle_result(L, {Ref, ?RMOTE_MSG, En} = _Resp, Lgr) ->
+    ?log(Lgr, L, "Remote ~p", [En]),
     {Ref, En};
 
 % port error handling
-handle_result(L, {Ref, Cmd, error, Reason}) ->
-    ?log(L, "RX: ~p ~s error ~p", [Ref,?CMDSTR(Cmd), Reason]),
+handle_result(L, {Ref, Cmd, error, Reason}, Lgr) ->
+    ?log(Lgr, L, "RX: ~p ~s error ~p", [Ref,?CMDSTR(Cmd), Reason]),
     {Ref, {error, Reason}};
 
 % generic command handling
-handle_result(_L, {Ref, _Cmd, Result}) ->
-    %?log(_L, "RX: ~s -> ~p", [?CMDSTR(_Cmd), Result]),
+handle_result(_L, {Ref, _Cmd, Result}, _Lgr) ->
+    %?log(_Lgr, _L, "RX: ~s -> ~p", [?CMDSTR(_Cmd), Result]),
     {Ref, Result}.
 
 

@@ -26,7 +26,7 @@
     terminate/2,
     code_change/3]).
 
--export([log/1,accept/2]).
+-export([start_link/0, log/2,accept/3]).
 
 -record(state, {
           sock,
@@ -34,25 +34,29 @@
           buf = <<>>
          }).
 
-accept(LSock, LogFun) ->
-    gen_server:call(?MODULE, {accept, LSock, LogFun}).
-
-log({Lvl, Tag, File, Func, Line, Msg}) ->
-    log(lists:flatten(io_lib:format(?T++" [~p] ["++Tag++"] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])));
-log(Msg) ->
-    case [R || R <- erlang:registered(), R =:= ?MODULE] of
-        [] ->
-            gen_server:start_link({local, ?MODULE}, ?MODULE, [], []),
-            log(Msg);
-        _ -> gen_server:cast(?MODULE, Msg)
+start_link() ->
+    case gen_server:start_link(?MODULE, [], []) of
+        {ok, Pid} -> {?MODULE, Pid};
+        Error -> throw({error, Error})
     end.
 
+accept(LSock, LogFun, {?MODULE, Pid}) when is_function(LogFun, 1) ->
+    gen_server:call(Pid, {accept, LSock, LogFun}).
+
+log({Lvl, Tag, File, Func, Line, Msg}, Mod) ->
+    log(lists:flatten(io_lib:format(?T++" [~p] ["++Tag++"] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])), Mod);
+log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
+
 init(_) ->
-    io:format(user, "_-_-_-_-_- O  C  I    L O G G E R _-_-_-_-~n", []),
+    io:format(user, "---- ERLOCI PORT PROCESS LOGGER ----~n", []),
     {ok, #state{}}.
 
-handle_cast(Msg, State) ->
-    io:format(user, Msg, []),
+handle_cast(Msg, #state{logfun = LogFun} = State) ->
+    try
+        LogFun(Msg)
+    catch
+        _:_ -> io:format(user, Msg, [])
+    end,
     {noreply, State}.
 
 handle_info({tcp, Socket, Data}, #state{sock = Socket, logfun = LogFun} = State) ->
@@ -64,9 +68,11 @@ handle_info({tcp, Socket, Data}, #state{sock = Socket, logfun = LogFun} = State)
     true ->
         case binary_to_term(Payload) of
         {Lvl,File,Func,Line,Msg} ->
-            if is_function(LogFun, 1) ->
-                LogFun({?LLVL(Lvl), "_PRT_", File, Func, Line, Msg});
-            true -> io:format(user, ?T++" [~p] [_PRT_] {~s,~s,~p} ~s~n", [?LLVL(Lvl), File, Func, Line, Msg])
+            try
+                LogFun({?LLVL(Lvl), "_PRT_", File, Func, Line, Msg})
+            catch
+                _:_ ->
+                   io:format(user, ?T++" [~p] [_PRT_] {~s,~s,~p} ~s~n", [?LLVL(Lvl), File, Func, Line, Msg])
             end;
         Other ->
             io:format(user, "~p Unknown log format ~p~n", [{?MODULE, ?LINE}, Other])
