@@ -38,7 +38,6 @@ typedef unsigned char byte;
 
 bool log_flag;
 bool exit_loop = false;
-unsigned long port_idle_timeout = PORT_IDLE_TIMEOUT;
 
 #ifdef __WIN32__
 int _tmain(int argc, _TCHAR* argv[])
@@ -93,18 +92,8 @@ int main(int argc, char * argv[])
 		}
 	}
 
-	// Ping Timeout
-	if (argc >= 5) {
-		port_idle_timeout =
-#ifdef __WIN32__
-			_wtol(argv[4]);
-#else
-            atoi(argv[4]);
-#endif
-	}
-
-	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d, idle timeout %lu ms\n"
-		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port, port_idle_timeout);
+	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d\n"
+		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port);
 
     init_marshall();
 
@@ -113,11 +102,6 @@ int main(int argc, char * argv[])
     threaded = InitializeThreadPool();
     if(threaded)
         REMOTE_LOG(DBG, "Port: Thread pool created...\n");
-
-#ifdef IDLE_TIMEOUT
-	set_timer(port_idle_timeout);
-    REMOTE_LOG(DBG, "Port Idle timeout set\n");
-#endif
 
     REMOTE_LOG(DBG, "Port: Initialized Oracle OCI\n");
 

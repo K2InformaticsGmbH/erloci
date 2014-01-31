@@ -23,9 +23,6 @@
 %% Exec name
 -define(EXE_NAME, "erloci").
 
-%% Port process timeout in ms
--define(IDLE_TIMEOUT, 10000).
-
 %% Interface commands
 % pool commands
 % MUST use conteneous and monotonically
@@ -44,7 +41,6 @@
 -define(RBK_SESSN,  10).
 -define(CMD_DSCRB,  11).
 -define(OCIP_QUIT,  12).
--define(PORT_PING,  13).
 
 -define(CMDSTR(__CMD), (fun
                             (?RMOTE_MSG)    -> "RMOTE_MSG";
@@ -60,7 +56,6 @@
                             (?CMT_SESSN)    -> "CMT_SESSN";
                             (?RBK_SESSN)    -> "RBK_SESSN";
                             (?CMD_DSCRB)    -> "CMD_DSCRB";
-                            (?PORT_PING)    -> "PORT_PING";
                             (__C)           -> "UNKNOWN "++integer_to_list(__C)
                         end)(__CMD)).
 

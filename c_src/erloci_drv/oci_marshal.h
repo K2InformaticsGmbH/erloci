@@ -19,9 +19,6 @@
 
 using namespace std;
 
-// Features
-#define IDLE_TIMEOUT
-
 // Protocol spec
 #define PKT_LEN_BYTES	4
 
@@ -65,7 +62,6 @@ typedef enum _ERL_CMD {
     RBK_SESSN			= 10,
 	CMD_DSCRB			= 11,
     OCIP_QUIT			= 12,
-    PORT_PING			= 13,
 } ERL_CMD;
 
 /*
@@ -91,7 +87,6 @@ extern const erlcmdtable cmdtbl[];
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
     {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"},\
-    {PORT_PING,	"OCIP_QUIT",	1, "Keep-Alive from erlang process"}\
 }
 
 extern char * print_term(void*);
@@ -166,13 +161,6 @@ extern void * build_term_from_bind_args(inp_t *);*/
 extern bool InitializeThreadPool(void);
 extern void CleanupThreadPool(void);
 extern bool ProcessCommand(void *);
-#ifdef IDLE_TIMEOUT
-extern void set_timer(unsigned long);
-extern void reset_timer(void);
-#endif
-
-extern bool *command_in_progress;
-
 
 extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);

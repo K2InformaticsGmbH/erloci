@@ -24,7 +24,6 @@ typedef enum _LOG_LEVEL {
     FAT	= 6,
 } LOG_LEVEL;
 
-#define PORT_IDLE_TIMEOUT 1000
 //#define MAX_RESP_SIZE 0xFFFFFFF0
 #define MAX_RESP_SIZE 0x00040000UL
 #define MAX_COLUMNS 500

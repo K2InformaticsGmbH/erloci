@@ -52,7 +52,6 @@
 
 -record(state, {
     port,
-    pingref,
     waiting_resp = false,
     logging = ?DBG_FLAG_OFF,
     logger
@@ -71,10 +70,10 @@ start_link(Options,LogFun) ->
     AcceptLogFun = fun(Logger) -> Logger:accept(LSock, LogFun) end,
     StartRes = case Options of
         undefined ->
-            gen_server:start_link(?MODULE, [false, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], []);
+            gen_server:start_link(?MODULE, [false, ListenPort, AcceptLogFun], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            gen_server:start_link(?MODULE, [Logging, ListenPort, ?IDLE_TIMEOUT, AcceptLogFun], [])
+            gen_server:start_link(?MODULE, [Logging, ListenPort, AcceptLogFun], [])
     end,
     case StartRes of
         {ok, Pid} -> {?MODULE, Pid};
@@ -196,7 +195,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     end.
 
 %% Callbacks
-init([Logging, ListenPort, IdleTimeout, AcceptLogFun]) ->
+init([Logging, ListenPort, AcceptLogFun]) ->
     PortLogger = oci_logger:start_link(),
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
@@ -207,17 +206,17 @@ init([Logging, ListenPort, IdleTimeout, AcceptLogFun]) ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
                 false -> {stop, bad_executable};
                 Executable ->
-                    Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger),
+                    Ret = start_exe(Executable, Logging, ListenPort, PortLogger),
                     AcceptLogFun(PortLogger),
                     Ret
             end;
         Executable ->
-            Ret = start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger),
+            Ret = start_exe(Executable, Logging, ListenPort, PortLogger),
             AcceptLogFun(PortLogger),
             Ret
     end.
 
-start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger) ->
+start_exe(Executable, Logging, ListenPort, PortLogger) ->
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -237,8 +236,7 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger) ->
                   , use_stdio
                   , {args, [ integer_to_list(?MAX_REQ_SIZE)
                            , "true"
-                           , integer_to_list(ListenPort)
-                           , integer_to_list(3*IdleTimeout)]}
+                           , integer_to_list(ListenPort)]}
                   , {env, [{LibPath, NewLibPath}]}
                   ],
     case (catch open_port({spawn_executable, Executable}, PortOptions)) of
@@ -247,32 +245,18 @@ start_exe(Executable, Logging, ListenPort, IdleTimeout, PortLogger) ->
             {stop, Reason};
         Port ->
             %% TODO -- Logging is turned after port creation for the integration tests to run
-            PingRef = erlang:send_after(?IDLE_TIMEOUT, self(), ping),
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
                     ?Info(PortLogger, "started log enabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, pingref=PingRef, logger=PortLogger}};
+                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, logger=PortLogger}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_OFF})),
                     ?Info(PortLogger, "started log disabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, pingref=PingRef, logger=PortLogger}}
+                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger}}
             end
     end.
 
-handle_call({keep_alive, KeepAlive}, _From, #state{pingref=PingRef} = State) ->
-    NewPingRef = case {PingRef, KeepAlive} of
-        {undefined, false} -> undefined;
-        {_, false} ->
-            erlang:cancel_timer(PingRef),
-            undefined;
-        {undefined, true} ->
-            erlang:send_after(?IDLE_TIMEOUT, self(), ping);
-        {_, true} ->
-            erlang:cancel_timer(PingRef),
-            erlang:send_after(?IDLE_TIMEOUT, self(), ping)
-    end,
-    {reply, ok, State#state{pingref=NewPingRef}};
 handle_call(close, _From, #state{port=Port} = State) ->
     try
         erlang:port_close(Port)
@@ -289,18 +273,10 @@ handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
-handle_info(ping, #state{waiting_resp=true} = State) ->
-    %?Info("ping not sent!"),
-    {noreply, State#state{pingref=erlang:send_after(?IDLE_TIMEOUT, self(), ping)}};
-handle_info(ping, #state{port=Port} = State) ->
-    true = port_command(Port, term_to_binary({undefined, ?PORT_PING, ping})),
-    %?Info("ping sent!"),
-    {noreply, State#state{pingref=erlang:send_after(?IDLE_TIMEOUT, self(), ping)}};
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
 handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),
     case handle_result(State#state.logging, Resp, L) of
-        {undefined, pong} -> ok;
         {undefined, Result} -> ?Info(L,"no reply for ~p", [Result]);
         {From, {error, Reason}} ->
             ?Error(L, "~p", [Reason]), % Just in case its ignored later
@@ -384,7 +360,7 @@ signal_str(31) -> {'SIGXFSZ',       core,   "File size limit exceeded"};
 signal_str(32) -> {'SIGWAITING',    ignore, "All LWPs blocked"};
 signal_str(33) -> {'SIGLWP',        ignore, "Virtual Interprocessor Interrupt for Threads Library"};
 signal_str(34) -> {'SIGAIO',        ignore, "Asynchronous I/O"};
-signal_str(N)  -> {udefined,        ignore, N}.
+signal_str(N)  -> {undefined,       ignore, N}.
 
 %
 % Eunit tests
@@ -431,9 +407,9 @@ db_negative_test_() ->
     }}.
 
 bad_password(OciPort) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                       bad_password                             |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("get_session with wrong password", []),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
     ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
@@ -450,13 +426,14 @@ db_test_() ->
             , fun commit_rollback_test/1
             , fun asc_desc_test/1
             , fun describe_test/1
+            , fun procedure_test/1
         ]}
     }}.
 
 drop_create(OciSession) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                            drop_create                         |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
 
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     TmpDropStmt = OciSession:prep_sql(?DROP),
@@ -477,9 +454,9 @@ drop_create(OciSession) ->
     ?assertEqual(ok, DropStmt:close()).
 
 insert_select_update(OciSession) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                      insert_select_update                      |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     RowCount = 5,
 
     flush_table(OciSession),
@@ -556,9 +533,9 @@ insert_select_update(OciSession) ->
     ?assertEqual(ok, BoundUpdStmt:close()).
 
 auto_rollback_test(OciSession) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                         auto_rollback                          |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     RowCount = 3,
 
     flush_table(OciSession),
@@ -613,9 +590,9 @@ auto_rollback_test(OciSession) ->
     ?assertEqual(ok, SelStmt1:close()).
 
 commit_rollback_test(OciSession) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                      commit_rollback_test                      |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     RowCount = 3,
 
     flush_table(OciSession),
@@ -676,9 +653,9 @@ commit_rollback_test(OciSession) ->
     ?assertEqual(ok, SelStmt1:close()).
 
 asc_desc_test(OciSession) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                          asc_desc_test                         |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     RowCount = 10,
 
     flush_table(OciSession),
@@ -686,8 +663,7 @@ asc_desc_test(OciSession) ->
     ?ELog("inserting into table ~s", [?TESTTABLE]),
     BoundInsStmt = OciSession:prep_sql(?INSERT),
     ?assertMatch({?MODULE, statement, _, _, _}, BoundInsStmt),
-    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
-    ?assertMatch(ok, BoundInsStmtRes),
+    ?assertMatch(ok, BoundInsStmt:bind_vars(?BIND_LIST)),
     ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt([{ I
                             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
@@ -725,9 +701,9 @@ asc_desc_test(OciSession) ->
     ?assertEqual(ok, SelStmt2:close()).
 
 describe_test(OciSession) ->
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                         describe_test                          |"),
-    ?ELog("------------------------------------------------------------------"),
+    ?ELog("+----------------------------------------------------------------+"),
 
     flush_table(OciSession),
 
@@ -736,4 +712,109 @@ describe_test(OciSession) ->
     ?assertEqual(9, length(Descs)),
     ?ELog("table ~s has ~p", [?TESTTABLE, Descs]).
 
+procedure_test(OciSession) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                        procedure_test                          |"),
+    ?ELog("+----------------------------------------------------------------+"),
+
+    FunName = "test_fun",
+    CreateFunction = OciSession:prep_sql(<<"
+        create or replace function "
+        ?TESTFUNCTION
+        "(sal in number, com in number)
+            return number is
+        begin
+            return ((sal*12)+(sal*12*nvl(com,0)));
+        end;
+    ">>),
+    ?assertMatch({?MODULE, statement, _, _, _}, CreateFunction),
+    ?assertEqual({executed, 0}, CreateFunction:exec_stmt()),
+    ?assertEqual(ok, CreateFunction:close()),
+
+    SelectStmt = OciSession:prep_sql(<<"select "?TESTFUNCTION"(10,30) from dual">>),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelectStmt),
+    {cols, [Col|_]} = SelectStmt:exec_stmt(),
+    ?assertEqual(<<?TESTFUNCTION"(10,30)">>, element(1, Col)),
+    {{rows, [[F|_]|_]}, true} = SelectStmt:fetch_rows(2),
+    ?assertEqual(<<3,194,38,21,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>, F),
+    ?assertEqual(ok, SelectStmt:close()),
+
+    SelectBoundStmt = OciSession:prep_sql(<<"select "?TESTFUNCTION"(:SAL,:COM) from dual">>),
+    ?assertMatch({?MODULE, statement, _, _, _}, SelectBoundStmt),
+    ?assertMatch(ok, SelectBoundStmt:bind_vars([{<<":SAL">>, 'SQLT_INT'}, {<<":COM">>, 'SQLT_INT'}])),
+    {cols, [Col2|_]} = SelectBoundStmt:exec_stmt([{10, 30}], 1),
+    ?assertEqual(<<?TESTFUNCTION"(:SAL,:COM)">>, element(1, Col2)),
+    ?assertMatch({{rows, [[F|_]|_]}, true}, SelectBoundStmt:fetch_rows(2)),
+    ?ELog("Col ~p", [Col]),
+    ?assertEqual(ok, SelectBoundStmt:close()),
+
+    % Drop function
+    DropFunStmt = OciSession:prep_sql(<<"drop function "?TESTFUNCTION>>),
+    ?assertEqual({executed, 0}, DropFunStmt:exec_stmt()),
+    ?assertEqual(ok, DropFunStmt:close()).
+
 -endif.
+
+%% - SQL> create or replace
+%% -   2  function calc_remu(
+%% -   3  sal in number, com in number) return number is
+%% -   4  begin
+%% -   5  return ((sal*12)+(sal*12*nvl(com,0)));
+%% -   6  end;
+%% -   7  /
+%% - 
+%% - Funktion wurde erstellt.
+%% - 
+%% - SQL> var res number
+%% - SQL> exec :res := calc_remu(10,20);
+%% - 
+%% - PL/SQL-Prozedur erfolgreich abgeschlossen.
+%% - 
+%% - SQL> print res;
+%% - 
+%% -        RES
+%% - ----------
+%% -       2520
+%% - 
+%% - SQL> select calc_remu(10,30) from dual;
+%% - 
+%% - CALC_REMU(10,30)
+%% - ----------------
+%% -             3720
+%% - 
+%% - SQL> select calc_remu(1,30) from dual;
+%% - 
+%% - CALC_REMU(1,30)
+%% - ---------------
+%% -             372
+%% - 
+%% - SQL> select calc_remu(1,3) from dual;
+%% - 
+%% - CALC_REMU(1,3)
+%% - --------------
+%% -             48
+%% - 
+%% - SQL> exec calc_remu(10,20);
+%% - BEGIN calc_remu(10,20); END;
+%% - 
+%% -       *
+%% - FEHLER in Zeile 1:
+%% - ORA-06550: line 1, column 7:
+%% - PLS-00221: 'CALC_REMU' is not a procedure or is undefined
+%% - ORA-06550: line 1, column 7:
+%% - PL/SQL: Statement ignored
+%% - 
+%% - 
+%% - 
+%% - create or replace procedure calc_remu(sal in number, com in number) return number is
+%% - begin
+%% -  return ((sal*12)+(sal*12*nvl(com,0)));
+%% - end;
+%% - /
+%% - 
+%% - 
+%% - (fun(OraLike, Escape) ->
+%% -  re:replace("")
+%% - end)("%A__B%", "_").
+%% - 
+%% - 

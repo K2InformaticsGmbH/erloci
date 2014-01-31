@@ -37,62 +37,15 @@
 
 #include <stdio.h>
 
-bool *command_in_progress = NULL;
-
 #ifdef __WIN32__
 	static PTP_POOL pool = NULL;
 	static TP_CALLBACK_ENVIRON CallBackEnviron;
 	static PTP_CLEANUP_GROUP cleanupgroup = NULL;
 	static UINT rollback = 0;
-	#ifdef IDLE_TIMEOUT
-		static PTP_TIMER idle_timer = NULL;
-		static FILETIME FileDueTime;
-		static ULARGE_INTEGER ulDueTime;
-	#endif
 #else
 	static threadpool_t *pTp            = NULL;
     static struct event ev;
     static struct timeval tv;
-#endif
-
-#ifdef IDLE_TIMEOUT
-#ifdef __WIN32__
-VOID CALLBACK
-#else
-void
-#endif
-IdleTimerCb(
-#ifdef __WIN32__
-    PTP_CALLBACK_INSTANCE Instance,
-    PVOID                 Parameter,
-    PTP_TIMER             Timer
-#else
-    int fd,
-    short event,
-    void *arg 
-#endif
-    )
-{
-    //REMOTE_LOG(DBG, "Timer fired command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
-#ifdef __WIN32__
-    // Instance, Parameter, and Timer not used in this example.
-    UNREFERENCED_PARAMETER(Instance);
-    UNREFERENCED_PARAMETER(Parameter);
-    UNREFERENCED_PARAMETER(Timer);
-#endif
-	if (*command_in_progress) {
-		REMOTE_LOG(INF, "resetting...\n");
-		reset_timer();
-    }
-	else {
-		REMOTE_LOG(CRT, "Master erlang process keep-alive timeout. dying...\n");
-#ifdef __WIN32__
-		ExitProcess(3);
-#else
-        exit(0);
-#endif
-	}
-}
 #endif
 
 #ifndef __WIN32__
@@ -116,56 +69,10 @@ void timer_thread_start_function(void *ptr)
 }
 #endif
 
-void set_timer(unsigned long delayms)
-{
-    // Set the timer to fire in delayms.
-#ifdef __WIN32__
-    ulDueTime.QuadPart = -((ULONGLONG)delayms) * 10 * 1000;
-    FileDueTime.dwHighDateTime = ulDueTime.HighPart;
-    FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
-
-    SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
-#else
-    tv.tv_sec = (delayms / 1000);
-    tv.tv_usec = ((delayms % 1000) * 1000);
-    threadpool_add(pTp, &timer_thread_start_function, NULL, 0);
-#endif
-}
-
-void reset_timer()
-{
-#ifdef __WIN32__
-    FileDueTime.dwHighDateTime = ulDueTime.HighPart;
-    FileDueTime.dwLowDateTime  = ulDueTime.LowPart;
-
-    SetThreadpoolTimer(idle_timer, &FileDueTime, 0, 0);
-#else
-    if (!event_pending(&ev, EV_TIMEOUT, NULL)) {
-        if(event_del(&ev) < 0) {
-            REMOTE_LOG(ERR, "Event del failure\n");
-        } else {
-            REMOTE_LOG(ERR, "Event del\n");
-        }
-    }
-    // else {
-    //    REMOTE_LOG(DBG, "Timeout remaining %d sec, not pending\n", timeout_remaining());
-    //}
-
-    if(event_add(&ev, &tv) < 0) {
-        REMOTE_LOG(ERR, "Event add failure\n");
-    }
-    // else {
-    //    REMOTE_LOG(DBG, "Event %d sec added.............................\n", tv.tv_sec);
-    //}
-#endif
-}
-
 bool InitializeThreadPool(void)
 {
     REMOTE_LOG(DBG, "Port: Initializing Thread pool...\n");
 
-    command_in_progress = new bool;
-    *command_in_progress = true;
 #ifdef __WIN32__
     BOOL bRet = FALSE;
 
@@ -221,20 +128,6 @@ bool InitializeThreadPool(void)
     //
     SetThreadpoolCallbackCleanupGroup(&CallBackEnviron, cleanupgroup, NULL);
 
-#ifdef IDLE_TIMEOUT
-	//
-    // Create a timer with the same callback environment.
-    //
-    idle_timer = CreateThreadpoolTimer(IdleTimerCb,
-                                  NULL,
-                                  &CallBackEnviron);
-    if (NULL == idle_timer) {
-        _tprintf(_T("CreateThreadpoolTimer failed. LastError: %u\n"), GetLastError());
-        goto main_cleanup;
-    }
-	rollback = 3;
-#endif
-
     return true;
 
 main_cleanup:
@@ -253,8 +146,6 @@ void CleanupThreadPool(void)
 {
     REMOTE_LOG(DBG, "Port: Cleanup Thread pool...");
 
-    if(command_in_progress)
-        delete command_in_progress;  
 #ifdef __WIN32__
     BOOL bRet = FALSE;
 
@@ -282,9 +173,6 @@ main_cleanup:
     //
 
     switch (rollback) {
-#ifdef IDLE_TIMEOUT
-    case 4:
-#endif
     case 3:
         // Clean up the cleanup group members.
         CloseThreadpoolCleanupGroupMembers(cleanupgroup,FALSE,NULL);

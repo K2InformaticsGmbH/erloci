@@ -4,6 +4,7 @@
 -define(ELog(__F,__A), io:format(user, "[~p:~p] "__F"~n", [?MODULE,?LINE|__A])).
 
 -define(TESTTABLE, "erloci_test_1").
+-define(TESTFUNCTION, "ERLOCI_TEST_FUNCTION").
 -define(DROP,   <<"drop table "?TESTTABLE>>).
 -define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
                   "publisher varchar2(30),"

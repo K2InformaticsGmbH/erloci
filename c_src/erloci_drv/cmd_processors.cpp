@@ -692,59 +692,6 @@ error_exit:
     return ret;
 }
 
-bool cmd_ping(ETERM * command)
-{
-	bool ret = false;
-    ETERM * resp = NULL;
-
-    ETERM **args;
-    MAP_ARGS(CMD_ARGS_COUNT(PORT_PING), command, args);
-
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(PORT_PING)) {
-	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], PORT_PING);
-		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
-		ret = true;
-	    goto error_exit;
-	}
-
-    // Args: ping
-    if (ERL_IS_ATOM(args[1])) {
-		try {
-			char ping[4];
-			strncpy(ping, ERL_ATOM_PTR(args[1]), 4);
-			if (strncmp(ping, "ping", 4) != 0) {
-				resp = erl_format((char*)"{~w,~i,{error,bad_ping}}", args[0], PORT_PING);
-				if(!resp) REMOTE_LOG(ERR, "ERROR bad ping\n");
-			} else {
-				resp = erl_format((char*)"{~w,~i,pong}", args[0], PORT_PING);
-			}
-		} catch (intf_ret r) {
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CLSE_STMT, r.gerrcode, r.gerrbuf);
-			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
-		} catch (string str) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, str.c_str());
-			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
-		} catch (...) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CLSE_STMT);
-			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
-		}
-    } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
-	}
-
-error_exit:	
-	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
-    if(write_resp(resp) < 0)
-        ret = true;
-
-	erl_free_compound(command);
-	UNMAP_ARGS(CMD_ARGS_COUNT(PORT_PING), args);
-
-    return ret;
-}
 //#define PRINTCMD
 
 bool cmd_processor(void * param)
@@ -763,8 +710,6 @@ bool cmd_processor(void * param)
 	delete tmpbuf;
 #endif
 
-	*command_in_progress = true;
-    //REMOTE_LOG("command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
         case GET_SESSN:	ret = cmd_get_session(command);		break;
@@ -778,18 +723,12 @@ bool cmd_processor(void * param)
         case RBK_SESSN:	ret = cmd_rollback(command);		break;
         case RMOTE_MSG:	ret = change_log_flag(command);		break;
         case CMD_DSCRB:	ret = cmd_describe(command);		break;
-        case PORT_PING:	ret = cmd_ping(command);			break;
         case OCIP_QUIT:
         default:
 			ret = true;
             break;
         }
     }
-#ifdef IDLE_TIMEOUT
-	reset_timer();
-#endif
-    //REMOTE_LOG("command_in_progress %s\n", "false\0true"+6*(*command_in_progress));
-	*command_in_progress = false;
 	erl_free_term(cmd);
 
 //	PRINT_ERL_ALLOC("end");
