@@ -65,7 +65,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), args);
 
 	return ret;
@@ -119,7 +119,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), args);
 
 	return ret;
@@ -170,7 +170,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), args);
 
 	return ret;
@@ -221,7 +221,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), args);
 
 	return ret;
@@ -272,7 +272,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), args);
 
 	return ret;
@@ -337,7 +337,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), args);
 
 	return ret;
@@ -398,7 +398,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), args);
 
 	return ret;
@@ -461,7 +461,7 @@ error_exit:
 	if(write_resp(resp) < 0)
         ret = true;
 
-	erl_free_compound(command);
+//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), args);
 
     return ret;
@@ -502,8 +502,9 @@ bool cmd_exec_stmt(ETERM * command)
 				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
 				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
-				map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
+				size_t bound_count = map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
+				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
 				// TODO : Also return bound values from here
 				if (columns == NULL && rowids == NULL)
 					resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
@@ -543,7 +544,7 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-    erl_free_compound(command);
+//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), args);
 
 	return ret;
@@ -624,7 +625,7 @@ error_exit:
 	if(write_resp(resp) < 0)
         ret = true;
 
-	erl_free_compound(command);
+//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
 
     return ret;
@@ -686,8 +687,52 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-	erl_free_compound(command);
+//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), args);
+
+    return ret;
+}
+
+bool cmd_echo(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp = NULL;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(CMD_ECHOT), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_ECHOT)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_ECHOT);
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Erlang Term
+	try {
+		resp = erl_format((char*)"{~w,~i,~w}", args[0], CMD_ECHOT, args[1]);
+	} catch (intf_ret r) {
+		resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_ECHOT, r.gerrcode, r.gerrbuf);
+		ret = true;
+		if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+	} catch (string str) {
+		resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMD_ECHOT, str.c_str());
+		ret = true;
+		if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+	} catch (...) {
+		resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_ECHOT);
+		ret = true;
+		if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+	}
+    
+
+error_exit:
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    if(write_resp(resp) < 0)
+        ret = true;
+
+//	erl_free_compound(command);
+	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_ECHOT), args);
 
     return ret;
 }
@@ -723,6 +768,7 @@ bool cmd_processor(void * param)
         case RBK_SESSN:	ret = cmd_rollback(command);		break;
         case RMOTE_MSG:	ret = change_log_flag(command);		break;
         case CMD_DSCRB:	ret = cmd_describe(command);		break;
+        case CMD_ECHOT:	ret = cmd_echo(command);			break;
         case OCIP_QUIT:
         default:
 			ret = true;
@@ -732,6 +778,6 @@ bool cmd_processor(void * param)
 
 //	PRINT_ERL_ALLOC("end");
 
-//	erl_eterm_release();
+	erl_eterm_release();
 	return ret;
 }

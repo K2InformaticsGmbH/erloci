@@ -61,7 +61,8 @@ typedef enum _ERL_CMD {
     CMT_SESSN			= 9,
     RBK_SESSN			= 10,
 	CMD_DSCRB			= 11,
-    OCIP_QUIT			= 12,
+	CMD_ECHOT			= 12,
+    OCIP_QUIT			= 13
 } ERL_CMD;
 
 /*
@@ -86,6 +87,7 @@ extern const erlcmdtable cmdtbl[];
     {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
+    {CMD_ECHOT,	"CMD_ECHOT",	2, "Echo back erlang term"},\
     {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"},\
 }
 
@@ -178,7 +180,7 @@ extern void append_coldef_to_list(const char * col_name, size_t len,
 								  const signed char scale, void * list);
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
 extern void map_schema_to_bind_args(void *, vector<var> &);
-extern void map_value_to_bind_args(void *, vector<var> &);
+extern size_t map_value_to_bind_args(void *, vector<var> &);
 extern bool pop_cmd_queue(pkt &);
 
 #define MAX_FORMATTED_STR_LEN 1024

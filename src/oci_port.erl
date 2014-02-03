@@ -34,7 +34,8 @@
     exec_stmt/3,
     fetch_rows/2,
     keep_alive/2,
-    close/1
+    close/1,
+    echo/2
 ]).
 
 -export([
@@ -96,6 +97,12 @@ logging(disable, {?MODULE, PortPid}) ->
 
 keep_alive(KeepAlive, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {keep_alive, KeepAlive}, ?PORT_TIMEOUT).
+
+echo(Term, {?MODULE, PortPid}) ->
+    case gen_server:call(PortPid, {port_call, [?CMD_ECHOT, Term]}, ?PORT_TIMEOUT) of
+        {error, Error} -> {error, Error};
+        Return -> Return
+    end.
 
 get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
 when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
@@ -169,6 +176,7 @@ collect_grouped_bind_request([], _, _, _, _, Acc) ->
     end;
 collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, StmtId, AutoCommit, Acc) ->
     NewAutoCommit = if length(GroupedBindVars) > 0 -> 0; true -> AutoCommit end,
+    if length(BindVars) > 0 -> io:format(user,"TX rows ~p~n", [length(BindVars)]); true -> ok end,
     R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, NewAutoCommit]}, ?PORT_TIMEOUT),
     ?DriverSleep,
     case R of
@@ -188,7 +196,7 @@ split_binds(BindVars, MaxReqSize, At, Acc) when is_list(BindVars) ->
     if
         ReqSize > MaxReqSize ->
             NewAt = round(At / (ReqSize / MaxReqSize)),
-            io:format(user,"req size ~p, max ~p -- BindVar(~p) splitting at ~p~n", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
+            %io:format(user,"req size ~p, max ~p -- BindVar(~p) splitting at ~p~n", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
             split_binds(BindVars, MaxReqSize, NewAt, Acc);
         true ->
             split_binds(Tail, MaxReqSize, length(Tail), [lists:reverse(Head)|Acc])

@@ -207,7 +207,7 @@ ProcessCommandCb(
     if(cmd_processor(cmd_tuple))
 		exit(1);
 
-	erl_free_term((ETERM*)cmd_tuple);
+	erl_free_compound((ETERM*)cmd_tuple);
     return;
 }
 

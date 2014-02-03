@@ -369,7 +369,8 @@ bigtab_load(OciSession, RowCount) ->
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ok = BoundInsStmtRes,
     {rowids, RowIds} = BoundInsStmt:exec_stmt(
-        [{ (fun() -> io:format(user, ".", []), I end)()
+        %[{ (fun() -> io:format(user, ".", []), I end)()
+        [{ I
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])
          , I+I/2
          , list_to_binary(["_hero_",integer_to_list(I),"_"])

@@ -389,14 +389,14 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
 }
 
-void map_value_to_bind_args(void * _args, vector<var> & vars)
+size_t map_value_to_bind_args(void * _args, vector<var> & vars)
 {
     ETERM * args = (ETERM *)_args;
 	intf_ret r;
 	
 	r.fn_ret = CONTINUE_WITH_ERROR;
     if(!ERL_IS_LIST(args) || ERL_IS_EMPTY_LIST(args))
-        return;
+        return 0;
 
     ETERM * item = NULL;
     ETERM * arg = NULL;
@@ -412,7 +412,9 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 	}
 	
 	// loop through the list
+	size_t bind_count = 0;
     do {
+		++bind_count;
         if ((item = erl_hd(args)) == NULL	||
             !ERL_IS_TUPLE(item)				||
 			(unsigned int)erl_size(item) != vars.size()) {
@@ -537,6 +539,7 @@ void map_value_to_bind_args(void * _args, vector<var> & vars)
 
         args = erl_tl(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
+	return bind_count;
 }
 
 void * walk_term(void * _term)
