@@ -148,9 +148,9 @@ unsigned int ocistmt::execute(void * column_list,
 
 	/* bind variables if any */
 	size_t dat_len = 0;
-	for(int i = 0; i < _argsin.size(); ++i) {
-		for(int j = 0; j < _argsin[i].alen.size(); ++j) {
-			unsigned short * alenarr = &_argsin[i].alen[0];
+	for(unsigned int i = 0; i < _argsin.size(); ++i) {
+		for(unsigned int j = 0; j < _argsin[i].alen.size(); ++j) {
+			//unsigned short * alenarr = &_argsin[i].alen[0];
 			void ** valueparr = &_argsin[i].valuep[0];
 			switch(_argsin[i].dty) {
 				case SQLT_BFLOAT:
@@ -176,7 +176,7 @@ unsigned int ocistmt::execute(void * column_list,
 
 	if(_argsin.size() > 0)
 		_iters = _argsin[0].valuep.size();
-	for(int i = 0; i < _argsin.size(); ++i) {
+	for(unsigned int i = 0; i < _argsin.size(); ++i) {
 		checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_argsin[i].ocibind), (OCIError*)_errhp,
 									(text*)(_argsin[i].name), -1,
 									_argsin[i].datap, _argsin[i].value_sz,
@@ -191,7 +191,7 @@ unsigned int ocistmt::execute(void * column_list,
 		}
 	}
 
-	ub4 mode = (auto_commit ? OCI_COMMIT_ON_SUCCESS : OCI_DEFAULT);
+	//ub4 mode = (auto_commit ? OCI_COMMIT_ON_SUCCESS : OCI_DEFAULT);
 #ifdef FETCH_ROWIDS
 #ifdef PRINT_ROWIDS
 	vector<char*> rowids;
@@ -289,7 +289,7 @@ unsigned int ocistmt::execute(void * column_list,
 			REMOTE_LOG("Inserted row id %s\n", rowids[__i]);
 #endif
 
-	for(int i = 0; i < _argsin.size(); ++i) {
+	for(unsigned int i = 0; i < _argsin.size(); ++i) {
 		if(_argsin[i].datap) {
 			free(_argsin[i].datap);
 			_argsin[i].datap = NULL;
@@ -320,8 +320,8 @@ unsigned int ocistmt::execute(void * column_list,
         /* Loop only if a descriptor was successfully retrieved for
          * current position, starting at 1
          */
-        text *col_name, *schm_name;
-        ub4 len = 0, schm_len = 0;
+        text *col_name;
+        ub4 len = 0;
 		_columns.clear();
 
 		while (parm_status == OCI_SUCCESS) {
@@ -533,7 +533,7 @@ intf_ret ocistmt::rows(void * row_list,
 
         row = NULL;
 		if (res != OCI_NO_DATA) {
-			for (int i = 0; i < _columns.size(); ++i)
+			for (unsigned int i = 0; i < _columns.size(); ++i)
 					switch (_columns[i].dtype) {
 					case SQLT_NUM:
 						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
@@ -603,7 +603,7 @@ ocistmt::~ocistmt(void)
 	intf_ret r;
 
     /* Release the bound variables memeory */
-	for (int i = 0; i < _columns.size(); ++i) {
+	for (unsigned int i = 0; i < _columns.size(); ++i) {
 		if(_columns[i].rtype == LCL_DTYPE_NONE)
 			delete (char*)(_columns[i].row_valp);
 		else

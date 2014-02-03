@@ -270,12 +270,12 @@ handle_call(close, _From, #state{port=Port} = State) ->
         _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
     end,
     {stop, normal, ok, State};
-handle_call({port_call, Msg}, From, #state{port=Port, logger=PortLogger} = State) ->
+handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger} = State) ->
     Cmd = [From | Msg],
     CmdTuple = list_to_tuple(Cmd),
     BTerm = term_to_binary(CmdTuple),
-    %%?Debug(PortLogger, "TX (~p):~n---~n~s~n---", [byte_size(BTerm), oci_logger:bin2str(BTerm)]),
-    %?Debug(PortLogger, "TX (~p)", [integer_to_list(byte_size(BTerm),16)]),
+    %%?Debug(_PortLogger, "TX (~p):~n---~n~s~n---", [byte_size(BTerm), oci_logger:bin2str(BTerm)]),
+    %?Debug(_PortLogger, "TX (~p)", [integer_to_list(byte_size(BTerm),16)]),
     true = port_command(Port, BTerm),
     {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}}.
 

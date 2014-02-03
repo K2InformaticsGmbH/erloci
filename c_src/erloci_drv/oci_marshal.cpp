@@ -26,6 +26,7 @@
 #else
 #include <netinet/in.h>
 #include <pthread.h>
+#include <stdlib.h>
 #endif
 
 #include<iostream>

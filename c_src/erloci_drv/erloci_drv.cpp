@@ -113,7 +113,6 @@ int main(int argc, char * argv[])
         }*/
     }
 
-error_exit:
     CleanupThreadPool();
     REMOTE_LOG(DBG, "Port: Thread pool destroyed");
 

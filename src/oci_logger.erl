@@ -92,7 +92,7 @@ handle_info({tcp, Socket, Data}, #state{sock = Socket, logfun = LogFun} = State)
         end,
         {noreply, State#state{buf = <<>>}}
     end;
-handle_info({tcp_closed, Socket}, #state{sock = Socket, logfun = LogFun} = State) ->
+handle_info({tcp_closed, Socket}, #state{sock = Socket} = State) ->
     io:format(user, "~p TCP closed~n", [{?MODULE, ?LINE}]),
     {stop, normal, State};
 handle_info(Msg, State) ->

@@ -313,9 +313,9 @@ bool cmd_describe(ETERM * command)
 				resp = erl_format((char*)"{~w,~i,{desc,[]}}", args[0], CMD_DSCRB);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR)
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
-			else {
+			} else {
 				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
@@ -374,9 +374,9 @@ bool cmd_prep_sql(ETERM * command)
 			erl_free_term(stmth);
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], PREP_STMT, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR)
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
-			else {
+			} else {
 				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
@@ -519,9 +519,9 @@ bool cmd_exec_stmt(ETERM * command)
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR)
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute STMT %s\n", r.gerrbuf);
-			else {
+			} else {
 				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
@@ -600,9 +600,9 @@ bool cmd_fetch_rows(ETERM * command)
 			}
 		} catch (intf_ret r) {
 			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
-			if (r.fn_ret == CONTINUE_WITH_ERROR)
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(!resp) REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
-			else {
+			} else {
 				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}

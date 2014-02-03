@@ -44,29 +44,6 @@
 	static UINT rollback = 0;
 #else
 	static threadpool_t *pTp            = NULL;
-    static struct event ev;
-    static struct timeval tv;
-#endif
-
-#ifndef __WIN32__
-unsigned long timeout_remaining()
-{
-    struct timeval t;
-    struct timeval now;
-    memset(&t, 0, sizeof(struct timeval));
-    event_pending(&ev, EV_TIMEOUT, &t);
-    gettimeofday(&now, NULL);
-    return (t.tv_sec - now.tv_sec);
-}
-
-void timer_thread_start_function(void *ptr)
-{
-    event_init();
-    event_set(&ev, 0, EV_TIMEOUT, IdleTimerCb, NULL);
-    event_add(&ev, &tv);
-    REMOTE_LOG(DBG, "IdleTimerCb firing if idle for %d sec\n", timeout_remaining());
-    event_dispatch();
-}
 #endif
 
 void InitializeThreadPool(void)
@@ -218,10 +195,8 @@ ProcessCommandCb(
 	ProcessCommand();
 
 	void * cmd_tuple = NULL;
-	int indx = 0;
 	cmd_tuple = erl_decode((unsigned char *)rxpkt.buf);
 	if (!cmd_tuple) {
-	//if (ei_decode_term(rxpkt.buf, &indx, &cmd_tuple) < 0) {
         REMOTE_LOG(CRT, "Term (%d) decoding failed...", rxpkt.len);
 		DUMP("rxpkt.buf", rxpkt.len, rxpkt.buf);
 		if(NULL != rxpkt.buf) delete rxpkt.buf;
