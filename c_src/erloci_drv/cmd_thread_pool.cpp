@@ -69,13 +69,11 @@ void timer_thread_start_function(void *ptr)
 }
 #endif
 
-bool InitializeThreadPool(void)
+void InitializeThreadPool(void)
 {
     REMOTE_LOG(DBG, "Port: Initializing Thread pool...\n");
 
 #ifdef __WIN32__
-    BOOL bRet = FALSE;
-
     InitializeThreadpoolEnvironment(&CallBackEnviron);
 
     //
@@ -96,9 +94,7 @@ bool InitializeThreadPool(void)
     //
     SetThreadpoolThreadMaximum(pool, THREAD);
 
-    bRet = SetThreadpoolThreadMinimum(pool, 1);
-
-    if (FALSE == bRet) {
+    if (FALSE == SetThreadpoolThreadMinimum(pool, 1)) {
         _tprintf(_T("SetThreadpoolThreadMinimum failed. LastError: %u\n"),
                  GetLastError());
         goto main_cleanup;
@@ -127,19 +123,17 @@ bool InitializeThreadPool(void)
     // as the cleanup group become members of the cleanup group.
     //
     SetThreadpoolCallbackCleanupGroup(&CallBackEnviron, cleanupgroup, NULL);
-
-    return true;
+	return;
 
 main_cleanup:
     CloseThreadpool(pool);
     pool = NULL;
-    return false;
 #else
     pTp = threadpool_create(THREAD, QUEUE, 0);
     if(NULL != pTp)
-        return true;
-    return false;
+        return;
 #endif
+    exit(0);
 }
 
 void CleanupThreadPool(void)
@@ -215,27 +209,34 @@ ProcessCommandCb(
 #ifdef __WIN32__
     // Instance, Parameter, and Work not used in this example.
     UNREFERENCED_PARAMETER(Instance);
-    //UNREFERENCED_PARAMETER(Parameter);
+    UNREFERENCED_PARAMETER(arg);
     UNREFERENCED_PARAMETER(Work);
 #endif
 
-	void * cmd_tuple = NULL;
+	pkt rxpkt;
+	while (!pop_cmd_queue(rxpkt));
+	ProcessCommand();
 
+	void * cmd_tuple = NULL;
 	int indx = 0;
-    //cmd_tuple = erl_decode((unsigned char*)arg);	
-    if (ei_decode_term((char*)arg, &indx, &cmd_tuple) < 0) {
-        // Term decoding failed
-        delete arg;
-        return;
+	cmd_tuple = erl_decode((unsigned char *)rxpkt.buf);
+	if (!cmd_tuple) {
+	//if (ei_decode_term(rxpkt.buf, &indx, &cmd_tuple) < 0) {
+        REMOTE_LOG(CRT, "Term (%d) decoding failed...", rxpkt.len);
+		DUMP("rxpkt.buf", rxpkt.len, rxpkt.buf);
+		if(NULL != rxpkt.buf) delete rxpkt.buf;
+		exit(1);
     }
 
-    if(NULL != arg) delete arg;
-    exit_loop = cmd_processor(cmd_tuple);
+	if(NULL != rxpkt.buf) delete rxpkt.buf;
+    if(cmd_processor(cmd_tuple))
+		exit(1);
 
+	erl_free_term((ETERM*)cmd_tuple);
     return;
 }
 
-bool ProcessCommand(void * param)
+void ProcessCommand()
 {
     //REMOTE_LOG(DBG, "Port: Delegating command processing to WorkThread...");
 #ifdef __WIN32__
@@ -243,12 +244,11 @@ bool ProcessCommand(void * param)
     //
     // Create work with the callback environment.
     //
-    work = CreateThreadpoolWork(ProcessCommandCb, param, &CallBackEnviron);
+    work = CreateThreadpoolWork(ProcessCommandCb, NULL, &CallBackEnviron);
 
     if (NULL == work) {
-        _tprintf(_T("CreateThreadpoolWork failed. LastError: %u\n"),
-                 GetLastError());
-        return false;
+        REMOTE_LOG(CRT, "CreateThreadpoolWork failed. LastError: %u\n", GetLastError());
+        exit(0);
     }
 
     rollback = 3;  // Creation of work succeeded
@@ -259,8 +259,6 @@ bool ProcessCommand(void * param)
     //
     SubmitThreadpoolWork(work);
 #else
-    threadpool_add(pTp, &ProcessCommandCb, param, 0);
+    threadpool_add(pTp, &ProcessCommandCb, NULL, 0);
 #endif
-
-    return true;
 }

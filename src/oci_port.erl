@@ -54,7 +54,8 @@
     port,
     waiting_resp = false,
     logging = ?DBG_FLAG_OFF,
-    logger
+    logger,
+    lastcmd
 }).
 
 -define(log(__Lgr,__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Lgr, __Format, __Args); true -> ok end).
@@ -63,7 +64,12 @@
 -define(DriverSleep, ok).
 
 %% External API
-start_link(Options) -> start_link(Options, fun(Log) -> io:format(user, "~p~n", [Log]) end).
+start_link(Options) -> start_link(Options,
+    fun
+        ({Lvl, Tag, File, Fun, Line, Msg}) -> io:format(user, "~p [~s] {~s,~s,~s} ~s", [Lvl, Tag, File, Fun, Line, Msg]);
+        (Log) when is_list(Log) -> io:format(user, "~s", [Log]);
+        (Log) -> io:format(user, "~p~n", [Log])
+    end).
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
@@ -182,7 +188,7 @@ split_binds(BindVars, MaxReqSize, At, Acc) when is_list(BindVars) ->
     if
         ReqSize > MaxReqSize ->
             NewAt = round(At / (ReqSize / MaxReqSize)),
-            io:format(user,"req size ~p, max ~p -- BindVar(~p) splitting at ~p", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
+            io:format(user,"req size ~p, max ~p -- BindVar(~p) splitting at ~p~n", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
             split_binds(BindVars, MaxReqSize, NewAt, Acc);
         true ->
             split_binds(Tail, MaxReqSize, length(Tail), [lists:reverse(Head)|Acc])
@@ -264,10 +270,14 @@ handle_call(close, _From, #state{port=Port} = State) ->
         _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
     end,
     {stop, normal, ok, State};
-handle_call({port_call, Msg}, From, #state{port=Port} = State) ->
+handle_call({port_call, Msg}, From, #state{port=Port, logger=PortLogger} = State) ->
     Cmd = [From | Msg],
-    true = port_command(Port, term_to_binary(list_to_tuple(Cmd))),
-    {noreply, State#state{waiting_resp=true}}.
+    CmdTuple = list_to_tuple(Cmd),
+    BTerm = term_to_binary(CmdTuple),
+    %%?Debug(PortLogger, "TX (~p):~n---~n~s~n---", [byte_size(BTerm), oci_logger:bin2str(BTerm)]),
+    %?Debug(PortLogger, "TX (~p)", [integer_to_list(byte_size(BTerm),16)]),
+    true = port_command(Port, BTerm),
+    {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}}.
 
 handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
@@ -300,8 +310,8 @@ handle_info(Info, State) ->
     error_logger:error_report("ORA: received unexpected info: ~p~n", [Info]),
     {noreply, State}.
 
-terminate(Reason, #state{port=Port, logger=L}) ->
-    ?Error(L, "Terminating ~p", [Reason]),
+terminate(Reason, #state{port=Port, logger=L, lastcmd=LastCmd}) ->
+    ?Error(L, "Terminating ~p: last ~p", [Reason, LastCmd]),
     catch port_close(Port),
     ok.
 
@@ -393,7 +403,8 @@ setup() ->
     timer:sleep(1000),
     OciPort.
 
-teardown(_OciPort) ->
+teardown(OciPort) ->
+    OciPort:close(),
     application:stop(erloci).
 
 db_negative_test_() ->
@@ -426,11 +437,11 @@ db_test_() ->
             , fun commit_rollback_test/1
             , fun asc_desc_test/1
             , fun describe_test/1
-            , fun procedure_test/1
+            , fun function_test/1
         ]}
     }}.
 
-drop_create(OciSession) ->
+drop_create({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                            drop_create                         |"),
     ?ELog("+----------------------------------------------------------------+"),
@@ -453,7 +464,7 @@ drop_create(OciSession) ->
     ?assertEqual({executed,0}, DropStmt:exec_stmt()),
     ?assertEqual(ok, DropStmt:close()).
 
-insert_select_update(OciSession) ->
+insert_select_update({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                      insert_select_update                      |"),
     ?ELog("+----------------------------------------------------------------+"),
@@ -532,7 +543,7 @@ insert_select_update(OciSession) ->
                             } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
     ?assertEqual(ok, BoundUpdStmt:close()).
 
-auto_rollback_test(OciSession) ->
+auto_rollback_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                         auto_rollback                          |"),
     ?ELog("+----------------------------------------------------------------+"),
@@ -589,7 +600,7 @@ auto_rollback_test(OciSession) ->
     ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(RowCount)),
     ?assertEqual(ok, SelStmt1:close()).
 
-commit_rollback_test(OciSession) ->
+commit_rollback_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                      commit_rollback_test                      |"),
     ?ELog("+----------------------------------------------------------------+"),
@@ -652,7 +663,7 @@ commit_rollback_test(OciSession) ->
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
     ?assertEqual(ok, SelStmt1:close()).
 
-asc_desc_test(OciSession) ->
+asc_desc_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                          asc_desc_test                         |"),
     ?ELog("+----------------------------------------------------------------+"),
@@ -700,7 +711,7 @@ asc_desc_test(OciSession) ->
     ?assertEqual(ok, SelStmt1:close()),
     ?assertEqual(ok, SelStmt2:close()).
 
-describe_test(OciSession) ->
+describe_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                         describe_test                          |"),
     ?ELog("+----------------------------------------------------------------+"),
@@ -712,7 +723,7 @@ describe_test(OciSession) ->
     ?assertEqual(9, length(Descs)),
     ?ELog("table ~s has ~p", [?TESTTABLE, Descs]).
 
-procedure_test(OciSession) ->
+function_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
     ?ELog("|                        procedure_test                          |"),
     ?ELog("+----------------------------------------------------------------+"),

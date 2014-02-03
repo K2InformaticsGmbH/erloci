@@ -111,6 +111,11 @@ void close_tcp()
 #include "erl_interface.h"
 
 #define MAX_FORMATTED_STR_LEN 1024
+#ifdef __WIN32__
+extern HANDLE log_write_mutex;
+#else
+extern pthread_mutex_t log_write_mutex;
+#endif
 void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, const char *fmt, ...)
 {
     int tx_len;
@@ -138,8 +143,11 @@ void log_remote(const char * filename, const char * funcname, unsigned int linen
     hdr->len = htonl(tx_len);
     erl_encode(log, tx_buf+PKT_LEN_BYTES);
 
-//	send(log_socket, log_str, (int)strlen(log_str), 0);
-	send(log_socket, (char*) tx_buf, pkt_len, 0);
+    if(lock(log_write_mutex)) {
+//		send(log_socket, log_str, (int)strlen(log_str), 0);
+		send(log_socket, (char*) tx_buf, pkt_len, 0);
+		unlock(log_write_mutex);
+    }
 
 	delete tx_buf;
 

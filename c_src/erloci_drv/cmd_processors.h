@@ -20,7 +20,7 @@
 #include "ei.h"
 
 // Flag to exit master loop
-extern bool exit_loop;
+//extern bool exit_loop;
 
 // Externs
 extern bool cmd_processor(void *);

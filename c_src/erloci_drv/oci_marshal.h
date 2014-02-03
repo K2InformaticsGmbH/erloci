@@ -23,8 +23,8 @@ using namespace std;
 #define PKT_LEN_BYTES	4
 
 // Debug Levels
-#define DBG_0			0	// All Debug (Including binaries for Rx and Tx)
-#define DBG_1			1	// Function Entry Exit
+#define DBG_0			0	// All Debug (Including Function Entry Exit)
+#define DBG_1			1	// Binaries for Rx and Tx
 #define DBG_2			2	//
 #define DBG_3			3	//
 #define DBG_4			4	//
@@ -116,8 +116,15 @@ extern char * print_term(void*);
 	REMOTE_LOG(_mark" eterm mem %lu, %lu\n", allocated, freed);\
 }
 
+// Read packet structure
+typedef struct _pkt {
+    char * buf;
+    unsigned long len;
+	unsigned long buf_len;
+} pkt;
+
 extern bool init_marshall(void);
-extern void * read_cmd(void);
+extern void read_cmd(void);
 extern int write_resp(void * resp_term);
 extern void log_args(int, void *, const char *);
 extern char * connect_tcp(int);
@@ -158,9 +165,9 @@ extern void * build_term_from_bind_args(inp_t *);*/
 #endif
 
 // ThreadPool and IdleTimer
-extern bool InitializeThreadPool(void);
+extern void InitializeThreadPool(void);
 extern void CleanupThreadPool(void);
-extern bool ProcessCommand(void *);
+extern void ProcessCommand(void);
 
 extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);
@@ -172,24 +179,28 @@ extern void append_coldef_to_list(const char * col_name, size_t len,
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
 extern void map_schema_to_bind_args(void *, vector<var> &);
 extern void map_value_to_bind_args(void *, vector<var> &);
+extern bool pop_cmd_queue(pkt &);
 
 #define MAX_FORMATTED_STR_LEN 1024
 
 // Printing the packet
-#if DEBUG <= DBG_0
-#define LOG_DUMP(__len, __buf)								\
-{    														\
-	char *_t = new char[__len*4+1];							\
-	char *_pt = _t;											\
-    for(unsigned int j=0; j<__len; ++j) {					\
-		sprintf(_pt, "%03d,", (unsigned char)__buf[j]);		\
-		_pt += 4;											\
-    }														\
-	REMOTE_LOG("HEX DUMP ---->\n%s\n<----\n", _t);			\
-	delete _t;												\
+#define DUMP(__tag,__len, __buf)								\
+{    															\
+	char *_t = new char[__len*4+1];								\
+	char *_pt = _t;												\
+    for(unsigned int j=0; j<__len; ++j) {						\
+		sprintf(_pt,(0==(j+1)%16 ? "%02X\n" : "%02X "),			\
+				(unsigned char)__buf[j]);						\
+		_pt += 3;												\
+    }															\
+	REMOTE_LOG(DBG, "%s (%d):\n---\n%s\n---", __tag,__len, _t);	\
+	delete _t;													\
 }
+
+#if DEBUG <= DBG_1
+#define LOG_DUMP(__tag,__len, __buf) DUMP(__tag,__len, __buf)
 #else
-#define LOG_DUMP(__len, __buf)
+#define LOG_DUMP(__tag, __len, __buf)
 #endif
 
 // 32 bit packet header

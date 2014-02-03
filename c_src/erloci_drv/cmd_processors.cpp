@@ -729,10 +729,9 @@ bool cmd_processor(void * param)
             break;
         }
     }
-	erl_free_term(cmd);
 
 //	PRINT_ERL_ALLOC("end");
 
-	erl_eterm_release();
+//	erl_eterm_release();
 	return ret;
 }

@@ -28,9 +28,14 @@
 #include <pthread.h>
 #endif
 
-#if DEBUG <= DBG_1
-#define ENTRY()	{REMOTE_LOG(DBG, "Entry\n");}
-#define EXIT()	{REMOTE_LOG(DBG, "Exit\n");}
+#include<iostream>
+#include<queue>
+
+using namespace std;
+
+#if DEBUG <= DBG_0
+#define ENTRY()	{REMOTE_LOG(DBG, "Entry");}
+#define EXIT()	{REMOTE_LOG(DBG, "Exit");}
 #else
 #define ENTRY()
 #define EXIT()
@@ -40,9 +45,15 @@ const erlcmdtable cmdtbl[] = CMDTABLE;
 
 #ifdef __WIN32__
 static HANDLE write_mutex;
+static HANDLE cmd_queue_mutex;
+HANDLE log_write_mutex;
 #else
 static pthread_mutex_t write_mutex;
+static pthread_mutex_t cmd_queue_mutex;
+pthread_mutex_t log_write_mutex;
 #endif
+
+static queue<pkt> cmd_queue;
 
 char * print_term(void *term)
 {
@@ -187,54 +198,103 @@ bool init_marshall(void)
         REMOTE_LOG(CRT, "Write Mutex creation failed\n");
         return false;
     }
+    log_write_mutex = CreateMutex(NULL, FALSE, NULL);
+    if (NULL == log_write_mutex) {
+        REMOTE_LOG(CRT, "Log write Mutex creation failed\n");
+        return false;
+    }
+    cmd_queue_mutex = CreateMutex(NULL, FALSE, NULL);
+    if (NULL == cmd_queue_mutex) {
+        REMOTE_LOG(CRT, "Command queue Mutex creation failed\n");
+        return false;
+    }
 #else
     if(pthread_mutex_init(&write_mutex, NULL) != 0) {
         REMOTE_LOG(CRT, "Write Mutex creation failed");
+        return false;
+    }
+    if(pthread_mutex_init(&log_write_mutex, NULL) != 0) {
+        REMOTE_LOG(CRT, "Log write Mutex creation failed");
+        return false;
+    }
+    if(pthread_mutex_init(&cmd_queue_mutex, NULL) != 0) {
+        REMOTE_LOG(CRT, "Command queue Mutex creation failed");
         return false;
     }
 #endif
     return true;
 }
 
-void * read_cmd(void)
+bool pop_cmd_queue(pkt & p)
+{
+	p.buf = NULL;
+	p.len = 0;
+	p.buf_len = 0;
+	if(lock(cmd_queue_mutex)) {
+		if (!cmd_queue.empty()) {
+			p = cmd_queue.front();
+			cmd_queue.pop();
+		}
+ 		unlock(cmd_queue_mutex);
+    }
+	return (p.buf != NULL && p.len > 0 && p.buf_len == p.len);
+}
+
+void read_cmd()
 {
     pkt_hdr hdr;
-    unsigned int rx_len;
-    char * rx_buf;
+	size_t len = 0;
 
-    ENTRY();
+	ENTRY();
 
     // Read and convert the length to host Byle order
-    cin.read(hdr.len_buf, sizeof(hdr.len_buf));
-    if((unsigned)cin.gcount() < sizeof(hdr.len_buf)) {
+	while(!len) {
+		if(cin.eof()) {
+			REMOTE_LOG(CRT, "Input pipe closed, possible erlang port process death!");
+			exit(0);
+		}
+		cin.read(hdr.len_buf, sizeof(hdr.len_buf));
+		len = cin.gcount();
+	}
+    if(len < sizeof(hdr.len_buf)) {
+		REMOTE_LOG(CRT, "Term length read failed (read %X of %X)", len, sizeof(hdr.len_buf));
         EXIT();
-        return NULL;
+		return;
     }
-    rx_len = ntohl(hdr.len);
+	pkt rxpkt;
+	rxpkt.buf_len = 0;
+    rxpkt.len = ntohl(hdr.len);
 
-    //REMOTE_LOG(DBG, "RX Packet length %d\n", rx_len);
+    //REMOTE_LOG(DBG, "RX (%d)", rxpkt.len);
 
 	// allocate for the entire term
 	// to be freeded in the caller's scope
-    rx_buf = new char[rx_len];
-    if (rx_buf == NULL) {
+    rxpkt.buf = new char[rxpkt.len];
+    if (rxpkt.buf == NULL) {
+		REMOTE_LOG(CRT, "Alloc of %X falied", rxpkt.len);
         EXIT();
-        return NULL;
+		exit(0);
     }
 
 	// Read the Term binary
-    cin.read(rx_buf, rx_len);
-    if((unsigned int) cin.gcount() < rx_len) {
+    cin.read(rxpkt.buf, rxpkt.len);
+	rxpkt.buf_len = cin.gcount();
+    if(rxpkt.buf_len  < rxpkt.len) {
         // Unable to get Term binary
-        delete rx_buf;
+        delete rxpkt.buf;
+		REMOTE_LOG(CRT, "RX %X of %X(%X)", rxpkt.buf_len, rxpkt.len, hdr.len);
         EXIT();
-        return NULL;
+        exit(0);
     }
 
-	LOG_DUMP(rx_len, rx_buf);
+	LOG_DUMP("RX", rxpkt.len, rxpkt.buf);
 
-    EXIT();
-    return rx_buf;
+	if(lock(cmd_queue_mutex)) {
+		cmd_queue.push(rxpkt);
+ 		unlock(cmd_queue_mutex);
+    }
+
+	EXIT();
 }
 
 int write_resp(void * resp_term)
@@ -262,7 +322,7 @@ int write_resp(void * resp_term)
 
     erl_encode(resp, tx_buf+PKT_LEN_BYTES);			// Encode the Term into the buffer after the length field
 
-	LOG_DUMP(pkt_len, tx_buf);
+	LOG_DUMP("TX", pkt_len, tx_buf);
 
     if(lock(write_mutex)) {
         cout.write((char *) tx_buf, pkt_len);

@@ -37,7 +37,7 @@
 typedef unsigned char byte;
 
 bool log_flag;
-bool exit_loop = false;
+//bool exit_loop = false;
 
 #ifdef __WIN32__
 int _tmain(int argc, _TCHAR* argv[])
@@ -45,9 +45,6 @@ int _tmain(int argc, _TCHAR* argv[])
 int main(int argc, char * argv[])
 #endif
 {
-    bool threaded = false;
-    ETERM *cmd_tuple;
-
 #ifdef __WIN32__
     _setmode( _fileno( stdout ), _O_BINARY );
     _setmode( _fileno( stdin  ), _O_BINARY );
@@ -92,31 +89,37 @@ int main(int argc, char * argv[])
 		}
 	}
 
-	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d\n"
+	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d"
 		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port);
 
     init_marshall();
 
-    REMOTE_LOG(DBG, "Port: OCI Process started...\n");
+    REMOTE_LOG(DBG, "Port: OCI Process started...");
 
-    threaded = InitializeThreadPool();
-    if(threaded)
-        REMOTE_LOG(DBG, "Port: Thread pool created...\n");
+    InitializeThreadPool();
+	ProcessCommand();
+	REMOTE_LOG(DBG, "Port: Thread pool created...");
 
-    REMOTE_LOG(DBG, "Port: Initialized Oracle OCI\n");
+    REMOTE_LOG(DBG, "Port: Initialized Oracle OCI");
 
-    while(!exit_loop && (cmd_tuple = (ETERM *)read_cmd()) != NULL) {
-        if(threaded && ProcessCommand(cmd_tuple)) {
-            //REMOTE_LOG("Port: Command sumitted to thread-pool for processing...");
-        }
+    while(true) {
+		read_cmd();
+		/*read_cmd(rxpkt);
+		if(rxpkt.buf == NULL || (rxpkt.len > 0 && rxpkt.buf_len != rxpkt.len)) {
+			REMOTE_LOG(CRT, "Incomplete erlang term. Received %u of %u bytes", rxpkt.buf_len, rxpkt.len);
+		} else*/
+		/*if(threaded && ProcessCommand(rxpkt)) {
+            //REMOTE_LOG(DBG, "Port: Command sumitted to thread-pool for processing...");
+        }*/
     }
 
+error_exit:
     CleanupThreadPool();
-    REMOTE_LOG(DBG, "Port: Thread pool destroyed\n");
+    REMOTE_LOG(DBG, "Port: Thread pool destroyed");
 
 	close_tcp();
-    REMOTE_LOG(DBG, "Port: tcp log socket closed\n");
+    REMOTE_LOG(DBG, "Port: tcp log socket closed");
 
-    REMOTE_LOG(DBG, "Port: Process oci terminating...\n");
+    REMOTE_LOG(DBG, "Port: Process oci terminating...");
     return 0;
 }

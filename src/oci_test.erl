@@ -169,7 +169,7 @@ setup() ->
     application:start(erloci),
     OciPort = oci_port:start_link([{logging, true}]),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
-    setupi(OciPort,Tns,User,Pswd).
+    {OciPort, setupi(OciPort,Tns,User,Pswd)}.
 
 setupi(OciPort,Tns,User,Pswd) ->
     OciSession = OciPort:get_session(Tns, User, Pswd),
@@ -177,7 +177,9 @@ setupi(OciPort,Tns,User,Pswd) ->
     ?Log("[OCI Session] ~p~n", [OciSession]),
     OciSession.
 
-teardown(_OciSession) ->
+teardown({OciPort, OciSession}) ->
+    OciSession:close(),
+    OciPort:close(),
     application:stop(erloci).
 
 -define(RLog(__Target, __Fmt, __Vars), gen_server:cast(__Target, {log, lists:flatten(io_lib:format(__Fmt, __Vars))})).
@@ -337,13 +339,15 @@ bigtable_test(RowCount) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                       bigtable_test                            |"),
     ?ELog("------------------------------------------------------------------"),
-    OciSession = oci_test:bigtab_setup(),
+    {OciPort, OciSession} = oci_test:bigtab_setup(),
     ok = oci_test:bigtab_load(OciSession, RowCount),
-    oci_test:bigtab_access(OciSession).
+    oci_test:bigtab_access(OciSession),
+    ok = OciSession:cose(),
+    ok = OciPort:close().
 
 bigtab_setup() ->
     ?ELog("Creating ~p", [?TESTTABLE]),
-    OciSession = setup(),
+    {OciPort, OciSession} = setup(),
     DropStmt = OciSession:prep_sql(?DROP),
     {oci_port, statement, _, _, _} = DropStmt,
     case DropStmt:exec_stmt() of
@@ -355,7 +359,7 @@ bigtab_setup() ->
     {oci_port, statement, _, _, _} = StmtCreate,
     {executed, 0} = StmtCreate:exec_stmt(),
     ok = StmtCreate:close(),
-    OciSession.
+    {OciPort, OciSession}.
 
 bigtab_load(OciSession, RowCount) ->
     ?ELog("Loading ~p with ~p rows", [?TESTTABLE, RowCount]),
