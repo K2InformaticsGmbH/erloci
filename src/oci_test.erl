@@ -22,10 +22,10 @@
 -export([ start/2
         , setup/0
         , teardown/1
-        , bigtable_test/1
+        , bigtable_test/2
         , bigtab_setup/0
         , bigtab_load/2
-        , bigtab_access/1
+        , bigtab_access/2
         ]).
 
 %gen_server callbacks
@@ -335,15 +335,16 @@ print_if_error(Parent,Table,{error, Error},Msg) ->
     end;
 print_if_error(_,_,_,_) -> ok.
 
-bigtable_test(RowCount) ->
+bigtable_test(RowCount, Count) ->
     ?ELog("------------------------------------------------------------------"),
     ?ELog("|                       bigtable_test                            |"),
     ?ELog("------------------------------------------------------------------"),
     {OciPort, OciSession} = oci_test:bigtab_setup(),
-    ok = oci_test:bigtab_load(OciSession, RowCount),
-    oci_test:bigtab_access(OciSession),
-    ok = OciSession:cose(),
-    ok = OciPort:close().
+    ok = bigtab_load(OciSession, RowCount),
+    bigtab_access(OciSession, Count),
+    ok = OciSession:close(),
+    ok = OciPort:close(),
+    ?ELog("------------------------------------------------------------------").
 
 bigtab_setup() ->
     ?ELog("Creating ~p", [?TESTTABLE]),
@@ -385,20 +386,20 @@ bigtab_load(OciSession, RowCount) ->
     ok = BoundInsStmt:close(),
     ok.
 
-bigtab_access(OciSession) ->
+bigtab_access(OciSession, Count) ->
     ?ELog("selecting from table ~s", [?TESTTABLE]),
     SelStmt = OciSession:prep_sql(?SELECT_WITH_ROWID),
     {oci_port, statement, _, _, _} = SelStmt,
     {cols, Cols} = SelStmt:exec_stmt(),
     ?ELog("selected columns ~p from table ~s", [Cols, ?TESTTABLE]),
     10 = length(Cols),
-    load_rows_to_end(SelStmt:fetch_rows(100), SelStmt),
+    load_rows_to_end(SelStmt:fetch_rows(Count), SelStmt, Count),
     ok = SelStmt:close(),
     ok.
 
-load_rows_to_end({{rows, Rows}, true}, _) -> ?ELog("Loaded ~p rows - Finished", [length(Rows)]);
-load_rows_to_end({{rows, Rows}, false}, SelStmt) ->
+load_rows_to_end({{rows, Rows}, true}, _, _) -> ?ELog("Loaded ~p rows - Finished", [length(Rows)]);
+load_rows_to_end({{rows, Rows}, false}, SelStmt, Count) ->
     ?ELog("Loaded ~p rows", [length(Rows)]),
-    load_rows_to_end(SelStmt:fetch_rows(100), SelStmt).
+    load_rows_to_end(SelStmt:fetch_rows(Count), SelStmt, Count).
 
 %-endif.

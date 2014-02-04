@@ -194,21 +194,32 @@ ProcessCommandCb(
 	while (!pop_cmd_queue(rxpkt));
 	ProcessCommand();
 
-	void * cmd_tuple = NULL;
-	cmd_tuple = erl_decode((unsigned char *)rxpkt.buf);
+	void * cmd_tuple = erl_decode((unsigned char *)rxpkt.buf);
 	if (!cmd_tuple) {
         REMOTE_LOG(CRT, "Term (%d) decoding failed...", rxpkt.len);
 		DUMP("rxpkt.buf", rxpkt.len, rxpkt.buf);
-		if(NULL != rxpkt.buf) delete rxpkt.buf;
+		if(NULL != rxpkt.buf) {
+			delete rxpkt.buf;
+			rxpkt.buf = NULL;
+		}
 		exit(1);
     }
 
-	if(NULL != rxpkt.buf) delete rxpkt.buf;
     if(cmd_processor(cmd_tuple))
 		exit(1);
 
 	erl_free_compound((ETERM*)cmd_tuple);
-    return;
+	if(NULL != rxpkt.buf) delete rxpkt.buf;
+	
+	// ETERM memory house keeping
+	unsigned long allocated, freed;
+	erl_eterm_statistics(&allocated,&freed);
+	if(freed * 2 < allocated) {
+		REMOTE_LOG(WRN, "ETERM alloc limit alloc %lu freed %lu!\n", allocated, freed);
+		erl_eterm_release();
+	}
+
+	return;
 }
 
 void ProcessCommand()

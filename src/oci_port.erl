@@ -68,6 +68,7 @@
 start_link(Options) -> start_link(Options,
     fun
         ({Lvl, Tag, File, Fun, Line, Msg}) -> io:format(user, "~p [~s] {~s,~s,~s} ~s", [Lvl, Tag, File, Fun, Line, Msg]);
+        ({Lvl, Tag, File, Fun, Line, Msg, Term}) -> io:format(user, "~p [~s] {~s,~s,~s} ~s : ~p", [Lvl, Tag, File, Fun, Line, Msg, Term]);
         (Log) when is_list(Log) -> io:format(user, "~s", [Log]);
         (Log) -> io:format(user, "~p~n", [Log])
     end).
@@ -157,7 +158,7 @@ exec_stmt({?MODULE, statement, PortPid, SessionId, StmtId}) ->
 exec_stmt(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
 exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    GroupedBindVars = split_binds(BindVars,?MAX_REQ_SIZE),
+    GroupedBindVars = split_binds(BindVars,?MAX_REQ_SIZE div 2),
     collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, []).
 
 collect_grouped_bind_request([], _, _, _, _, Acc) ->
@@ -176,7 +177,7 @@ collect_grouped_bind_request([], _, _, _, _, Acc) ->
     end;
 collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, StmtId, AutoCommit, Acc) ->
     NewAutoCommit = if length(GroupedBindVars) > 0 -> 0; true -> AutoCommit end,
-    if length(BindVars) > 0 -> io:format(user,"TX rows ~p~n", [length(BindVars)]); true -> ok end,
+    %if length(BindVars) > 0 -> io:format(user,"TX rows ~p~n", [length(BindVars)]); true -> ok end,
     R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, NewAutoCommit]}, ?PORT_TIMEOUT),
     ?DriverSleep,
     case R of
@@ -733,7 +734,7 @@ describe_test({_, OciSession}) ->
 
 function_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                        procedure_test                          |"),
+    ?ELog("|                        function_test                           |"),
     ?ELog("+----------------------------------------------------------------+"),
 
     FunName = "test_fun",
@@ -773,67 +774,3 @@ function_test({_, OciSession}) ->
     ?assertEqual(ok, DropFunStmt:close()).
 
 -endif.
-
-%% - SQL> create or replace
-%% -   2  function calc_remu(
-%% -   3  sal in number, com in number) return number is
-%% -   4  begin
-%% -   5  return ((sal*12)+(sal*12*nvl(com,0)));
-%% -   6  end;
-%% -   7  /
-%% - 
-%% - Funktion wurde erstellt.
-%% - 
-%% - SQL> var res number
-%% - SQL> exec :res := calc_remu(10,20);
-%% - 
-%% - PL/SQL-Prozedur erfolgreich abgeschlossen.
-%% - 
-%% - SQL> print res;
-%% - 
-%% -        RES
-%% - ----------
-%% -       2520
-%% - 
-%% - SQL> select calc_remu(10,30) from dual;
-%% - 
-%% - CALC_REMU(10,30)
-%% - ----------------
-%% -             3720
-%% - 
-%% - SQL> select calc_remu(1,30) from dual;
-%% - 
-%% - CALC_REMU(1,30)
-%% - ---------------
-%% -             372
-%% - 
-%% - SQL> select calc_remu(1,3) from dual;
-%% - 
-%% - CALC_REMU(1,3)
-%% - --------------
-%% -             48
-%% - 
-%% - SQL> exec calc_remu(10,20);
-%% - BEGIN calc_remu(10,20); END;
-%% - 
-%% -       *
-%% - FEHLER in Zeile 1:
-%% - ORA-06550: line 1, column 7:
-%% - PLS-00221: 'CALC_REMU' is not a procedure or is undefined
-%% - ORA-06550: line 1, column 7:
-%% - PL/SQL: Statement ignored
-%% - 
-%% - 
-%% - 
-%% - create or replace procedure calc_remu(sal in number, com in number) return number is
-%% - begin
-%% -  return ((sal*12)+(sal*12*nvl(com,0)));
-%% - end;
-%% - /
-%% - 
-%% - 
-%% - (fun(OraLike, Escape) ->
-%% -  re:replace("")
-%% - end)("%A__B%", "_").
-%% - 
-%% - 

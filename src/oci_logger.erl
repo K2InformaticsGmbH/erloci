@@ -80,12 +80,14 @@ handle_info({tcp, Socket, Data}, #state{sock = Socket, logfun = LogFun} = State)
         {noreply, State#state{buf = NewBuf}};
     true ->
         case binary_to_term(Payload) of
-        {Lvl,File,Func,Line,Msg} ->
+        Log when is_tuple(Log) ->
+            [Lvl|Rest] = tuple_to_list(Log),
             try
-                LogFun({?LLVL(Lvl), "_PRT_", File, Func, Line, Msg})
+                LogFun(list_to_tuple([?LLVL(Lvl), "_PRT_" | Rest]))
             catch
                 _:_ ->
-                   io:format(user, ?T++" [~p] [_PRT_] {~s,~s,~p} ~s~n", [?LLVL(Lvl), File, Func, Line, Msg])
+                   [File, Func, Line, Msg | R] = Rest,
+                   io:format(user, ?T++" [~p] [_PRT_] {~s,~s,~p} ~s ~p~n", [?LLVL(Lvl), File, Func, Line, Msg, R])
             end;
         Other ->
             io:format(user, "~p Unknown log format ~p~n", [{?MODULE, ?LINE}, Other])

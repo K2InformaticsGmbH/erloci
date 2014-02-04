@@ -116,7 +116,7 @@ extern HANDLE log_write_mutex;
 #else
 extern pthread_mutex_t log_write_mutex;
 #endif
-void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, const char *fmt, ...)
+void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
 {
     int tx_len;
     int pkt_len = -1;
@@ -133,25 +133,26 @@ void log_remote(const char * filename, const char * funcname, unsigned int linen
     vsnprintf
 #endif
     (log_str, MAX_FORMATTED_STR_LEN, fmt, arguments);
+    va_end(arguments);
 
 	// Borrowed from write_resp
-	ETERM * log = erl_format((char*)"{~i,~s,~s,~i,~s}", level, filename, funcname, linenumber, log_str);
+	ETERM * log = (!term
+					? erl_format((char*)"{~i,~s,~s,~i,~s}", level, filename, funcname, linenumber, log_str)
+					: erl_format((char*)"{~i,~s,~s,~i,~s,~w}", level, filename, funcname, linenumber, log_str, term));
 	tx_len = erl_term_len(log);	
     pkt_len = tx_len+PKT_LEN_BYTES;
     tx_buf = new unsigned char[pkt_len];
     hdr = (pkt_hdr *)tx_buf;
     hdr->len = htonl(tx_len);
     erl_encode(log, tx_buf+PKT_LEN_BYTES);
+	erl_free_compound(log);
 
     if(lock(log_write_mutex)) {
 //		send(log_socket, log_str, (int)strlen(log_str), 0);
 		send(log_socket, (char*) tx_buf, pkt_len, 0);
 		unlock(log_write_mutex);
     }
-
 	delete tx_buf;
-
-    va_end(arguments);
 
 #ifdef __WIN32__
 	Sleep(2);

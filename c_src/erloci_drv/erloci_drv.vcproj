@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="ei_md.lib erl_interface_md.lib wsock32.lib erloci_lib.lib"
+				AdditionalDependencies="ei_mdd.lib erl_interface_mdd.lib wsock32.lib erloci_lib.lib"
 				OutputFile="$(ProjectDir)..\..\priv\erloci.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(ProjectDir)..\..\priv&quot;"

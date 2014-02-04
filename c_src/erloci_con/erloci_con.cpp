@@ -586,7 +586,7 @@ int _tmain(int argc, _TCHAR* argv[])
 }
 
 bool log_flag = true;
-void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, const char *fmt, ...)
+void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
 {
     va_list arguments;
     va_start(arguments, fmt);

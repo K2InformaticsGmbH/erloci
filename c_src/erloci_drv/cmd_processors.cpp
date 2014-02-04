@@ -57,7 +57,7 @@ bool change_log_flag(ETERM * command)
             break;
         }
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -65,7 +65,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(RMOTE_MSG), args);
 
 	return ret;
@@ -111,7 +110,7 @@ bool cmd_get_session(ETERM * command)
 				if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		   }
 	} else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -119,7 +118,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), args);
 
 	return ret;
@@ -162,7 +160,7 @@ bool cmd_release_conn(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -170,7 +168,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(PUT_SESSN), args);
 
 	return ret;
@@ -213,7 +210,7 @@ bool cmd_commit(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -221,7 +218,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CMT_SESSN), args);
 
 	return ret;
@@ -264,7 +260,7 @@ bool cmd_rollback(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -272,7 +268,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(RBK_SESSN), args);
 
 	return ret;
@@ -329,7 +324,7 @@ bool cmd_describe(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -337,7 +332,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), args);
 
 	return ret;
@@ -390,7 +384,7 @@ bool cmd_prep_sql(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -398,7 +392,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), args);
 
 	return ret;
@@ -453,7 +446,7 @@ bool cmd_bind_args(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -461,7 +454,6 @@ error_exit:
 	if(write_resp(resp) < 0)
         ret = true;
 
-//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), args);
 
     return ret;
@@ -536,7 +528,7 @@ bool cmd_exec_stmt(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
 	} else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -544,7 +536,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//    erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), args);
 
 	return ret;
@@ -617,7 +608,7 @@ bool cmd_fetch_rows(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -625,7 +616,6 @@ error_exit:
 	if(write_resp(resp) < 0)
         ret = true;
 
-//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
 
     return ret;
@@ -679,7 +669,7 @@ bool cmd_close_stmt(ETERM * command)
 			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG(ERR, "argument type(s) missmatch\n");
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
@@ -687,7 +677,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), args);
 
     return ret;
@@ -731,7 +720,6 @@ error_exit:
     if(write_resp(resp) < 0)
         ret = true;
 
-//	erl_free_compound(command);
 	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_ECHOT), args);
 
     return ret;
@@ -778,6 +766,5 @@ bool cmd_processor(void * param)
 
 //	PRINT_ERL_ALLOC("end");
 
-	erl_eterm_release();
 	return ret;
 }
