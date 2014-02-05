@@ -359,8 +359,8 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
     ETERM * arg = NULL;
 	size_t len = 0;
     do {
-        if ((item = erl_hd(args)) == NULL	||
-            !ERL_IS_TUPLE(item)				||
+        if ((item = ERL_CONS_HEAD(args)) == NULL	||
+            !ERL_IS_TUPLE(item)						||
             erl_size(item) != 2)
             break;
 
@@ -385,7 +385,7 @@ void map_schema_to_bind_args(void * _args, vector<var> & vars)
 
 		vars.push_back(v);
 
-        args = erl_tl(args);
+        args = ERL_CONS_TAIL(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
 }
 
@@ -435,19 +435,19 @@ size_t map_value_to_bind_args(void * _args, vector<var> & vars)
 	size_t bind_count = 0;
     do {
 		++bind_count;
-        if ((item = erl_hd(args)) == NULL	||
-            !ERL_IS_TUPLE(item)				||
+        if ((item = ERL_CONS_HEAD(args)) == NULL	||
+            !ERL_IS_TUPLE(item)						||
 			(unsigned int)erl_size(item) != vars.size()) {
 			REMOTE_LOG(ERR, "malformed ETERM\n");
 			strcpy(r.gerrbuf, "Malformed ETERM");
             throw r;
 		}
 
-		len = erl_size(item);
+		len = ERL_TUPLE_SIZE(item);
 
 		// loop through each value of the tuple
 		for(size_t i=0; i<len; ++i) {
-			if ((arg = erl_element(i+1, item)) == NULL) {
+			if ((arg = ERL_TUPLE_ELEMENT(item,i)) == NULL) {
 				REMOTE_LOG(ERR, "row %d: missing parameter for %s\n", bind_count, vars[i].name);
 				strcpy(r.gerrbuf, "Missing parameter term");
 				throw r;
@@ -569,11 +569,9 @@ size_t map_value_to_bind_args(void * _args, vector<var> & vars)
 				vars[i].value_sz = arg_len;
 			vars[i].valuep.push_back(tmp_arg);
 			vars[i].ind.push_back(ind);
-			erl_free_compound(arg);
 		}
 
-        args = erl_tl(args);
-		erl_free_compound(item);
+        args = ERL_CONS_TAIL(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
 	return bind_count;
 }
@@ -598,9 +596,9 @@ void * walk_term(void * _term)
 	}
 	else if(ERL_IS_LIST(term)) {
 		do {
-			list_item = erl_hd(term);
+			list_item = ERL_CONS_HEAD(term);
 			walk_term(list_item);
-		    term = erl_tl(term);
+		    term = ERL_CONS_TAIL(term);
 	    } while (term != NULL && !ERL_IS_EMPTY_LIST(term));
 	}
 	else if(ERL_IS_ATOM(term)) {
