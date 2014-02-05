@@ -191,7 +191,12 @@ ProcessCommandCb(
 #endif
 
 	pkt rxpkt;
-	while (!pop_cmd_queue(rxpkt));
+	while (!pop_cmd_queue(rxpkt))
+#ifdef __WIN32__
+		SwitchToThread();
+#else
+		pthread_yield();
+#endif
 	ProcessCommand();
 
 	void * cmd_tuple = erl_decode((unsigned char *)rxpkt.buf);
