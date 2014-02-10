@@ -53,7 +53,7 @@ static pthread_mutex_t cmd_queue_mutex;
 pthread_mutex_t log_write_mutex;
 #endif
 
-static queue<vector<unsigned char>> cmd_queue;
+static queue<vector<unsigned char> > cmd_queue;
 
 char * print_term(void *term)
 {
