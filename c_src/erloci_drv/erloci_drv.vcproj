@@ -203,10 +203,6 @@
 				RelativePath=".\oci_marshal.cpp"
 				>
 			</File>
-			<File
-				RelativePath=".\stdafx.cpp"
-				>
-			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -219,10 +215,6 @@
 			</File>
 			<File
 				RelativePath=".\oci_marshal.h"
-				>
-			</File>
-			<File
-				RelativePath=".\stdafx.h"
 				>
 			</File>
 			<File
