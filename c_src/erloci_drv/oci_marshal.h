@@ -118,13 +118,6 @@ extern char * print_term(void*);
 	REMOTE_LOG(_mark" eterm mem %lu, %lu\n", allocated, freed);\
 }
 
-// Read packet structure
-typedef struct _pkt {
-    char * buf;
-    unsigned long len;
-	unsigned long buf_len;
-} pkt;
-
 extern bool init_marshall(void);
 extern void read_cmd(void);
 extern int write_resp(void * resp_term);
@@ -183,7 +176,9 @@ extern void append_coldef_to_list(const char * col_name, size_t len,
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
 extern void map_schema_to_bind_args(void *, vector<var> &);
 extern size_t map_value_to_bind_args(void *, vector<var> &);
-extern bool pop_cmd_queue(pkt &);
+
+#include<vector>
+extern vector<unsigned char> pop_cmd_queue();
 
 #define MAX_FORMATTED_STR_LEN 1024
 

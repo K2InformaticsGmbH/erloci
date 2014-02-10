@@ -31,6 +31,7 @@
 
 #include<iostream>
 #include<queue>
+#include<vector>
 
 using namespace std;
 
@@ -54,7 +55,7 @@ static pthread_mutex_t cmd_queue_mutex;
 pthread_mutex_t log_write_mutex;
 #endif
 
-static queue<pkt> cmd_queue;
+static queue<vector<unsigned char>> cmd_queue;
 
 char * print_term(void *term)
 {
@@ -146,7 +147,7 @@ void append_string_to_list(const char * string, size_t len, void * list)
         container_list = erl_mk_empty_list();
 
 	if (string) {
-		ETERM *binstr = erl_mk_binary(string, len);
+		ETERM *binstr = erl_mk_binary(string, (int)len);
 		ETERM *new_container_list = erl_cons(binstr, container_list);
 		erl_free_term(binstr);
 		erl_free_term(container_list);
@@ -166,7 +167,7 @@ void append_coldef_to_list(const char * col_name, size_t len, const unsigned sho
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-	ETERM *cname = erl_mk_binary(col_name, len);
+	ETERM *cname = erl_mk_binary(col_name, (int)len);
     ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~i,~i,~i,~i}", cname, data_type, max_len, precision, scale), container_list);
     erl_free_term(cname);
     erl_free_term(container_list);
@@ -183,7 +184,7 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
     if (container_list == NULL)
         container_list = erl_mk_empty_list();
 
-	ETERM *cname = erl_mk_binary(col_name, len);
+	ETERM *cname = erl_mk_binary(col_name, (int)len);
     ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~i,~i}", cname, data_type, max_len), container_list);
     erl_free_term(cname);
     erl_free_term(container_list);
@@ -226,11 +227,9 @@ bool init_marshall(void)
     return true;
 }
 
-bool pop_cmd_queue(pkt & p)
+vector<unsigned char> pop_cmd_queue()
 {
-	p.buf = NULL;
-	p.len = 0;
-	p.buf_len = 0;
+	vector<unsigned char> p;
 	if(lock(cmd_queue_mutex)) {
 		if (!cmd_queue.empty()) {
 			p = cmd_queue.front();
@@ -238,7 +237,7 @@ bool pop_cmd_queue(pkt & p)
 		}
  		unlock(cmd_queue_mutex);
     }
-	return (p.buf != NULL && p.len > 0 && p.buf_len == p.len);
+	return p;
 }
 
 void read_cmd()
@@ -262,28 +261,16 @@ void read_cmd()
         EXIT();
 		return;
     }
-	pkt rxpkt;
-	rxpkt.buf_len = 0;
-    rxpkt.len = ntohl(hdr.len);
+	vector<unsigned char> rxpkt;
+    rxpkt.resize(ntohl(hdr.len));
 
     //REMOTE_LOG(DBG, "RX (%d)", rxpkt.len);
 
-	// allocate for the entire term
-	// to be freeded in the caller's scope
-    rxpkt.buf = new char[rxpkt.len];
-    if (rxpkt.buf == NULL) {
-		REMOTE_LOG(CRT, "Alloc of %X falied", rxpkt.len);
-        EXIT();
-		exit(0);
-    }
-
 	// Read the Term binary
-    cin.read(rxpkt.buf, rxpkt.len);
-	rxpkt.buf_len = cin.gcount();
-    if(rxpkt.buf_len  < rxpkt.len) {
-        // Unable to get Term binary
-        delete rxpkt.buf;
-		REMOTE_LOG(CRT, "RX %X of %X(%X)", rxpkt.buf_len, rxpkt.len, hdr.len);
+    cin.read((char*)&rxpkt[0], rxpkt.size());
+	size_t buf_len = cin.gcount();
+    if(buf_len  < rxpkt.size()) {
+		REMOTE_LOG(CRT, "RX %X of %X(%X)", buf_len, rxpkt.size(), hdr.len);
         EXIT();
         exit(0);
     }
@@ -574,59 +561,4 @@ size_t map_value_to_bind_args(void * _args, vector<var> & vars)
         args = ERL_CONS_TAIL(args);
     } while (args != NULL && !ERL_IS_EMPTY_LIST(args));
 	return bind_count;
-}
-
-void * walk_term(void * _term)
-{
-	ETERM * term = (ETERM *)_term;
-	ETERM * list_item = NULL;
-	ETERM * tuple_arg = NULL;
-	size_t len = 0;
-
-	if(!term)
-		return NULL;
-
-	if(ERL_IS_TUPLE(term)) {
-		len = erl_size(term);
-		for(size_t i=0; i<len; ++i) {
-			if ((tuple_arg = erl_element(i+1, term)) == NULL)
-				break;
-			walk_term(tuple_arg);
-		}
-	}
-	else if(ERL_IS_LIST(term)) {
-		do {
-			list_item = ERL_CONS_HEAD(term);
-			walk_term(list_item);
-		    term = ERL_CONS_TAIL(term);
-	    } while (term != NULL && !ERL_IS_EMPTY_LIST(term));
-	}
-	else if(ERL_IS_ATOM(term)) {
-	}
-	else if(ERL_IS_UNSIGNED_LONGLONG(term)) {
-	}
-	else if(ERL_IS_LONGLONG(term)) {
-	}
-	else if(ERL_IS_UNSIGNED_INTEGER(term)) {
-	}
-	else if(ERL_IS_INTEGER(term)) {
-	}
-	else if(ERL_IS_FLOAT(term)) {
-	}
-	else if(ERL_IS_PID(term)) {
-	}
-	else if(ERL_IS_REF(term)) {
-	}
-	else if(ERL_IS_PORT(term)) {
-	}
-	else if(ERL_IS_CONS(term)) {
-	}
-	else if(ERL_IS_EMPTY_LIST(term)) {
-	}
-	else if(ERL_IS_NIL(term)) {
-	}
-	else if(ERL_IS_BINARY(term)) {
-	}
-
-	return _term;
 }

@@ -190,8 +190,11 @@ ProcessCommandCb(
     UNREFERENCED_PARAMETER(Work);
 #endif
 
-	pkt rxpkt;
-	while (!pop_cmd_queue(rxpkt)) {
+	vector<unsigned char> rxpkt;
+	while (true) {
+		rxpkt = pop_cmd_queue();
+		if (rxpkt.size() > 0)
+			break;
 #ifdef __WIN32__
 		if(!SwitchToThread())
 			Sleep(50);
@@ -202,14 +205,10 @@ ProcessCommandCb(
 	}
 	ProcessCommand();
 
-	void * cmd_tuple = erl_decode((unsigned char *)rxpkt.buf);
+	void * cmd_tuple = erl_decode(&rxpkt[0]);
 	if (!cmd_tuple) {
-        REMOTE_LOG(CRT, "Term (%d) decoding failed...", rxpkt.len);
-		DUMP("rxpkt.buf", rxpkt.len, rxpkt.buf);
-		if(NULL != rxpkt.buf) {
-			delete rxpkt.buf;
-			rxpkt.buf = NULL;
-		}
+        REMOTE_LOG(CRT, "Term (%d) decoding failed...", rxpkt.size());
+		DUMP("rxpkt.buf", rxpkt.size(), ((unsigned char*)&rxpkt[0]));
 		exit(1);
     }
 
@@ -217,7 +216,6 @@ ProcessCommandCb(
 		exit(1);
 
 	erl_free_compound((ETERM*)cmd_tuple);
-	if(NULL != rxpkt.buf) delete rxpkt.buf;
 	
 	// ETERM memory house keeping
 	unsigned long allocated, freed;

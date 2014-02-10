@@ -39,11 +39,7 @@ typedef unsigned char byte;
 bool log_flag;
 //bool exit_loop = false;
 
-#ifdef __WIN32__
-int _tmain(int argc, _TCHAR* argv[])
-#else
 int main(int argc, char * argv[])
-#endif
 {
 #ifdef __WIN32__
     _setmode( _fileno( stdout ), _O_BINARY );
@@ -55,34 +51,19 @@ int main(int argc, char * argv[])
 
 	// Max term byte size
 	if (argc >= 2) {
-		max_term_byte_size =
-#ifdef __WIN32__
-			_wtol(argv[1]);
-#else
-            atoi(argv[1]);
-#endif
+		max_term_byte_size = atol(argv[1]);
 	}
 
 	// Enable Logging
     if (argc >= 3) {
-        if (
-#ifdef __WIN32__
-            wcscmp(argv[2], L"true") == 0
-#else
-            strcmp(argv[2], "true") == 0
-#endif
-        ) log_flag = true;
+        if (strcmp(argv[2], "true") == 0)
+			log_flag = true;
     }
 
 	// Log listner port
 	int log_tcp_port = 0;
 	if (argc >= 4) {
-		log_tcp_port = 
-#ifdef __WIN32__
-            _wtoi(argv[3]);
-#else
-            atoi(argv[3]);
-#endif
+		log_tcp_port = atol(argv[3]);
 		char * ret = connect_tcp(log_tcp_port);
 		if(ret != NULL) {
 			return -1;
