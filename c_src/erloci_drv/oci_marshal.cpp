@@ -12,8 +12,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#include "stdafx.h"
-
 #include "oci_marshal.h"
 #include "erl_interface.h"
 
