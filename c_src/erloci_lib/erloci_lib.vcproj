@@ -64,7 +64,7 @@
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
 				AdditionalDependencies="wsock32.lib oci.lib  oraocci12.lib"
-				OutputFile="$(OutDir)\$(ProjectName).lib"
+				OutputFile="$(SolutionDir)..\priv\$(ProjectName).lib"
 				AdditionalLibraryDirectories="C:\Oracle\instantclient\instantclient_12_1\sdk\lib\msvc"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 			/>

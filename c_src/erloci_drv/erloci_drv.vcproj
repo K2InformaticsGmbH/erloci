@@ -63,9 +63,9 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ei_mdd.lib erl_interface_mdd.lib wsock32.lib erloci_lib.lib"
-				OutputFile="$(OutDir)\$(ProjectName).exe"
+				OutputFile="$(SolutionDir)..\priv\$(SolutionName).exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(OutDir)&quot;"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(SolutionDir)..\priv\&quot;"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\$(TargetName).pdb"
@@ -92,7 +92,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="copy $(OutDir)\$(TargetFileName) $(SolutionDir)..\priv\erloci$(TargetExt)"
+				CommandLine=""
 			/>
 		</Configuration>
 		<Configuration
