@@ -3,64 +3,51 @@
 ### Setup the development system
 Create a environment variable OTPROOT pointing to erlang installation directory,
 e.g. - in linux (if installed from RPM) its usually /usr/lib/erlang.
-Download from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html) the following libraries (for correct target platfrom)
-1. instantclient-basic
-2. instantclient-sdk
+Download from [Oracle](http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html) the following libraries (for matching os and platfrom for the development system)
+  1. instantclient-basic
+  2. instantclient-sdk
 
-Unzip and copy them into following directory structure
-##### Linux directory structure
+### Windows
+Unzip both into a directory and create the following enviroment variable
+E.g. - if your instant client library version is 12.1 and you have unzipped 'instantclient-basic-windows*.zip' to C:\Oracle\instantclient\instantclient_12_1 then the sdk should be at C:\Oracle\instantclient\instantclient_12_1\sdk\
+The include headers will be at C:\Oracle\instantclient\instantclient_12_1\sdk\include and static libraries at C:\Oracle\instantclient\instantclient_12_1\sdk\lib\msvc (note the path for VS project configuration later)
+
+### Linux
+Use rpms (recomended) to install basic and sdk. The default install path is usually (for x86_64 architecture)
 ```
-erloci
-├── c_src
-│   ├── lib
-│   │   ├── instantclient
-│   │   │   ├── libclntshcore.so -> libclntshcore.so.12.1
-│   │   │   ├── libclntshcore.so.12.1
-│   │   │   ├── libclntsh.so -> libclntsh.so.12.1
-│   │   │   ├── libclntsh.so.12.1
-│   │   │   ├── libocci.so -> libocci.so.12.1
-│   │   │   ├── libocci.so.12.1
-│   │   │   ├── libocci.so
-│   │   │   ├── sdk
-│   │   │   │   ├── include
-│   │   │   │   │   ├── *.h     (header files from sdk/include)
+OCI Headers     : /usr/include/oracle/12.1/client64/
+OCI Libraries   : /usr/lib/oracle/12.1/client64/lib/
 ```
 
-##### Windows directory structure
+### Create Environment variables
 ```
-erloci
-├── c_src
-│   ├── lib
-│   │   ├── instantclient
-│   │   │   ├── oci.lib
-│   │   │   ├── oraocci11.lib
-│   │   │   ├── sdk
-│   │   │   │   ├── include
-│   │   │   │   │   ├── *.h     (header files from sdk/include)
+INSTANT_CLIENT_LIB_PATH     = path to oci headers
+INSTANT_CLIENT_INCLUDE_PATH = path to oci libraries
 ```
 
-##### Mac OSX directory structure
+For example:
 ```
-erloci
-├── c_src
-│   ├── lib
-│   │   ├── instantclient
-│   │   │   ├── libclntsh.dylib -> libclntsh.dylib.11.1
-│   │   │   ├── libclntsh.dylib.11.1
-│   │   │   ├── libnnz11.dylib
-│   │   │   ├── libocci.dylib -> libocci.dylib.11.1
-│   │   │   ├── libocci.dylib.11.1
-│   │   │   ├── libociicus.dylib
-│   │   │   ├── libocijdbc11.dylib
-│   │   │   ├── sdk
-│   │   │   │   ├── include
-│   │   │   │   │   ├── *.h     (header files from sdk/include)
+(x64 Fedora)
+INSTANT_CLIENT_LIB_PATH=/usr/lib/oracle/12.1/client64/lib/
+INSTANT_CLIENT_INCLUDE_PATH=/usr/include/oracle/12.1/client64/
+
+(x64 Windows 7)
+INSTANT_CLIENT_LIB_PATH     = C:\Oracle\instantclient\instantclient_12_1\
 ```
 
 ### Compiling
 We assume you have [rebar](https://github.com/basho/rebar) somewhere on your path. Rebar will take care of the Erlang and C++ sources.
 <code>rebar compile</code>
 Please check the rebar manual for how to add erloci as a dependency to your project.
+
+#### Compiling C++ port in visual studio (2010)
+Change/Add the following:
+  * In project properties of erloci_drv and erloci_lib 
+    * Configuration Properties -> C/C++ -> General -> Additional Include Directories: path-to-instant-client\sdk\include
+    * Configuration Properties -> C/C++ -> General -> Additional Include Directories: path-to-instant-client\sdk\include
+  * In project property of erloci_lib 
+    * Configuration Properties -> Librarian -> General -> Additional Library Directories: path-to-instant-client\sdk\lib\msvc
+    * Configuration Properties -> Librarian -> General -> Additional Dependencies: oraocciXX.lib (replace XX with matching file in path)
 
 ### 3d party dependencies
 #### Threadpool 
