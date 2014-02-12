@@ -1,6 +1,8 @@
 ERLOCI_LIB_PATH = c_src/erloci_lib
 ERLOCI_DRV_PATH = c_src/erloci_drv
 OCI_DIR = c_src/lib/instantclient
+OCI_INCLUDE_PATH = $(INSTANT_CLIENT_INCLUDE_PATH)
+OCI_LIB_PATH = $(INSTANT_CLIENT_LIB_PATH)
 ERL_INTERFACE_DIR = $(OTPROOT)/lib/erl_interface-3.7.11
 
 ERLOCI_LIB_SRCS = 	$(ERLOCI_LIB_PATH)/ocisession.cpp	\
@@ -18,12 +20,11 @@ ERLOCI_DRV_SRCS =	$(ERLOCI_DRV_PATH)/cmd_processors.cpp	\
 
 ERLOCI_DRV_OBJS = $(ERLOCI_DRV_SRCS:.cpp=.o)
 
-CXXFLAGS = -ggdb -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_DIR)/sdk/include/
-LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -Lpriv -L$(OCI_DIR)
+CXXFLAGS = -ggdb -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_DRV_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_INCLUDE_PATH)
+LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -Lpriv -L$(OCI_LIB_PATH)
 LINKFLAGS = -levent -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12
 
 all: priv/erloci
-	cp -u $(OCI_DIR)/*.* priv/
 	@echo "erloci compiled"
 
 priv/erloci: priv/liberloci.a $(ERLOCI_DRV_OBJS)
