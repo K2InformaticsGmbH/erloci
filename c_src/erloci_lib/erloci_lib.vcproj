@@ -42,7 +42,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;$(ProjectDir)..\lib\instantclient\sdk\include&quot;"
+				AdditionalIncludeDirectories="C:\Oracle\instantclient\instantclient_12_1\sdk\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;__WIN32__"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -63,9 +63,9 @@
 			<Tool
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
-				AdditionalDependencies="wsock32.lib oci.lib  oraocci11.lib"
-				OutputFile="$(ProjectDir)..\..\priv\$(ProjectName).lib"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)..\lib\instantclient&quot;"
+				AdditionalDependencies="wsock32.lib oci.lib  oraocci12.lib"
+				OutputFile="$(SolutionDir)..\priv\$(ProjectName).lib"
+				AdditionalLibraryDirectories="C:\Oracle\instantclient\instantclient_12_1\sdk\lib\msvc"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 			/>
 			<Tool

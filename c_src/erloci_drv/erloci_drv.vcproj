@@ -43,7 +43,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(ProjectDir)..\lib\instantclient\sdk\include&quot;;&quot;$(ProjectDir)..\erloci_lib&quot;"
+				AdditionalIncludeDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;C:\Oracle\instantclient\instantclient_12_1\sdk\include;&quot;$(ProjectDir)..\erloci_lib&quot;"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="0"
 				RuntimeLibrary="3"
@@ -63,11 +63,12 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ei_mdd.lib erl_interface_mdd.lib wsock32.lib erloci_lib.lib"
-				OutputFile="$(ProjectDir)..\..\priv\erloci.exe"
+				OutputFile="$(SolutionDir)..\priv\$(SolutionName).exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(ProjectDir)..\..\priv&quot;"
+				AdditionalLibraryDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(SolutionDir)..\priv\&quot;"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(OutDir)\$(TargetName).pdb"
 				SubSystem="1"
 				TargetMachine="17"
 			/>
@@ -91,6 +92,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine=""
 			/>
 		</Configuration>
 		<Configuration
