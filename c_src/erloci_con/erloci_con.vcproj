@@ -43,7 +43,7 @@
 				Name="VCCLCompilerTool"
 				AdditionalOptions="/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP"
 				Optimization="0"
-				AdditionalIncludeDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;&quot;$(ProjectDir)..\lib\instantclient\sdk\include&quot;;&quot;$(SolutionDir)erloci_lib&quot;"
+				AdditionalIncludeDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;C:\Oracle\instantclient\instantclient_12_1\sdk\include;&quot;$(SolutionDir)erloci_lib&quot;"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -64,10 +64,11 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="erloci_lib.lib"
-				OutputFile="$(ProjectDir)..\..\priv\$(ProjectName).exe"
+				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;$(ProjectDir)..\..\priv&quot;"
+				AdditionalLibraryDirectories="&quot;$(OutDir)&quot;"
 				GenerateDebugInformation="true"
+				ProgramDatabaseFile="$(OutDir)\$(TargetName).pdb"
 				SubSystem="1"
 				TargetMachine="17"
 			/>

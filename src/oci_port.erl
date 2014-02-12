@@ -231,20 +231,34 @@ init([Logging, ListenPort, AcceptLogFun]) ->
             Ret
     end.
 
+-define(OCIRLIBS, ["oci.dll"]).
 start_exe(Executable, Logging, ListenPort, PortLogger) ->
-    PrivDir = case code:priv_dir(erloci) of
-        {error,_} -> "./priv/";
-        PDir -> PDir
+    {ok, OciDir} = case os:getenv("INSTANT_CLIENT_LIB_PATH") of
+        false -> {error, "INSTANT_CLIENT_LIB_PATH not defined"};
+        OCIRuntimeLibraryPath ->
+            case
+               lists:any(fun(F) ->
+                            case filelib:is_file(filename:join([OCIRuntimeLibraryPath, F])) of
+                                false -> true;
+                                _ -> false
+                            end
+                         end,
+                       ?OCIRLIBS) of
+                true -> {error, "Some required runtime libraries missing at "++OCIRuntimeLibraryPath};
+                _ -> {ok, OCIRuntimeLibraryPath}
+            end
     end,
-    LibPath = case os:type() of
-	    {unix,darwin}   -> "DYLD_LIBRARY_PATH";
-	    _               -> "LD_LIBRARY_PATH"
+    {LibPath, PathSepStr} = case os:type() of
+	    {unix,darwin}   -> {"DYLD_LIBRARY_PATH", ":"};
+        {win32,nt}      -> {"PATH", ";"};
+	    _               -> {"LD_LIBRARY_PATH", ":"}
     end,
     NewLibPath = case os:getenv(LibPath) of
         false -> "";
-        LdLibPath -> LdLibPath ++ ":"
-    end ++ PrivDir,
-    ?Info(PortLogger, "New ~s path: ~s", [LibPath, NewLibPath]),
+        LdLibPath -> LdLibPath ++ PathSepStr
+    end ++ OciDir,
+
+    ?Info(PortLogger, "New ~s path: ~s", [LibPath, re:replace(NewLibPath, "~", "~~", [global, {return, list}])]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status
