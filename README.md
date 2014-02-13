@@ -62,8 +62,8 @@ Make sure you have <code>vcbuild.exe</code> in path. After that <code>rebar comp
 
 ### Eunit test
 The Oracle connection information are taken from erloci.app.src. Please change it to point to your database before executing the steps below:
-1. <code>rebar compile</code>
-2. <code>rebar eunit</code>
+  1. <code>rebar compile</code>
+  2. <code>rebar eunit</code>
 
 ### Work-In-Progess
 1. Support Variable binding for Input
