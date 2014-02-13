@@ -231,8 +231,12 @@ init([Logging, ListenPort, AcceptLogFun]) ->
             Ret
     end.
 
--define(OCIRLIBS, ["oci.dll"]).
 start_exe(Executable, Logging, ListenPort, PortLogger) ->
+    OciLibs = case os:type() of
+	    {unix,darwin}   -> ["libocci.dylib"];
+        {win32,nt}      -> ["oci.dll"];
+	    _               -> ["libocci.so"]
+    end,
     {ok, OciDir} = case os:getenv("INSTANT_CLIENT_LIB_PATH") of
         false -> {error, "INSTANT_CLIENT_LIB_PATH not defined"};
         OCIRuntimeLibraryPath ->
@@ -243,7 +247,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
                                 _ -> false
                             end
                          end,
-                       ?OCIRLIBS) of
+                        OciLibs) of
                 true -> {error, "Some required runtime libraries missing at "++OCIRuntimeLibraryPath};
                 _ -> {ok, OCIRuntimeLibraryPath}
             end
@@ -751,7 +755,6 @@ function_test({_, OciSession}) ->
     ?ELog("|                        function_test                           |"),
     ?ELog("+----------------------------------------------------------------+"),
 
-    FunName = "test_fun",
     CreateFunction = OciSession:prep_sql(<<"
         create or replace function "
         ?TESTFUNCTION
