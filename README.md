@@ -1,4 +1,4 @@
-# erloci - An Erlang wrapper for the Oracle Call Interface
+# erloci - An Erlang driver for the Oracle Call Interface
 
 ### Setup the development system
 Create a environment variable OTPROOT pointing to erlang installation directory,
@@ -49,7 +49,7 @@ Change/Add the following:
     * Configuration Properties -> Librarian -> General -> Additional Library Directories: path-to-instant-client\sdk\lib\msvc
     * Configuration Properties -> Librarian -> General -> Additional Dependencies: oraocciXX.lib (replace XX with matching file in path)
 
-### 3d party dependencies
+### 3rd party dependencies
 #### Threadpool 
 The threadpool code (threadpool.cpp/h) is developed by Mathias Brossard mathias@brossard.org. His threadpool library is hosted at https://github.com/mbrossard/threadpool.
 This library is unused (not linked) in a Windows environment. For an easier installation process we include the required threadpool files in the erloci repo. So this is NOT a dependency you have to resolve by yourself.
