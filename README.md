@@ -21,8 +21,8 @@ OCI Libraries   : /usr/lib/oracle/12.1/client64/lib/
 
 ### Create Environment variables
 ```
-INSTANT_CLIENT_LIB_PATH     = path to oci headers
-INSTANT_CLIENT_INCLUDE_PATH = path to oci libraries
+INSTANT_CLIENT_LIB_PATH     = path to oci libraries
+INSTANT_CLIENT_INCLUDE_PATH = path to oci headers
 ```
 
 For example:
