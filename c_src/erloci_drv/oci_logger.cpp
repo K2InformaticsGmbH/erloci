@@ -1,4 +1,4 @@
-/* Copyright 2012 K2Informatics GmbH, Root Laengenbold, Switzerland
+/* Copyright 2014 K2Informatics GmbH, Root Längenbold, Switzerland
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
