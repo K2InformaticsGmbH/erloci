@@ -40,7 +40,7 @@ We assume you have [rebar](https://github.com/basho/rebar) somewhere on your pat
 <code>rebar compile</code>
 Please check the rebar manual for how to add erloci as a dependency to your project.
 
-#### Compiling C++ port in visual studio (2010)
+#### Compiling C++ port in visual studio (2008)
 Change/Add the following:
   * In project properties of erloci_drv and erloci_lib 
     * Configuration Properties -> C/C++ -> General -> Additional Include Directories: path-to-instant-client\sdk\include
