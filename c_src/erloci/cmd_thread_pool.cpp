@@ -100,7 +100,7 @@ void CleanupThreadPool(void)
     // to call close functions on individual objects
     // after calling CloseThreadpoolCleanupGroupMembers.
     //
-    CloseThreadpoolCleanupGroupMembers(cleanupgroup, FALSE, NULL);
+    CloseThreadpoolCleanupGroupMembers(cleanupgroup, TRUE, NULL);
 
     //
     // Already cleaned up the work item with the

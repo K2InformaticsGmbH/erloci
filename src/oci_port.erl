@@ -292,7 +292,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
 
 handle_call(close, _From, #state{port=Port} = State) ->
     try
-        erlang:port_close(Port)
+        true = erlang:port_close(Port)
     catch
         _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
     end,
