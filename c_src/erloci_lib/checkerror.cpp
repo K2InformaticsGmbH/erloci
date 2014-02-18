@@ -18,7 +18,7 @@
 #include <stdlib.h>
 
 #include <oci.h>
-#include "oci_lib_intf.h"
+#include "lib_interface.h"
 
 #ifdef __WIN32__
 #define	SPRINT sprintf_s
