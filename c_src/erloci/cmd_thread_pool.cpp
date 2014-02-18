@@ -136,6 +136,7 @@ main_cleanup:
 #endif
 }
 
+bool run_threads = true;
 //
 // This is the thread pool work callback function.
 //
@@ -164,7 +165,7 @@ ProcessCommandCb(
 #endif
 
 	vector<unsigned char> rxpkt;
-	while (true) {
+	while (run_threads) {
 		rxpkt = pop_cmd_queue();
 		if (rxpkt.size() > 0)
 			break;
@@ -176,6 +177,8 @@ ProcessCommandCb(
 		usleep(50000);
 #endif
 	}
+	if(!run_threads)
+		return;
 	ProcessCommand();
 
 	void * cmd_tuple = erl_decode(&rxpkt[0]);

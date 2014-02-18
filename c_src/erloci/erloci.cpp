@@ -34,6 +34,8 @@
 typedef unsigned char byte;
 
 bool log_flag;
+extern bool run_threads;
+
 //bool exit_loop = false;
 
 #ifdef __WIN32__
@@ -95,6 +97,7 @@ int main(int argc, char * argv[])
  			unlock(cmd_queue_mutex);
 		}
     }
+	run_threads = false;
 
     CleanupThreadPool();
     REMOTE_LOG(DBG, "Port: Thread pool destroyed");
