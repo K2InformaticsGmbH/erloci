@@ -197,6 +197,13 @@ bool init_marshall(void)
     return true;
 }
 
+#ifdef __WIN32__
+	#define lock(__mutex) (WAIT_OBJECT_0 == WaitForSingleObject((__mutex),INFINITE))
+    #define unlock(__mutex) ReleaseMutex(__mutex);
+#else
+	#define lock(__mutex) (0 == pthread_mutex_lock(&(__mutex)))
+    #define unlock(__mutex) pthread_mutex_unlock(&(__mutex))
+#endif
 int write_resp(void * resp_term)
 {
     int tx_len;

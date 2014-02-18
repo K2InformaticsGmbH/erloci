@@ -130,14 +130,6 @@ extern void log_args(int, void *, const char *);
 #define LOG_ARGS(_count,_args,_str)
 #endif
 
-#ifdef __WIN32__
-	#define lock(__mutex) (WAIT_OBJECT_0 == WaitForSingleObject((__mutex),INFINITE))
-    #define unlock(__mutex) ReleaseMutex(__mutex);
-#else
-	#define lock(__mutex) (0 == pthread_mutex_lock(&(__mutex)))
-    #define unlock(__mutex) pthread_mutex_unlock(&(__mutex))
-#endif
-
 // ThreadPool and IdleTimer
 extern void InitializeThreadPool(void);
 extern void CleanupThreadPool(void);

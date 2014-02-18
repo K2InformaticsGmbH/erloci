@@ -29,8 +29,8 @@ private:
 	logger(logger const&);         // Not implemented
     void operator=(logger const&); // Not implemented
 
-	inline bool lck()	{ return LOCK(log_lock); }
-	inline void ulck()	{ UNLOCK(log_lock); }
+	inline bool lock()		{ return LOCK(log_lock);	}
+	inline void unlock()	{ UNLOCK(log_lock);			}
 
 public:
 	static char * init(int);

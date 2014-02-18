@@ -28,20 +28,20 @@ cmd_queue::cmd_queue(void)
 vector<unsigned char> cmd_queue::pop()
 {
 	vector<unsigned char> p;
-	if(self.lck()) {
+	if(self.lock()) {
 		if (!self.cmdsq.empty()) {
 			p = self.cmdsq.front();
 			self.cmdsq.pop();
 		}
- 		self.ulck();
+ 		self.unlock();
     }
 	return p;
 }
 
 void cmd_queue::push(vector<unsigned char> & buf)
 {
-	if(self.lck()) {
+	if(self.lock()) {
 		self.cmdsq.push(buf);
-		self.ulck();
+		self.unlock();
 	}
 }

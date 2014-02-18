@@ -138,6 +138,8 @@ main_cleanup:
 
 bool run_threads = true;
 #include "cmd_queue.h"
+#include "eterm.h"
+#include "term.h"
 
 //
 // This is the thread pool work callback function.
@@ -182,6 +184,9 @@ ProcessCommandCb(
 	if(!run_threads)
 		return;
 	ProcessCommand();
+
+	//eterm &et = eterm::getInstance();
+	//term t = et.decode(rxpkt);
 
 	void * cmd_tuple = erl_decode(&rxpkt[0]);
 	if (!cmd_tuple) {

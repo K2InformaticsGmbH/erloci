@@ -130,10 +130,10 @@ void logger::log(const char * filename, const char * funcname, unsigned int line
     erl_encode(log, tx_buf+PKT_LEN_BYTES);
 	erl_free_compound(log);
 
-    if(self.lck()) {
+    if(self.lock()) {
 //		send(self.log_sock, log_str, (int)strlen(log_str), 0);
 		send(self.log_sock, (char*) tx_buf, pkt_len, 0);
-		self.ulck();
+		self.unlock();
     }
 	delete tx_buf;
 

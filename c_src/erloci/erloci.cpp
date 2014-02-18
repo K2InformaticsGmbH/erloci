@@ -31,6 +31,7 @@
 #include <time.h>
 #include "port.h"
 #include "cmd_queue.h"
+#include "eterm.h"
 
 typedef unsigned char byte;
 
@@ -46,7 +47,9 @@ int main(int argc, char * argv[])
     _setmode( _fileno( stdin  ), _O_BINARY );
 #endif
 
-    erl_init(NULL, 0);
+    //erl_init(NULL, 0);
+	eterm &et = eterm::getInstance();
+
     log_flag = false;
 
 	// Max term byte size

@@ -33,8 +33,8 @@ private:
 	cmd_queue(cmd_queue const&);        // Not implemented
     void operator=(cmd_queue const&);	// Not implemented
 
-	inline bool lck()	{ return LOCK(q_lock); }
-	inline void ulck()	{ UNLOCK(q_lock); }
+	inline bool lock()		{ return LOCK(q_lock);	}
+	inline void unlock()	{ UNLOCK(q_lock);		}
 
 public:
 	static vector<unsigned char> pop(void);
