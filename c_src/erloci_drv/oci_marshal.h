@@ -125,28 +125,6 @@ extern void log_args(int, void *, const char *);
 extern char * connect_tcp(int);
 extern void close_tcp ();
 
-/*extern inp_t * map_to_bind_args(void *);
-extern void * build_term_from_bind_args(inp_t *);*/
-
-#ifdef REMOTE_LOG
-#undef REMOTE_LOG
-#endif
-
-#ifndef __WIN32__
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-#define memcpy_s(_dest, _noelms, _src, _count)	memcpy((_dest), (_src), (_count))
-#define sprintf_s(_a, _b, _c, ...)				sprintf((_a), (_c), __VA_ARGS__)
-#define strncpy_s(_a, _b, _c, _d)               strncpy((_a), (_c), (_d))
-#define vsprintf_s(_a, _b, _c, _d)              vsprintf((_a), (_c), (_d))
-#define REMOTE_LOG_TERM(_level,_term,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_term,_str,##__VA_ARGS__)
-#define REMOTE_LOG(_level,_str, ...)			if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,NULL,_str,##__VA_ARGS__)
-#else
-#define REMOTE_LOG_TERM(_level,_term,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_term,_str,__VA_ARGS__)
-#define REMOTE_LOG(_level,_str, ...)			if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,NULL,_str,__VA_ARGS__)
-#endif
-
 #if DEBUG <= DBG_3
 #define LOG_ARGS(_count,_args,_str)	    log_args((_count),(_args),(_str))
 #else

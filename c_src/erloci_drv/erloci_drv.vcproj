@@ -194,7 +194,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\erloci_drv.cpp"
+				RelativePath=".\erloci.cpp"
 				>
 			</File>
 			<File
