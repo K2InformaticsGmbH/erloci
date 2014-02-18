@@ -56,9 +56,15 @@ start_link() ->
 accept(LSock, LogFun, {?MODULE, Pid}) when is_function(LogFun, 1) ->
     gen_server:call(Pid, {accept, LSock, LogFun}).
 
-log({Lvl, Tag, File, Func, Line, Msg}, Mod) ->
-    log(lists:flatten(io_lib:format(?T++" [~p] ["++Tag++"] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])), Mod);
+-ifdef(TEST).
+log({Lvl, _Tag, File, Func, Line, Msg}, Mod) ->
+    log(lists:flatten(io_lib:format(?T++"[~p] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])), Mod);
 log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
+-else.
+log({Lvl, Tag, File, Func, Line, Msg}, Mod) ->
+    log(lists:flatten(io_lib:format(?T++"[~p] ["++Tag++"] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])), Mod);
+log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
+-endif.
 
 init(_) ->
     io:format(user, "---- ERLOCI PORT PROCESS LOGGER ----~n", []),
