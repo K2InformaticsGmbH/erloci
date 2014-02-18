@@ -198,11 +198,23 @@
 				>
 			</File>
 			<File
+				RelativePath=".\eterm.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\logger.cpp"
 				>
 			</File>
 			<File
 				RelativePath=".\marshal.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\port.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\term.cpp"
 				>
 			</File>
 		</Filter>
@@ -216,11 +228,27 @@
 				>
 			</File>
 			<File
+				RelativePath=".\eterm.h"
+				>
+			</File>
+			<File
 				RelativePath=".\logger.h"
 				>
 			</File>
 			<File
 				RelativePath=".\marshal.h"
+				>
+			</File>
+			<File
+				RelativePath=".\platform.h"
+				>
+			</File>
+			<File
+				RelativePath=".\port.h"
+				>
+			</File>
+			<File
+				RelativePath=".\term.h"
 				>
 			</File>
 		</Filter>

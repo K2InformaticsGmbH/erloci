@@ -51,22 +51,12 @@ void InitializeThreadPool(void)
 #ifdef __WIN32__
     InitializeThreadpoolEnvironment(&CallBackEnviron);
 
-    //
-    // Create a custom, dedicated thread pool.
-    //
-    pool = CreateThreadpool(NULL);
-
-    if (NULL == pool) {
+    if (NULL == (pool = CreateThreadpool(NULL))) {
         _tprintf(_T("CreateThreadpool failed. LastError: %u\n"), GetLastError());
         goto main_cleanup;
     }
-
     rollback = 1; // pool creation succeeded
 
-    //
-    // The thread pool is made persistent simply by setting
-    // both the minimum and maximum threads to 1.
-    //
     SetThreadpoolThreadMaximum(pool, THREAD);
 
     if (FALSE == SetThreadpoolThreadMinimum(pool, 1)) {
@@ -75,28 +65,13 @@ void InitializeThreadPool(void)
         goto main_cleanup;
     }
 
-    //
-    // Create a cleanup group for this thread pool.
-    //
-    cleanupgroup = CreateThreadpoolCleanupGroup();
-
-    if (NULL == cleanupgroup) {
+    if (NULL == (cleanupgroup = CreateThreadpoolCleanupGroup())) {
         _tprintf(_T("CreateThreadpoolCleanupGroup failed. LastError: %u\n"), GetLastError());
         goto main_cleanup;
     }
-
     rollback = 2;  // Cleanup group creation succeeded
 
-    //
-    // Associate the callback environment with our thread pool.
-    //
-    SetThreadpoolCallbackPool(&CallBackEnviron, pool);
-
-    //
-    // Associate the cleanup group with our thread pool.
-    // Objects created with the same callback environment
-    // as the cleanup group become members of the cleanup group.
-    //
+	SetThreadpoolCallbackPool(&CallBackEnviron, pool);
     SetThreadpoolCallbackCleanupGroup(&CallBackEnviron, cleanupgroup, NULL);
 	return;
 

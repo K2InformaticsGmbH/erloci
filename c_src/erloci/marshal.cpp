@@ -27,12 +27,6 @@
 #include <stdlib.h>
 #endif
 
-#include<iostream>
-#include<queue>
-#include<vector>
-
-using namespace std;
-
 #if DEBUG <= DBG_0
 #define ENTRY()	{REMOTE_LOG(DBG, "Entry");}
 #define EXIT()	{REMOTE_LOG(DBG, "Exit");}
@@ -45,13 +39,13 @@ const erlcmdtable cmdtbl[] = CMDTABLE;
 
 #ifdef __WIN32__
 static HANDLE write_mutex;
-static HANDLE cmd_queue_mutex;
+HANDLE cmd_queue_mutex;
 #else
 static pthread_mutex_t write_mutex;
-static pthread_mutex_t cmd_queue_mutex;
+pthread_mutex_t cmd_queue_mutex;
 #endif
 
-static queue<vector<unsigned char> > cmd_queue;
+queue<vector<unsigned char> > cmd_queue;
 
 char * print_term(void *term)
 {

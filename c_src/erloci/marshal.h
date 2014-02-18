@@ -16,6 +16,7 @@
 #define OCI_MARSHAL_H
 
 #include <iostream>
+#include <queue>
 #include <vector>
 
 using namespace std;
