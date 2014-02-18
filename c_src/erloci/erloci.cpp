@@ -12,7 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#include "oci_marshal.h"
+#include "marshal.h"
+#include "logger.h"
 #include "oci_lib_intf.h"
 
 #include "erl_interface.h"
@@ -60,7 +61,7 @@ int main(int argc, char * argv[])
 	int log_tcp_port = 0;
 	if (argc >= 4) {
 		log_tcp_port = atol(argv[3]);
-		char * ret = connect_tcp(log_tcp_port);
+		char * ret = logger::init(log_tcp_port);
 		if(ret != NULL) {
 			return -1;
 		}
@@ -93,9 +94,6 @@ int main(int argc, char * argv[])
     CleanupThreadPool();
     REMOTE_LOG(DBG, "Port: Thread pool destroyed");
 
-	close_tcp();
-    REMOTE_LOG(DBG, "Port: tcp log socket closed");
-
-    REMOTE_LOG(DBG, "Port: Process oci terminating...");
+	REMOTE_LOG(DBG, "Port: Process oci terminating...");
     return 0;
 }

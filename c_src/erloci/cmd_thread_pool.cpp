@@ -15,7 +15,7 @@
 #include "erl_interface.h"
 #include "ei.h"
 
-#include "oci_marshal.h"
+#include "marshal.h"
 #include "command.h"
 #include "oci_lib_intf.h"
 

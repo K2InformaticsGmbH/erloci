@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#include "oci_marshal.h"
+#include "marshal.h"
 #include "erl_interface.h"
 
 #include <ocidfn.h>
@@ -46,11 +46,9 @@ const erlcmdtable cmdtbl[] = CMDTABLE;
 #ifdef __WIN32__
 static HANDLE write_mutex;
 static HANDLE cmd_queue_mutex;
-HANDLE log_write_mutex;
 #else
 static pthread_mutex_t write_mutex;
 static pthread_mutex_t cmd_queue_mutex;
-pthread_mutex_t log_write_mutex;
 #endif
 
 static queue<vector<unsigned char> > cmd_queue;
@@ -198,11 +196,6 @@ bool init_marshall(void)
         REMOTE_LOG(CRT, "Write Mutex creation failed\n");
         return false;
     }
-    log_write_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == log_write_mutex) {
-        REMOTE_LOG(CRT, "Log write Mutex creation failed\n");
-        return false;
-    }
     cmd_queue_mutex = CreateMutex(NULL, FALSE, NULL);
     if (NULL == cmd_queue_mutex) {
         REMOTE_LOG(CRT, "Command queue Mutex creation failed\n");
@@ -211,10 +204,6 @@ bool init_marshall(void)
 #else
     if(pthread_mutex_init(&write_mutex, NULL) != 0) {
         REMOTE_LOG(CRT, "Write Mutex creation failed");
-        return false;
-    }
-    if(pthread_mutex_init(&log_write_mutex, NULL) != 0) {
-        REMOTE_LOG(CRT, "Log write Mutex creation failed");
         return false;
     }
     if(pthread_mutex_init(&cmd_queue_mutex, NULL) != 0) {

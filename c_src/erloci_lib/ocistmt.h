@@ -12,10 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#pragma once
-
-#ifndef _OCISTMT_H_
-#define _OCISTMT_H_
+#ifndef OCISTMT_H
+#define OCISTMT_H
 
 #include <iostream>
 #include <vector>
@@ -66,4 +64,4 @@ public:
 	void close(void);
 };
 
-#endif
+#endif // OCISTMT_H

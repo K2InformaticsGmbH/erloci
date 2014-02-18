@@ -12,9 +12,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#pragma once
+#ifndef COMMAND_H
+#define COMMAND_H
 
-#include "oci_marshal.h"
+#include "marshal.h"
 
 #include "erl_interface.h"
 #include "ei.h"
@@ -41,3 +42,5 @@ public:
 
 // Externs
 extern bool cmd_processor(void *);
+
+#endif // COMMAND_H

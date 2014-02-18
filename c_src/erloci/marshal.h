@@ -12,7 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#pragma once
+#ifndef OCI_MARSHAL_H
+#define OCI_MARSHAL_H
 
 #include <iostream>
 #include <vector>
@@ -122,8 +123,6 @@ extern bool init_marshall(void);
 extern void read_cmd(void);
 extern int write_resp(void * resp_term);
 extern void log_args(int, void *, const char *);
-extern char * connect_tcp(int);
-extern void close_tcp ();
 
 #if DEBUG <= DBG_3
 #define LOG_ARGS(_count,_args,_str)	    log_args((_count),(_args),(_str))
@@ -185,3 +184,5 @@ typedef union _pack_hdr {
     char len_buf[4];
     unsigned long len;
 } pkt_hdr;
+
+#endif // OCI_MARSHAL_H

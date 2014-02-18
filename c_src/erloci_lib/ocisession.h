@@ -12,10 +12,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#ifndef _OCISESSION_H_
-#define _OCISESSION_H_
-
-#pragma once
+#ifndef OCISESSION_H
+#define OCISESSION_H
 
 #include <iostream>
 #include <list>
@@ -55,4 +53,4 @@ public:
 	~ocisession(void);
 };
 
-#endif
+#endif // OCISESSION_H
