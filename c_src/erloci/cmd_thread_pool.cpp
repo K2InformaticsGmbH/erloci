@@ -16,7 +16,7 @@
 #include "ei.h"
 
 #include "oci_marshal.h"
-#include "cmd_processors.h"
+#include "command.h"
 #include "oci_lib_intf.h"
 
 #define THREAD          10
@@ -210,7 +210,7 @@ ProcessCommandCb(
 		exit(1);
     }
 
-    if(cmd_processor(cmd_tuple))
+	if(command::process(cmd_tuple))
 		exit(1);
 
 	erl_free_compound((ETERM*)cmd_tuple);

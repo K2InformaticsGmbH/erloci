@@ -15,10 +15,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include "cmd_processors.h"
+#include "command.h"
 #include "ocisession.h"
 
-bool change_log_flag(ETERM * command)
+bool command::change_log_flag(ETERM * command)
 {
     bool ret = false;
     ETERM *resp = NULL;
@@ -68,7 +68,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_get_session(ETERM * command)
+bool command::get_session(ETERM * command)
 {
     bool ret = false;
 	ETERM *resp = NULL;
@@ -121,7 +121,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_release_conn(ETERM * command)
+bool command::release_conn(ETERM * command)
 {
     bool ret = false;
     ETERM * resp = NULL;
@@ -171,7 +171,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_commit(ETERM * command)
+bool command::commit(ETERM * command)
 {
     bool ret = false;
     ETERM * resp = NULL;
@@ -221,7 +221,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_rollback(ETERM * command)
+bool command::rollback(ETERM * command)
 {
     bool ret = false;
     ETERM * resp = NULL;
@@ -271,7 +271,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_describe(ETERM * command)
+bool command::describe(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -335,7 +335,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_prep_sql(ETERM * command)
+bool command::prep_sql(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -395,7 +395,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_bind_args(ETERM * command)
+bool command::bind_args(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -457,7 +457,7 @@ error_exit:
     return ret;
 }
 
-bool cmd_exec_stmt(ETERM * command)
+bool command::exec_stmt(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -539,7 +539,7 @@ error_exit:
 	return ret;
 }
 
-bool cmd_fetch_rows(ETERM * command)
+bool command::fetch_rows(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -619,7 +619,7 @@ error_exit:
     return ret;
 }
 
-bool cmd_close_stmt(ETERM * command)
+bool command::close_stmt(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -680,7 +680,7 @@ error_exit:
     return ret;
 }
 
-bool cmd_echo(ETERM * command)
+bool command::echo(ETERM * command)
 {
 	bool ret = false;
     ETERM * resp = NULL;
@@ -725,7 +725,7 @@ error_exit:
 
 //#define PRINTCMD
 
-bool cmd_processor(void * param)
+bool command::process(void * param)
 {
 	bool ret = false;
 	ETERM *command = (ETERM *)param;
@@ -743,18 +743,18 @@ bool cmd_processor(void * param)
 
 	if(ERL_IS_INTEGER(cmd)) {
         switch(ERL_INT_VALUE(cmd)) {
-        case GET_SESSN:	ret = cmd_get_session(command);		break;
-        case PUT_SESSN:	ret = cmd_release_conn(command);	break;
-        case PREP_STMT:	ret = cmd_prep_sql(command);		break;
-        case BIND_ARGS:	ret = cmd_bind_args(command);		break;
-        case EXEC_STMT:	ret = cmd_exec_stmt(command);		break;
-        case FTCH_ROWS:	ret = cmd_fetch_rows(command);		break;
-        case CLSE_STMT:	ret = cmd_close_stmt(command);		break;
-        case CMT_SESSN:	ret = cmd_commit(command);			break;
-        case RBK_SESSN:	ret = cmd_rollback(command);		break;
-        case RMOTE_MSG:	ret = change_log_flag(command);		break;
-        case CMD_DSCRB:	ret = cmd_describe(command);		break;
-        case CMD_ECHOT:	ret = cmd_echo(command);			break;
+        case GET_SESSN:	ret = get_session(command);		break;
+        case PUT_SESSN:	ret = release_conn(command);	break;
+        case PREP_STMT:	ret = prep_sql(command);		break;
+        case BIND_ARGS:	ret = bind_args(command);		break;
+        case EXEC_STMT:	ret = exec_stmt(command);		break;
+        case FTCH_ROWS:	ret = fetch_rows(command);		break;
+        case CLSE_STMT:	ret = close_stmt(command);		break;
+        case CMT_SESSN:	ret = commit(command);			break;
+        case RBK_SESSN:	ret = rollback(command);		break;
+        case RMOTE_MSG:	ret = change_log_flag(command);	break;
+        case CMD_DSCRB:	ret = describe(command);		break;
+        case CMD_ECHOT:	ret = echo(command);			break;
         case OCIP_QUIT:
         default:
 			ret = true;

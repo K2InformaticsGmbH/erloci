@@ -18,8 +18,6 @@
 #include "erl_interface.h"
 #include "ei.h"
 
-#include "cmd_processors.h"
-
 #ifdef __WIN32__
 #include <io.h>
 #include <fcntl.h>
