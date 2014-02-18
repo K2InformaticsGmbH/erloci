@@ -60,10 +60,10 @@ public:
 
 	unsigned long long length();
 
-	static inline term atom(const char *s)						{ return term(ERL_ATOM, string(s));	};
-	static inline term atom(string & s)							{ return term(ERL_ATOM, s);		};
-	static inline term binary(string & s)						{ return term(ERL_BINARY, s);	};
-	static inline term strng(string & s)						{ return term(ERL_LIST, s);		};
+	static inline term atom(const char *s)						{ return term((unsigned char)ERL_ATOM, string(s));	};
+	static inline term atom(string & s)							{ return term((unsigned char)ERL_ATOM, s);		};
+	static inline term binary(string & s)						{ return term((unsigned char)ERL_BINARY, s);	};
+	static inline term strng(string & s)						{ return term((unsigned char)ERL_LIST, s);		};
 	static inline term integer(int i)							{ return term(i);				};
 	static inline term integer(long l)							{ return term(l);				};
 	static inline term integer(long long ll)					{ return term(ll);				};
@@ -72,8 +72,8 @@ public:
 	static inline term integer(unsigned long long ull)			{ return term(ull);				};
 	static inline term dbl(double d)							{ return term(d);				};
 	static inline term pid(string & v, int n, int s, int c)		{ return term(v, n, s, c);		};
-	static inline term ref(string & v, int n, int c)			{ return term(ERL_REF, v, n, c);};
-	static inline term port(string & v, int n, int c)			{ return term(ERL_PORT, v, n, c);};
+	static inline term ref(string & v, int n, int c)			{ return term((unsigned char)ERL_REF, v, n, c);};
+	static inline term port(string & v, int n, int c)			{ return term((unsigned char)ERL_PORT, v, n, c);};
 
 	static inline term tuple(void)								{ return term((unsigned char)ERL_TUPLE);		};
 	static inline term list(void)								{ return term((unsigned char)ERL_LIST);		};
@@ -110,7 +110,7 @@ private:
 		};
 	}
 
-	inline term(unsigned char t, string & s)
+	inline term(unsigned char t, string s)
 	{
 		switch (t) {
 			case ERL_ATOM:
@@ -126,7 +126,7 @@ private:
 			case ERL_LIST:
 				type = "ERL_LIST";
 				type_code = ERL_LIST;
-				for(int idx = 0; idx < s.size(); ++idx)
+				for(size_t idx = 0; idx < s.size(); ++idx)
 					lt.push_back(term((int)s[idx]));
 				break;
 			default:
