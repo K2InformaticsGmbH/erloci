@@ -39,10 +39,8 @@ const erlcmdtable cmdtbl[] = CMDTABLE;
 
 #ifdef __WIN32__
 static HANDLE write_mutex;
-HANDLE cmd_queue_mutex;
 #else
 static pthread_mutex_t write_mutex;
-pthread_mutex_t cmd_queue_mutex;
 #endif
 
 queue<vector<unsigned char> > cmd_queue;
@@ -190,80 +188,13 @@ bool init_marshall(void)
         REMOTE_LOG(CRT, "Write Mutex creation failed\n");
         return false;
     }
-    cmd_queue_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == cmd_queue_mutex) {
-        REMOTE_LOG(CRT, "Command queue Mutex creation failed\n");
-        return false;
-    }
 #else
     if(pthread_mutex_init(&write_mutex, NULL) != 0) {
         REMOTE_LOG(CRT, "Write Mutex creation failed");
         return false;
     }
-    if(pthread_mutex_init(&cmd_queue_mutex, NULL) != 0) {
-        REMOTE_LOG(CRT, "Command queue Mutex creation failed");
-        return false;
-    }
 #endif
     return true;
-}
-
-vector<unsigned char> pop_cmd_queue()
-{
-	vector<unsigned char> p;
-	if(lock(cmd_queue_mutex)) {
-		if (!cmd_queue.empty()) {
-			p = cmd_queue.front();
-			cmd_queue.pop();
-		}
- 		unlock(cmd_queue_mutex);
-    }
-	return p;
-}
-
-void read_cmd()
-{
-    pkt_hdr hdr;
-	size_t len = 0;
-
-	ENTRY();
-
-    // Read and convert the length to host Byle order
-	while(!len) {
-		if(cin.eof()) {
-			REMOTE_LOG(CRT, "Input pipe closed, possible erlang port process death!");
-			exit(0);
-		}
-		cin.read(hdr.len_buf, sizeof(hdr.len_buf));
-		len = cin.gcount();
-	}
-    if(len < sizeof(hdr.len_buf)) {
-		REMOTE_LOG(CRT, "Term length read failed (read %X of %X)", len, sizeof(hdr.len_buf));
-        EXIT();
-		return;
-    }
-	vector<unsigned char> rxpkt;
-    rxpkt.resize(ntohl(hdr.len));
-
-    //REMOTE_LOG(DBG, "RX (%d)", rxpkt.len);
-
-	// Read the Term binary
-    cin.read((char*)&rxpkt[0], rxpkt.size());
-	size_t buf_len = cin.gcount();
-    if(buf_len  < rxpkt.size()) {
-		REMOTE_LOG(CRT, "RX %X of %X(%X)", buf_len, rxpkt.size(), hdr.len);
-        EXIT();
-        exit(0);
-    }
-
-	LOG_DUMP("RX", rxpkt.len, rxpkt.buf);
-
-	if(lock(cmd_queue_mutex)) {
-		cmd_queue.push(rxpkt);
- 		unlock(cmd_queue_mutex);
-    }
-
-	EXIT();
 }
 
 int write_resp(void * resp_term)

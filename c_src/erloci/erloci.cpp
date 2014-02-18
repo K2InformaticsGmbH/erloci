@@ -30,6 +30,7 @@
 
 #include <time.h>
 #include "port.h"
+#include "cmd_queue.h"
 
 typedef unsigned char byte;
 
@@ -37,13 +38,6 @@ bool log_flag;
 extern bool run_threads;
 
 //bool exit_loop = false;
-
-#ifdef __WIN32__
-extern HANDLE cmd_queue_mutex;
-#else
-extern pthread_mutex_t cmd_queue_mutex;
-#endif
-extern queue<vector<unsigned char> > cmd_queue;
 
 int main(int argc, char * argv[])
 {
@@ -92,10 +86,7 @@ int main(int argc, char * argv[])
 	port& prt = port::getInstance();
 	vector<unsigned char> read_buf;
     while(prt.read_cmd(read_buf) > 0) {
-		if(lock(cmd_queue_mutex)) {
-			cmd_queue.push(read_buf);
- 			unlock(cmd_queue_mutex);
-		}
+		cmd_queue::push(read_buf);
     }
 	run_threads = false;
 

@@ -10,6 +10,7 @@
 	#include <Windows.h>
 	typedef u_long ul4;
 	typedef HANDLE mutex_type;
+	typedef SOCKET sock;
 
 	#define INIT_LOCK(_Lock)	(((_Lock) = CreateMutex(NULL, FALSE, NULL)) == NULL)
 	#define LOCK(_Lock)			(WAIT_OBJECT_0 == WaitForSingleObject(_Lock,INFINITE))
@@ -22,6 +23,7 @@
 	#include <arpa/inet.h>
 	typedef  pthread_mutex_t mutex_type;
 	typedef uint32_t ul4;
+	typedef int sock;
 
 	#define INIT_LOCK(_Lock)	(pthread_mutex_init(&(_Lock), NULL) != 0)
 	#define LOCK(_Lock)			(0 == pthread_mutex_lock(&(_Lock)))

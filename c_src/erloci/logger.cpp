@@ -40,7 +40,7 @@ logger logger::self;
 char * logger::init(int port)
 {
 #ifdef __WIN32__
-    //Start up Winsock…
+    //Start up Winsock
     WSADATA wsadata;
 
     int error = WSAStartup(0x0202, &wsadata);
@@ -74,13 +74,6 @@ char * logger::init(int port)
     {
         return "Winsock sock connect failed"; //Couldn't connect
     }
-
-    self.mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == self.mutex) {
-        return "Log write Mutex creation failed\n";
-    }
-
-	return NULL; //Success
 #else
     struct sockaddr_in serv_addr;
 	if((self.log_sock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -96,13 +89,13 @@ char * logger::init(int port)
 
 	if(connect(self.log_sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0)
 	    return (char*)"sock connect failed";
+#endif
 
-    if(pthread_mutex_init(&self.mutex, NULL) != 0) {
-        return "Log write Mutex creation failed";
+	if (INIT_LOCK(self.log_lock)) {
+        return "Log write Mutex creation failed\n";
     }
 
-    return NULL; //Success
-#endif
+	return NULL; //Success
 }
 
 logger::~logger(void)

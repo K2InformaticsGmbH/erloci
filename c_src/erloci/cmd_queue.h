@@ -12,44 +12,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#ifndef PORT_H
-#define PORT_H
+#ifndef CMD_QUEUE_H
+#define CMD_QUEUE_H
 
 #include "platform.h"
 
-#include <iostream>
 #include <vector>
+#include <queue>
 
 using namespace std;
 
-class port
+class cmd_queue
 {
 private:
-	int stdi;
-	int stdo;
-	mutex_type port_r_lock;
-	mutex_type port_w_lock;
-	inline bool lockr();
-	inline void unlockr();
-	inline bool lockw();
-	inline void unlockw();
-	int read_exact(vector<unsigned char> &, unsigned long);
-	int write_exact(vector<unsigned char> &);
+	static cmd_queue self;
+	mutex_type q_lock;
+	queue<vector<unsigned char> > cmdsq;
 
-	port(void);
-	port(port const&);          // Not implemented
-    void operator=(port const&); // Not implemented
+	cmd_queue(void);
+	cmd_queue(cmd_queue const&);        // Not implemented
+    void operator=(cmd_queue const&);	// Not implemented
+
+	inline bool lck()	{ return LOCK(q_lock); }
+	inline void ulck()	{ UNLOCK(q_lock); }
 
 public:
-	static port & getInstance()
-	{
-		static port instance;
-		return instance;
-	}
-	int read_cmd(vector<unsigned char>&);
-	int write_cmd(vector<unsigned char>&);
-
-	inline ~port(void) {};
+	static vector<unsigned char> pop(void);
+	static void push(vector<unsigned char> &);
 };
 
-#endif // PORT_H
+#endif // CMD_QUEUE_H

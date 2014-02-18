@@ -137,6 +137,8 @@ main_cleanup:
 }
 
 bool run_threads = true;
+#include "cmd_queue.h"
+
 //
 // This is the thread pool work callback function.
 //
@@ -166,7 +168,7 @@ ProcessCommandCb(
 
 	vector<unsigned char> rxpkt;
 	while (run_threads) {
-		rxpkt = pop_cmd_queue();
+		rxpkt = cmd_queue::pop();
 		if (rxpkt.size() > 0)
 			break;
 #ifdef __WIN32__

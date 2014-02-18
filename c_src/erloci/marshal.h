@@ -121,7 +121,6 @@ extern char * print_term(void*);
 }
 
 extern bool init_marshall(void);
-extern void read_cmd(void);
 extern int write_resp(void * resp_term);
 extern void log_args(int, void *, const char *);
 
@@ -154,9 +153,6 @@ extern void append_coldef_to_list(const char * col_name, size_t len,
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
 extern void map_schema_to_bind_args(void *, vector<var> &);
 extern size_t map_value_to_bind_args(void *, vector<var> &);
-
-#include<vector>
-extern vector<unsigned char> pop_cmd_queue();
 
 #define MAX_FORMATTED_STR_LEN 1024
 
