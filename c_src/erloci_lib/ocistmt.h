@@ -21,7 +21,7 @@
 
 using namespace std;
 
-#include "oci_lib_intf.h"
+#include "lib_interface.h"
 
 // forward decleration, defined in cpp
 struct column;

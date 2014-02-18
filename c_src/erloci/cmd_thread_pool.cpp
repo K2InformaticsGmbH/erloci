@@ -17,7 +17,7 @@
 
 #include "marshal.h"
 #include "command.h"
-#include "oci_lib_intf.h"
+#include "lib_interface.h"
 
 #define THREAD          10
 #define QUEUE           256

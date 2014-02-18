@@ -94,7 +94,7 @@ extern const erlcmdtable cmdtbl[];
 
 extern char * print_term(void*);
 
-#include "oci_lib_intf.h"
+#include "lib_interface.h"
 
 // Erlang Interface Macros
 #define ARG_COUNT(_command)				(erl_size(_command) - 1)

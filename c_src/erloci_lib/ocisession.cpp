@@ -15,7 +15,7 @@
 #include "ocisession.h"
 #include <algorithm>
 
-#include "oci_lib_intf.h"
+#include "lib_interface.h"
 
 #include <oci.h>
 

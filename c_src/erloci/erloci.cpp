@@ -14,7 +14,6 @@
  */ 
 #include "marshal.h"
 #include "logger.h"
-#include "oci_lib_intf.h"
 
 #include "erl_interface.h"
 #include "ei.h"
