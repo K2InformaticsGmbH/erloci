@@ -50,7 +50,7 @@ private:
 	inline void ulck()	{ ReleaseMutex(mutex); }
 #else
 	pthread_mutex_t mutex;
-	inline bool lck()	{ return (0 == pthread_mutex_lock(&(mutex)); }
+	inline bool lck()	{ return (0 == pthread_mutex_lock(&(mutex))); }
 	inline void ulck()	{ pthread_mutex_unlock(&(mutex)); }
 #endif
 
