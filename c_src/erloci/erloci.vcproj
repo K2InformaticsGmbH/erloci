@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="erloci_drv"
+	Name="erloci"
 	ProjectGUID="{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}"
-	RootNamespace="erloci_drv"
+	RootNamespace="erloci"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="196613"
 	>
@@ -63,7 +63,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="ei_mdd.lib erl_interface_mdd.lib wsock32.lib erloci_lib.lib"
-				OutputFile="$(SolutionDir)..\priv\$(SolutionName).exe"
+				OutputFile="$(SolutionDir)..\priv\$(ProjectName).exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib&quot;;&quot;$(SolutionDir)..\priv\&quot;"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
