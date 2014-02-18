@@ -11,7 +11,7 @@ ERLOCI_LIB_SRCS = 	$(ERLOCI_LIB_PATH)/ocisession.cpp	\
 
 ERLOCI_LIB_OBJS =	$(ERLOCI_LIB_SRCS:.cpp=.o)
 
-ERLOCI_DRV_SRCS =	$(ERLOCI_PATH)/cmd_processors.cpp	\
+ERLOCI_DRV_SRCS =	$(ERLOCI_PATH)/command.cpp			\
 					$(ERLOCI_PATH)/cmd_thread_pool.cpp 	\
 					$(ERLOCI_PATH)/erloci.cpp 			\
 					$(ERLOCI_PATH)/oci_logger.cpp 		\
@@ -41,10 +41,10 @@ priv/liberloci.a: $(ERLOCI_LIB_OBJS)
 
 # Compiling the driver
 $(ERLOCI_PATH)/threadpool.cpp : $(ERLOCI_PATH)/threadpool.h
-$(ERLOCI_PATH)/erloci.cpp : $(ERLOCI_PATH)/cmd_processors.h $(ERLOCI_PATH)/oci_marshal.h
+$(ERLOCI_PATH)/erloci.cpp : $(ERLOCI_PATH)/command.h $(ERLOCI_PATH)/oci_marshal.h
 $(ERLOCI_PATH)/oci_marshal.cpp : $(ERLOCI_PATH)/oci_marshal.h
-$(ERLOCI_PATH)/cmd_processors.cpp : $(ERLOCI_PATH)/cmd_processors.h $(ERLOCI_PATH)/oci_marshal.h $(ERLOCI_LIB_PATH)/ocisession.h $(ERLOCI_LIB_PATH)/ocistmt.h $(ERLOCI_LIB_PATH)/oci_lib_intf.h
-$(ERLOCI_PATH)/cmd_thread_pool.cpp : $(ERLOCI_PATH)/cmd_processors.h $(ERLOCI_PATH)/oci_marshal.h $(ERLOCI_PATH)/threadpool.h
+$(ERLOCI_PATH)/command.cpp : $(ERLOCI_PATH)/command.h $(ERLOCI_PATH)/oci_marshal.h $(ERLOCI_LIB_PATH)/ocisession.h $(ERLOCI_LIB_PATH)/ocistmt.h $(ERLOCI_LIB_PATH)/oci_lib_intf.h
+$(ERLOCI_PATH)/cmd_thread_pool.cpp : $(ERLOCI_PATH)/command.h $(ERLOCI_PATH)/oci_marshal.h $(ERLOCI_PATH)/threadpool.h
 
 clean:
 	rm -rf $(ERLOCI_PATH)/*.o
