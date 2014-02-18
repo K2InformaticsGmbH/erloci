@@ -2,10 +2,6 @@
 #ifndef _TERM_H_
 #define _TERM_H_
 
-#include <regex>
-#ifndef _REGEX_
-#error "regex not included"
-#endif
 #include <iostream>
 #include <string>
 #include <vector>
