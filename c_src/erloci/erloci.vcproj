@@ -44,6 +44,7 @@
 				AdditionalOptions="/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP"
 				Optimization="0"
 				AdditionalIncludeDirectories="&quot;C:\Program Files\erlang\erl5.10.1\lib\erl_interface-3.7.11\include&quot;;C:\Oracle\instantclient\instantclient_12_1\sdk\include;&quot;$(ProjectDir)..\erloci_lib&quot;"
+				PreprocessorDefinitions="_WIN32_WINNT=0x0600"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="0"
 				RuntimeLibrary="3"
@@ -217,10 +218,6 @@
 			</File>
 			<File
 				RelativePath=".\oci_marshal.h"
-				>
-			</File>
-			<File
-				RelativePath=".\targetver.h"
 				>
 			</File>
 		</Filter>
