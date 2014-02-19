@@ -21,6 +21,7 @@
 	#include <string.h>
 	#include <unistd.h>
 	#include <arpa/inet.h>
+    #include <pthread.h>
 	typedef  pthread_mutex_t mutex_type;
 	typedef uint32_t ul4;
 	typedef int sock;
