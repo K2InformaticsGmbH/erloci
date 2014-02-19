@@ -31,7 +31,7 @@
 #include <time.h>
 #include "port.h"
 #include "cmd_queue.h"
-#include "eterm.h"
+#include "transcoder.h"
 
 typedef unsigned char byte;
 
@@ -48,7 +48,10 @@ int main(int argc, char * argv[])
 #endif
 
     //erl_init(NULL, 0);
-	eterm &et = eterm::getInstance();
+	transcoder::instance();
+	/*unsigned char b[] = {131,104,5,104,2,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,54,0,0,0,0,0,114,0,3,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,0,254,0,0,0,0,0,0,0,0,97,2,109,0,0,0,115,40,68,69,83,67,82,73,80,84,73,79,78,61,40,65,68,68,82,69,83,83,95,76,73,83,84,61,40,65,68,68,82,69,83,83,61,40,80,82,79,84,79,67,79,76,61,116,99,112,41,40,72,79,83,84,61,49,57,50,46,49,54,56,46,49,46,52,51,41,40,80,79,82,84,61,49,53,50,49,41,41,41,40,67,79,78,78,69,67,84,95,68,65,84,65,61,40,83,69,82,86,73,67,69,95,78,65,77,69,61,88,69,41,41,41,109,0,0,0,5,115,99,111,116,116,109,0,0,0,5,114,101,103,105,116};
+	vector<unsigned char> buf(b, b + sizeof(b) / sizeof(b[0]));
+	term t = transcoder::instance().decode(buf);*/
 
     log_flag = false;
 
@@ -86,7 +89,7 @@ int main(int argc, char * argv[])
 
     REMOTE_LOG(DBG, "Port: Initialized Oracle OCI");
 
-	port& prt = port::getInstance();
+	port& prt = port::instance();
 	vector<unsigned char> read_buf;
     while(prt.read_cmd(read_buf) > 0) {
 		cmd_queue::push(read_buf);

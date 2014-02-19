@@ -41,10 +41,10 @@ private:
     void operator=(port const&); // Not implemented
 
 public:
-	static port & getInstance()
+	static port & instance()
 	{
-		static port instance;
-		return instance;
+		static port p;
+		return p;
 	}
 	int read_cmd(vector<unsigned char>&);
 	int write_cmd(vector<unsigned char>&);

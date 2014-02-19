@@ -12,13 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include "marshal.h"
-#include "erl_interface.h"
-
+#include "platform.h"
 #include "logger.h"
 #include "port.h"
 #include "term.h"
-#include "eterm.h"
+#include "transcoder.h"
 
 #define MAX_FORMATTED_STR_LEN 1024
 void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
@@ -27,12 +25,7 @@ void log_remote(const char * filename, const char * funcname, unsigned int linen
     va_list arguments;
     va_start(arguments, fmt);
 
-#ifdef __WIN32__
-    vsprintf_s
-#else
-    vsnprintf
-#endif
-    (log_str, MAX_FORMATTED_STR_LEN, fmt, arguments);
+	VSPRINTF(log_str, MAX_FORMATTED_STR_LEN, fmt, arguments);
     va_end(arguments);
 
 	logger::log(filename, funcname, linenumber, level, term, log_str);
@@ -116,40 +109,20 @@ logger::~logger(void)
 
 void logger::log(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *trm, const char * log_str)
 {
-    int tx_len;
-    int pkt_len = -1;
-    pkt_hdr *hdr;
-    unsigned char * tx_buf;
+	term t;
+	t.tuple()
+		.add(level)
+		.add(term().strng(filename))
+		.add(term().strng(funcname))
+		.add(linenumber)
+		.add(term().strng(log_str));
 
-	// Borrowed from write_resp
-	ETERM * log = (!trm
-					? erl_format((char*)"{~i,~s,~s,~i,~s}", level, filename, funcname, linenumber, log_str)
-					: erl_format((char*)"{~i,~s,~s,~i,~s,~w}", level, filename, funcname, linenumber, log_str, trm));
-	tx_len = erl_term_len(log);	
-    pkt_len = tx_len+PKT_LEN_BYTES;
-    tx_buf = new unsigned char[pkt_len];
-    hdr = (pkt_hdr *)tx_buf;
-    hdr->len = htonl(tx_len);
-    erl_encode(log, tx_buf+PKT_LEN_BYTES);
-	erl_free_compound(log);
-
-	//term t = term::tuple();
-	string str1, str2, str3;
-	str2 = 'x';
-	//str1.resize(1000);
-	//str1 = "Test string: ";
-	//str3 = str1 + str2;
+	vector<unsigned char> log = transcoder::instance().encode_with_header(t);
 
     if(self.lock()) {
-//		send(self.log_sock, log_str, (int)strlen(log_str), 0);
-		send(self.log_sock, (char*) tx_buf, pkt_len, 0);
+		send(self.log_sock, (char*) &log[0], log.size(), 0);
 		self.unlock();
     }
-	delete tx_buf;
 
-#ifdef __WIN32__
-	Sleep(2);
-#else
-	usleep(2000);
-#endif
+//	SLEEP(2);
 }

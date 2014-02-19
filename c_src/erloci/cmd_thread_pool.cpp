@@ -138,7 +138,7 @@ main_cleanup:
 
 bool run_threads = true;
 #include "cmd_queue.h"
-#include "eterm.h"
+#include "transcoder.h"
 #include "term.h"
 
 //
@@ -185,8 +185,7 @@ ProcessCommandCb(
 		return;
 	ProcessCommand();
 
-	eterm &et = eterm::getInstance();
-	//term t = et.decode(rxpkt);
+	term t = transcoder::instance().decode(rxpkt);
 
 	void * cmd_tuple = erl_decode(&rxpkt[0]);
 	if (!cmd_tuple) {
@@ -195,7 +194,7 @@ ProcessCommandCb(
 		exit(1);
     }
 
-	if(command::process(cmd_tuple))
+	if(command::process(cmd_tuple, t))
 		exit(1);
 
 	erl_free_compound((ETERM*)cmd_tuple);

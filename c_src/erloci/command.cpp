@@ -18,6 +18,73 @@
 #include "command.h"
 #include "ocisession.h"
 
+#include "transcoder.h"
+#include "term.h"
+
+port & command::p			= port::instance();
+transcoder & command::tc	= transcoder::instance();
+
+bool command::change_log_flag(term & t)
+{
+    bool ret = false;
+	term resp;
+
+	if((t.lt.size() - 1) != CMD_ARGS_COUNT(RMOTE_MSG)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(RMOTE_MSG)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		REMOTE_LOG(ERR, "ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // {undefined, RMOTE_MSG, DBG_FLAG_OFF/DBG_FLAG_ON}
+    if(t.lt[2].is_any_int()) {
+		unsigned int log = t.lt[2].v.ui;
+
+        switch(log) {
+        case DBG_FLAG_OFF:
+            REMOTE_LOG(INF, "Disabling logging...");
+            log_flag = false;
+            REMOTE_LOG(CRT, "This line will never show up!!\n");
+			resp.tuple()
+				.add(t.lt[0])
+				.add(RMOTE_MSG)
+				.add(term().atom("log_disabled"));
+            break;
+        case DBG_FLAG_ON:
+            log_flag = true;
+			resp.tuple()
+				.add(t.lt[0])
+				.add(RMOTE_MSG)
+				.add(term().atom("log_enabled"));
+			REMOTE_LOG(INF, "Enabled logging...");
+            break;
+        default:
+			resp.tuple()
+				.add(t.lt[0])
+				.add(RMOTE_MSG)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+			REMOTE_LOG(ERR, "ERROR badarg %d\n", log);
+            break;
+        }
+    } else {
+//		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    if(p.write_cmd(tc.encode(resp)) <= 0)
+        ret = true;
+
+	return ret;
+}
+
 bool command::change_log_flag(ETERM * command)
 {
     bool ret = false;
@@ -72,6 +139,7 @@ bool command::get_session(ETERM * command)
 {
     bool ret = false;
 	ETERM *resp = NULL;
+	term rept;
 
     ETERM **args;
     MAP_ARGS(CMD_ARGS_COUNT(GET_SESSN), command, args);
@@ -97,6 +165,9 @@ bool command::get_session(ETERM * command)
 				ETERM *conh = erl_mk_ulonglong((unsigned long long)conn_handle);
 				resp = erl_format((char*)"{~w,~i,~w}", args[0], GET_SESSN, conh);
 				erl_free_term(conh);
+				rept.tuple()
+					.add((int)GET_SESSN)
+					.add((unsigned long long)conn_handle);
 		   } catch (intf_ret r) {
 				resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], GET_SESSN, r.gerrcode, r.gerrbuf);
 				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
@@ -753,6 +824,51 @@ bool command::process(void * param)
         case CMT_SESSN:	ret = commit(command);			break;
         case RBK_SESSN:	ret = rollback(command);		break;
         case RMOTE_MSG:	ret = change_log_flag(command);	break;
+        case CMD_DSCRB:	ret = describe(command);		break;
+        case CMD_ECHOT:	ret = echo(command);			break;
+        case OCIP_QUIT:
+        default:
+			ret = true;
+            break;
+        }
+    }
+
+//	PRINT_ERL_ALLOC("end");
+
+	return ret;
+}
+
+//#define PRINTCMD
+
+bool command::process(void * param, term & t)
+{
+	bool ret = false;
+	ETERM *command = (ETERM *)param;
+
+	//PRINT_ERL_ALLOC("start");
+
+	ETERM *cmd = erl_element(2, (ETERM *)command);
+#ifdef PRINTCMD
+	char * tmpbuf = print_term(command);
+	REMOTE_LOG(DBG, "========================================\nCOMMAND : %s %s\n========================================\n",
+		CMD_NAME_STR(ERL_INT_VALUE(cmd)),
+		tmpbuf);
+	delete tmpbuf;
+#endif
+
+	if(t.is_tuple() && t.lt[1].is_integer()) {
+		switch(t.lt[1].v.i) {
+        //case RMOTE_MSG:	ret = change_log_flag(command);	break;
+        case RMOTE_MSG:	ret = change_log_flag(t);		break;
+        case GET_SESSN:	ret = get_session(command);		break;
+        case PUT_SESSN:	ret = release_conn(command);	break;
+        case PREP_STMT:	ret = prep_sql(command);		break;
+        case BIND_ARGS:	ret = bind_args(command);		break;
+        case EXEC_STMT:	ret = exec_stmt(command);		break;
+        case FTCH_ROWS:	ret = fetch_rows(command);		break;
+        case CLSE_STMT:	ret = close_stmt(command);		break;
+        case CMT_SESSN:	ret = commit(command);			break;
+        case RBK_SESSN:	ret = rollback(command);		break;
         case CMD_DSCRB:	ret = describe(command);		break;
         case CMD_ECHOT:	ret = echo(command);			break;
         case OCIP_QUIT:

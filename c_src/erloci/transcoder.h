@@ -24,7 +24,7 @@
 #include "ei.h"
 #include "term.h"
 
-class eterm
+class transcoder
 {
 private:
 	mutex_type transcoder_lock;
@@ -33,20 +33,21 @@ private:
 	void erlterm_to_stl(ETERM *, term &);
 	ETERM * stl_to_erlterm(term &);
 
-	eterm(void);
-	eterm(eterm const&);          // Not implemented
-    void operator=(eterm const&); // Not implemented
+	transcoder(void);
+	transcoder(transcoder const&);          // Not implemented
+    void operator=(transcoder const&); // Not implemented
 
 public:
-	static eterm & getInstance()
+	static transcoder & instance()
 	{
-		static eterm instance;
-		return instance;
+		static transcoder t;
+		return t;
 	}
-	static inline void get_stats(unsigned long & allocated, unsigned long & freed) { erl_eterm_statistics(&allocated,&freed); };
+	static inline void stats(unsigned long & allocated, unsigned long & freed) { erl_eterm_statistics(&allocated,&freed); };
 	term decode(vector<unsigned char> &);
 	vector<unsigned char> encode(term &);
-	inline ~eterm(void) {};
+	vector<unsigned char> encode_with_header(term &);
+	inline ~transcoder(void) {};
 };
 
 #endif //ETERM_H

@@ -27,8 +27,26 @@ using namespace std;
 
 class term {
 public:
+	enum Type {
+		UNDEF		= ERL_UNDEF,
+		ATOM		= ERL_ATOM,
+		FLOAT		= ERL_FLOAT,
+		PID			= ERL_PID,
+		PORT		= ERL_PORT,
+		REF			= ERL_REF,
+		BINARY		= ERL_BINARY,
+		INTEGER		= ERL_INTEGER,
+		U_INTEGER	= ERL_U_INTEGER,
+		U_LONGLONG	= ERL_U_LONGLONG,
+		LONGLONG	= ERL_LONGLONG,
+		LIST		= ERL_LIST,
+		TUPLE		= ERL_TUPLE
+	};
+	Type type;
+
 	vector<term> lt; // list or tuple
-	string str;
+	char * str;
+	size_t str_len;
 	union {
 		int	i;
 		unsigned int ui;
@@ -43,138 +61,142 @@ public:
 			int c;
 		} ppr; // pid, port, ref, string or binary
 	} v;
-	string type;
-	unsigned char type_code;
 
-	inline term() { };
-	inline ~term() { };
-
-	inline bool is_atom()		{ return type_code == ERL_ATOM;			}
-	inline bool is_float()		{ return type_code == ERL_FLOAT;		}
-	inline bool is_pid()		{ return type_code == ERL_PID;			}
-	inline bool is_port()		{ return type_code == ERL_PORT;			}
-	inline bool is_ref()		{ return type_code == ERL_REF;			}
-	inline bool is_binary()		{ return type_code == ERL_BINARY;		}
-	inline bool is_integer()	{ return type_code == ERL_INTEGER;		}
-	inline bool is_u_integer()	{ return type_code == ERL_U_INTEGER;	}
-	inline bool is_u_longlong()	{ return type_code == ERL_U_LONGLONG;	}
-	inline bool is_longlong()	{ return type_code == ERL_LONGLONG;		}
-	inline bool is_list()		{ return type_code == ERL_LIST;			}
-	inline bool is_tuple()		{ return type_code == ERL_TUPLE;		}
-
-	void set(unsigned char, string, char *);
-	void set(unsigned char, string, char *, int, int);
-	void set(unsigned char, string, char *, int, int, int);
-	void set(unsigned char, string, unsigned char *, int);
-	void set(unsigned char, string, double);
-	void set(unsigned char, string, int);
-	void set(unsigned char, string, unsigned int);
-	void set(unsigned char, string, long long);
-	void set(unsigned char, string, unsigned long long);
-	void set(unsigned char, string, term, unsigned long long);
-
-	unsigned long long length();
-
-	static inline term atom(const char *s)						{ return term((unsigned char)ERL_ATOM, string(s));	};
-	static inline term atom(string & s)							{ return term((unsigned char)ERL_ATOM, s);		};
-	static inline term binary(string & s)						{ return term((unsigned char)ERL_BINARY, s);	};
-	static inline term strng(string & s)						{ return term((unsigned char)ERL_LIST, s);		};
-	static inline term integer(int i)							{ return term(i);				};
-	static inline term integer(long l)							{ return term(l);				};
-	static inline term integer(long long ll)					{ return term(ll);				};
-	static inline term integer(unsigned int ui)					{ return term(ui);				};
-	static inline term integer(unsigned long ul)				{ return term(ul);				};
-	static inline term integer(unsigned long long ull)			{ return term(ull);				};
-	static inline term dbl(double d)							{ return term(d);				};
-	static inline term pid(string & v, int n, int s, int c)		{ return term(v, n, s, c);		};
-	static inline term ref(string & v, int n, int c)			{ return term((unsigned char)ERL_REF, v, n, c);};
-	static inline term port(string & v, int n, int c)			{ return term((unsigned char)ERL_PORT, v, n, c);};
-
-	static inline term tuple(void)								{ return term((unsigned char)ERL_TUPLE);		};
-	static inline term list(void)								{ return term((unsigned char)ERL_LIST);		};
-
-	inline void add(term t)										{ lt.push_back(t);				}
-	string print();
-
-private:
-	inline term(int i)					{ v.i = i;		type = "ERL_INTEGER",		type_code = ERL_INTEGER;	};
-	inline term(long l)					{ v.l = l;		type = "ERL_INTEGER",		type_code = ERL_INTEGER;	};
-	inline term(long long ll)			{ v.ll = ll;	type = "ERL_LONGLONG",		type_code = ERL_LONGLONG;	};
-	inline term(unsigned int ui)		{ v.ui = ui;	type = "ERL_U_INTEGER",		type_code = ERL_U_INTEGER;	};
-	inline term(unsigned long ul)		{ v.ul = ul;	type = "ERL_U_INTEGER",		type_code = ERL_U_INTEGER;	};
-	inline term(unsigned long long ull)	{ v.ull = ull;	type = "ERL_U_LONGLONG",	type_code = ERL_U_LONGLONG;	};
-	inline term(float f)				{ v.d = f;		type = "ERL_FLOAT",			type_code = ERL_FLOAT;		};
-	inline term(double d)				{ v.d = d;		type = "ERL_FLOAT",			type_code = ERL_FLOAT;		};
-
-	inline term(unsigned char t)
+	inline term()	{ str = NULL; str_len = 0; type = UNDEF; };
+	inline ~term()	{ if(str) delete str;		};
+	inline term(const term& t)
+		: type(t.type), v(t.v), lt(t.lt), str_len(t.str_len)
 	{
-		switch (t) {
-			case ERL_TUPLE:
-				type = "ERL_TUPLE";
-				type_code = ERL_TUPLE;
-				break;
-			case ERL_LIST:
-				type = "ERL_LIST";
-				type_code = ERL_LIST;
-				break;
-			default:
-				break;
-		};
-	}
-
-	inline term(unsigned char t, string s)
-	{
-		switch (t) {
-			case ERL_ATOM:
-				type = "ERL_ATOM";
-				type_code = ERL_ATOM;
-				str = s;
-				break;
-			case ERL_BINARY:
-				type = "ERL_BINARY";
-				type_code = ERL_BINARY;
-				str = s;
-				break;
-			case ERL_LIST:
-				type = "ERL_LIST";
-				type_code = ERL_LIST;
-				for(size_t idx = 0; idx < s.size(); ++idx)
-					lt.push_back(term((int)s[idx]));
-				break;
-			default:
-				break;
-		};
-	};
-
-	inline term(unsigned char t, string & s, int n, int c)
-	{
-		switch (t) {
-			case ERL_PORT:
-				type = "ERL_PORT";
-				type_code = ERL_PORT;
-				v.ppr.n = n;
-				v.ppr.c = c;
-				str = s;
-				break;
-			case ERL_REF:
-				type = "ERL_REF";
-				type_code = ERL_REF;
-				v.ppr.n = n;
-				v.ppr.c = c;
-				str = s;
-				break;
+		str = NULL;
+		if (t.str_len > 0 && t.str) {
+			str = new char[t.str_len];
+			copy(t.str, t.str + t.str_len, str);
 		}
 	};
 
-	inline term(string & _str, int n, int s, int c)
+	inline bool is_undef()		{ return type == UNDEF;			}
+	inline bool is_atom()		{ return type == ATOM;			}
+	inline bool is_float()		{ return type == FLOAT;			}
+	inline bool is_pid()		{ return type == PID;			}
+	inline bool is_port()		{ return type == PORT;			}
+	inline bool is_ref()		{ return type == REF;			}
+	inline bool is_binary()		{ return type == BINARY;		}
+	inline bool is_integer()	{ return type == INTEGER;		}
+	inline bool is_u_integer()	{ return type == U_INTEGER;		}
+	inline bool is_u_longlong()	{ return type == U_LONGLONG;	}
+	inline bool is_longlong()	{ return type == LONGLONG;		}
+	inline bool is_list()		{ return type == LIST;			}
+	inline bool is_tuple()		{ return type == TUPLE;			}
+
+	inline bool is_any_int()
 	{
-		type = "ERL_PID";
-		type_code = ERL_PID;
+		return (type == INTEGER
+			|| type == U_INTEGER
+			|| type == U_LONGLONG
+			|| type == LONGLONG);
+	}
+
+	void set(Type, char *);
+	void set(Type, char *, int, int);
+	void set(Type, char *, int, int, int);
+	void set(Type, unsigned char *, int);
+	void set(Type, double);
+	void set(Type, int);
+	void set(Type, unsigned int);
+	void set(Type, long long);
+	void set(Type, unsigned long long);
+	void set(Type, term &, unsigned long long);
+
+	unsigned long long length();
+
+	inline term & tuple(void)						{				type = TUPLE;		return *this;	};
+	inline term & list(void)						{				type = LIST;		return *this;	};
+	inline term & integer(int i)					{ v.i = i;		type = INTEGER;		return *this;	};
+	inline term & integer(long l)					{ v.l = l;		type = INTEGER;		return *this;	};
+	inline term & integer(long long ll)				{ v.ll = ll;	type = LONGLONG;	return *this;	};
+	inline term & integer(unsigned int ui)			{ v.ui = ui;	type = INTEGER;		return *this;	};
+	inline term & integer(unsigned long ul)			{ v.ul = ul;	type = INTEGER;		return *this;	};
+	inline term & integer(unsigned long long ull)	{ v.ull = ull;	type = LONGLONG;	return *this;	};
+	inline term & dbl(float f)						{ v.d = f;		type = FLOAT;		return *this;	};
+	inline term & dbl(double d)						{ v.d = d;		type = FLOAT;		return *this;	};
+
+	inline term & add(const term & t)				{ lt.push_back(t);						return *this;	};
+	inline term & add(int i)						{ lt.push_back(term().integer(i));		return *this;	};
+	inline term & add(long i)						{ lt.push_back(term().integer(i));		return *this;	};
+	inline term & add(long long i)					{ lt.push_back(term().integer(i));		return *this;	};
+	inline term & add(unsigned int i)				{ lt.push_back(term().integer(i));		return *this;	};
+	inline term & add(unsigned long i)				{ lt.push_back(term().integer(i));		return *this;	};
+	inline term & add(unsigned long long i)			{ lt.push_back(term().integer(i));		return *this;	};
+	inline term & add(float i)						{ lt.push_back(term().dbl(i));			return *this;	};
+	inline term & add(double i)						{ lt.push_back(term().dbl(i));			return *this;	};
+
+	inline term & atom(const char *_str)
+	{
+		type = ATOM;
+		if(str)	delete str;
+		str_len = strlen(_str)+1;
+		str = new char[str_len];
+		strcpy(str, _str);
+		return *this;
+	};
+	inline term & binary(const char *_str)
+	{
+		type = BINARY;
+		if(str)	delete str;
+		str_len = strlen(_str)+1;
+		str = new char[str_len];
+		strcpy(str, _str);
+		return *this;
+	};
+	inline term & strng(const char *_str)
+	{
+		type = LIST;
+		for(size_t idx = 0; idx < strlen(_str); ++idx) {
+			term t;
+			t.integer((int)_str[idx]);
+			lt.push_back(t);
+		}
+		str = NULL; str_len = 0;
+		return *this;
+	};
+	inline term & pid(char *_str, int n, int s, int c)
+	{
+		type = PID;
 		v.ppr.n = n;
 		v.ppr.s = s;
 		v.ppr.c = c;
-		str = _str;
+		if(str)	delete str;
+		str_len = strlen(_str)+1;
+		str = new char[str_len];
+		strcpy(str, _str);
+		return *this;
 	};
+	inline term & ref(char *_str, int n, int c)
+	{
+		type = REF;
+		v.ppr.n = n;
+		v.ppr.c = c;
+		if(str)	delete str;
+		str_len = strlen(_str)+1;
+		str = new char[str_len];
+		strcpy(str, _str);
+		return *this;
+	};
+	inline term & port(char *_str, int n, int c)
+	{
+		type = PORT;
+		v.ppr.n = n;
+		v.ppr.c = c;
+		if(str)	delete str;
+		str_len = strlen(_str)+1;
+		str = new char[str_len];
+		strcpy(str, _str);
+		return *this;
+	};
+
+	string print();
+
+private:
 };
 
 #endif // TERM_H
