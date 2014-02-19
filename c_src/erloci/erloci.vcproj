@@ -202,10 +202,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\eterm.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\logger.cpp"
 				>
 			</File>
@@ -221,6 +217,10 @@
 				RelativePath=".\term.cpp"
 				>
 			</File>
+			<File
+				RelativePath=".\transcoder.cpp"
+				>
+			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
@@ -233,10 +233,6 @@
 			</File>
 			<File
 				RelativePath=".\command.h"
-				>
-			</File>
-			<File
-				RelativePath=".\eterm.h"
 				>
 			</File>
 			<File
@@ -257,6 +253,10 @@
 			</File>
 			<File
 				RelativePath=".\term.h"
+				>
+			</File>
+			<File
+				RelativePath=".\transcoder.h"
 				>
 			</File>
 		</Filter>

@@ -301,7 +301,8 @@ handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger} = Stat
     Cmd = [From | Msg],
     CmdTuple = list_to_tuple(Cmd),
     BTerm = term_to_binary(CmdTuple),
-    %%?Debug(_PortLogger, "TX (~p):~n---~n~s~n---", [byte_size(BTerm), oci_logger:bin2str(BTerm)]),
+    %?Debug(_PortLogger, "TX (~p):~n---~n~p~n---~n~w~n---", [byte_size(BTerm), Cmd, BTerm]),
+    %?Debug(_PortLogger, "TX (~p):~n---~n~p~n---~n~s~n---", [byte_size(BTerm), Cmd, oci_logger:bin2str(BTerm)]),
     %?Debug(_PortLogger, "TX (~p)", [integer_to_list(byte_size(BTerm),16)]),
     true = port_command(Port, BTerm),
     {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}}.

@@ -20,10 +20,20 @@
 #include "erl_interface.h"
 #include "ei.h"
 
+#include "platform.h"
+#include "port.h"
+#include "transcoder.h"
+#include "term.h"
+
 class command
 {
 private:
+	static port & p;
+	static transcoder & tc;
+
 	static bool change_log_flag(ETERM *);
+	static bool change_log_flag(term &);
+
 	static bool get_session(ETERM *);
 	static bool release_conn(ETERM *);
 	static bool commit(ETERM *);
@@ -38,6 +48,7 @@ private:
 
 public:
 	static bool process(void *);
+	static bool process(void *, term &);
 };
 
 // Externs
