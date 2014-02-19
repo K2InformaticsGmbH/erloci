@@ -79,7 +79,8 @@ bool command::change_log_flag(term & t)
 
 error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
-    if(p.write_cmd(tc.encode(resp)) <= 0)
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
         ret = true;
 
 	return ret;
