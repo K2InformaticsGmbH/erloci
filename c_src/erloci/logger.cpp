@@ -16,6 +16,9 @@
 #include "erl_interface.h"
 
 #include "logger.h"
+#include "port.h"
+#include "term.h"
+#include "eterm.h"
 
 #define MAX_FORMATTED_STR_LEN 1024
 void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
@@ -111,7 +114,7 @@ logger::~logger(void)
 #endif
 }
 
-void logger::log(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char * log_str)
+void logger::log(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *trm, const char * log_str)
 {
     int tx_len;
     int pkt_len = -1;
@@ -119,9 +122,9 @@ void logger::log(const char * filename, const char * funcname, unsigned int line
     unsigned char * tx_buf;
 
 	// Borrowed from write_resp
-	ETERM * log = (!term
+	ETERM * log = (!trm
 					? erl_format((char*)"{~i,~s,~s,~i,~s}", level, filename, funcname, linenumber, log_str)
-					: erl_format((char*)"{~i,~s,~s,~i,~s,~w}", level, filename, funcname, linenumber, log_str, term));
+					: erl_format((char*)"{~i,~s,~s,~i,~s,~w}", level, filename, funcname, linenumber, log_str, trm));
 	tx_len = erl_term_len(log);	
     pkt_len = tx_len+PKT_LEN_BYTES;
     tx_buf = new unsigned char[pkt_len];
@@ -129,6 +132,13 @@ void logger::log(const char * filename, const char * funcname, unsigned int line
     hdr->len = htonl(tx_len);
     erl_encode(log, tx_buf+PKT_LEN_BYTES);
 	erl_free_compound(log);
+
+	//term t = term::tuple();
+	string str1, str2, str3;
+	str2 = 'x';
+	//str1.resize(1000);
+	//str1 = "Test string: ";
+	//str3 = str1 + str2;
 
     if(self.lock()) {
 //		send(self.log_sock, log_str, (int)strlen(log_str), 0);

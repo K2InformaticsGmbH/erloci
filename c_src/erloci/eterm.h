@@ -16,7 +16,6 @@
 #define ETERM_H
 
 #include <iostream>
-#include <string>
 #include <vector>
 
 #include "platform.h"

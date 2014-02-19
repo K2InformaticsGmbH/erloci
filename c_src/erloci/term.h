@@ -46,6 +46,8 @@ public:
 	string type;
 	unsigned char type_code;
 
+	inline term() { };
+	inline ~term() { };
 
 	inline bool is_atom()		{ return type_code == ERL_ATOM;			}
 	inline bool is_float()		{ return type_code == ERL_FLOAT;		}
@@ -93,9 +95,6 @@ public:
 
 	inline void add(term t)										{ lt.push_back(t);				}
 	string print();
-
-	inline term() { };
-	inline ~term() { };
 
 private:
 	inline term(int i)					{ v.i = i;		type = "ERL_INTEGER",		type_code = ERL_INTEGER;	};

@@ -185,7 +185,7 @@ ProcessCommandCb(
 		return;
 	ProcessCommand();
 
-	//eterm &et = eterm::getInstance();
+	eterm &et = eterm::getInstance();
 	//term t = et.decode(rxpkt);
 
 	void * cmd_tuple = erl_decode(&rxpkt[0]);
