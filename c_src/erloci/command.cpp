@@ -36,7 +36,7 @@ bool command::change_log_flag(term & t)
 			.add(term().tuple()
 						.add(term().atom("error"))
 						.add(term().atom("badarg")));
-		REMOTE_LOG(ERR, "ERROR badarg\n");
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(RMOTE_MSG), CMD_ARGS_COUNT(RMOTE_MSG), (t.lt.size() - 1));
 		ret = true;
 	    goto error_exit;
 	}
@@ -86,6 +86,7 @@ error_exit:
 	return ret;
 }
 
+#if 0
 bool command::change_log_flag(ETERM * command)
 {
     bool ret = false;
@@ -135,7 +136,83 @@ error_exit:
 
 	return ret;
 }
+#endif
 
+bool command::get_session(term & t)
+{
+    bool ret = false;
+	term resp;
+
+	if((t.lt.size() - 1) != CMD_ARGS_COUNT(GET_SESSN)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(GET_SESSN)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), (t.lt.size() - 1));
+		ret = true;
+	    goto error_exit;
+	}
+
+	// {{pid, ref}, GET_SESSN, Connection String, User name, Password}
+    if(t.lt[2].is_binary() && t.lt[3].is_binary() && t.lt[4].is_binary()) {
+
+		   try {
+				ocisession * conn_handle = new ocisession(
+					t.lt[2].str, t.lt[2].str_len-1,		// Connect String
+					t.lt[3].str, t.lt[3].str_len-1,		// User Name String
+					t.lt[4].str, t.lt[4].str_len-1);	// Password String
+		        REMOTE_LOG(INF, "got connection %lu\n", (unsigned long long)conn_handle);
+				resp.tuple()
+					.add(t.lt[0])
+					.add(GET_SESSN)
+					.add((unsigned long long)conn_handle);
+		   } catch (intf_ret r) {
+				resp.tuple()
+					.add(t.lt[0])
+					.add(GET_SESSN)
+					.add(term().tuple()
+							.add(term().atom("error"))
+							.add(term().tuple()
+									.add(r.gerrcode)
+									.add(term().strng(r.gerrbuf))));
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+		   } catch (string str) {
+				resp.tuple()
+					.add(t.lt[0])
+					.add(GET_SESSN)
+					.add(term().tuple()
+							.add(term().atom("error"))
+							.add(term().tuple()
+									.add(0)
+									.add(term().strng(str.c_str()))));
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		   } catch (...) {
+				resp.tuple()
+					.add(t.lt[0])
+					.add(GET_SESSN)
+					.add(term().tuple()
+							.add(term().atom("error"))
+							.add(term().tuple()
+									.add(0)
+									.add(term().atom("unknwon"))));
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
+		   }
+	} else {
+		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
+        ret = true;
+
+	return ret;
+}
+
+#if 0
 bool command::get_session(ETERM * command)
 {
     bool ret = false;
@@ -192,7 +269,82 @@ error_exit:
 
 	return ret;
 }
+#endif
 
+bool command::release_conn(term & t)
+{
+    bool ret = false;
+    term resp;
+
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(PUT_SESSN)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(PUT_SESSN)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(PUT_SESSN), CMD_ARGS_COUNT(PUT_SESSN), (t.lt.size() - 1));
+		ret = true;
+	    goto error_exit;
+	}
+	
+	// {{pid, ref}, PUT_SESSN, Connection Handle}
+	if(t.lt[2].is_any_int()) {
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		try {
+			delete conn_handle;
+			resp.tuple()
+				.add(t.lt[0])
+				.add(PUT_SESSN)
+				.add(term().atom("ok"));
+		} catch (intf_ret r) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(PUT_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+		} catch (string str) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(PUT_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(PUT_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
+        ret = true;
+
+	return ret;
+}
+
+#if 0
 bool command::release_conn(ETERM * command)
 {
     bool ret = false;
@@ -242,7 +394,84 @@ error_exit:
 
 	return ret;
 }
+#endif
 
+
+bool command::commit(term & t)
+{
+    bool ret = false;
+    term resp;
+
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(CMT_SESSN)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(CMT_SESSN)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(CMT_SESSN), CMD_ARGS_COUNT(CMT_SESSN), (t.lt.size() - 1));
+		ret = true;
+	    goto error_exit;
+	}
+
+	// {{pid, ref}, CMT_SESSN, Connection Handle}
+	if(t.lt[2].is_any_int()) {
+
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		try {
+			conn_handle->commit();
+            resp.tuple()
+				.add(t.lt[0])
+				.add(CMT_SESSN)
+				.add(term().atom("ok"));
+		} catch (intf_ret r) {
+            resp.tuple()
+				.add(t.lt[0])
+				.add(CMT_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+		} catch (string str) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(CMT_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(PUT_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		// REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
+        ret = true;
+
+	return ret;
+}
+
+#if 0
 bool command::commit(ETERM * command)
 {
     bool ret = false;
@@ -292,7 +521,83 @@ error_exit:
 
 	return ret;
 }
+#endif
 
+bool command::rollback(term & t)
+{
+    bool ret = false;
+    term resp;
+
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(RBK_SESSN)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(RBK_SESSN)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(RBK_SESSN), CMD_ARGS_COUNT(RBK_SESSN), (t.lt.size() - 1));
+		ret = true;
+	    goto error_exit;
+	}
+
+	// {{pid, ref}, CMT_SESSN, Connection Handle}
+	if(t.lt[2].is_any_int()) {
+
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		try {
+			conn_handle->rollback();
+            resp.tuple()
+				.add(t.lt[0])
+				.add(RBK_SESSN)
+				.add(term().atom("ok"));
+		} catch (intf_ret r) {
+            resp.tuple()
+				.add(t.lt[0])
+				.add(RBK_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+		} catch (string str) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(RBK_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp.tuple()
+				.add(t.lt[0])
+				.add(RBK_SESSN)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
+        ret = true;
+
+	return ret;
+}
+
+#if 0
 bool command::rollback(ETERM * command)
 {
     bool ret = false;
@@ -342,6 +647,7 @@ error_exit:
 
 	return ret;
 }
+#endif
 
 bool command::describe(ETERM * command)
 {
@@ -795,6 +1101,7 @@ error_exit:
     return ret;
 }
 
+#if 0
 //#define PRINTCMD
 
 bool command::process(void * param)
@@ -838,6 +1145,7 @@ bool command::process(void * param)
 
 	return ret;
 }
+#endif
 
 //#define PRINTCMD
 
@@ -859,17 +1167,22 @@ bool command::process(void * param, term & t)
 
 	if(t.is_tuple() && t.lt[1].is_integer()) {
 		switch(t.lt[1].v.i) {
-        //case RMOTE_MSG:	ret = change_log_flag(command);	break;
-        case RMOTE_MSG:	ret = change_log_flag(t);		break;
-        case GET_SESSN:	ret = get_session(command);		break;
-        case PUT_SESSN:	ret = release_conn(command);	break;
+        case RMOTE_MSG:	ret = change_log_flag(t);	break;
+        case GET_SESSN:	ret = get_session(t);		break;
+        case PUT_SESSN:	ret = release_conn(t);		break;
+		case CMT_SESSN:	ret = commit(t);			break;
+        case RBK_SESSN:	ret = rollback(t);			break;
+
+		//case RMOTE_MSG:	ret = change_log_flag(command);	break;
+        //case GET_SESSN:	ret = get_session(command);		break;
+        //case PUT_SESSN:	ret = release_conn(command);	break;
+        // case CMT_SESSN:	ret = commit(command);			break;
+        //case RBK_SESSN:	ret = rollback(command);		break;
         case PREP_STMT:	ret = prep_sql(command);		break;
         case BIND_ARGS:	ret = bind_args(command);		break;
         case EXEC_STMT:	ret = exec_stmt(command);		break;
         case FTCH_ROWS:	ret = fetch_rows(command);		break;
         case CLSE_STMT:	ret = close_stmt(command);		break;
-        case CMT_SESSN:	ret = commit(command);			break;
-        case RBK_SESSN:	ret = rollback(command);		break;
         case CMD_DSCRB:	ret = describe(command);		break;
         case CMD_ECHOT:	ret = echo(command);			break;
         case OCIP_QUIT:
