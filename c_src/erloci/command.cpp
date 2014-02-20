@@ -472,7 +472,7 @@ bool command::prep_sql(term & t)
 	bool ret = false;
     term resp;
 
-    if((t.lt.size() - 1)  != CMD_ARGS_COUNT(PREP_STMT)) {
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(PREP_STMT)) {
 		resp.tuple()
 			.add(t.lt[0])
 			.add(PREP_STMT)
@@ -551,184 +551,256 @@ error_exit:
 	return ret;
 }
 
-bool command::bind_args(ETERM * command)
+extern void map_schema_to_bind_args(term &, vector<var> &);
+bool command::bind_args(term & t)
 {
 	bool ret = false;
-    ETERM * resp = NULL;
+    term resp;
 
-    ETERM **args;
-    MAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), command, args);
-
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_ARGS)) {
-	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], BIND_ARGS);
-		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(BIND_ARGS)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(BIND_ARGS)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(BIND_ARGS), CMD_ARGS_COUNT(BIND_ARGS), (t.lt.size() - 1));
 		ret = true;
 	    goto error_exit;
 	}
 
-    // Args: Connection Handle, Statement Handle, BindList
-    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
-		&& ERL_IS_LIST(args[3])) {
-
-		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
-													? ERL_INT_VALUE(args[1])
-													: ERL_LL_UVALUE(args[1]));
-
-		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
-												? ERL_INT_VALUE(args[2])
-												: ERL_LL_UVALUE(args[2]));
+	// {{pid, ref}, BIND_ARGS, Connection Handle, Statement Handle, BindList}
+    if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_list()) {
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		ocistmt * statement_handle = (ocistmt*)(t.lt[3].v.ll);
 
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
-				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+				resp.tuple()
+					.add(t.lt[0])
+					.add(BIND_ARGS)
+					.add(term().tuple()
+							.add(term().atom("error"))
+							.add(0)
+							.add(term().strng("invalid statement handle")));
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
-				map_schema_to_bind_args(args[3], statement_handle->get_in_bind_args());
-				resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
+				map_schema_to_bind_args(t.lt[4], statement_handle->get_in_bind_args());
+				resp.tuple()
+					.add(t.lt[0])
+					.add(BIND_ARGS)
+					.add(term().atom("ok"));
 			}
 		} catch (intf_ret r) {
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(BIND_ARGS)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
 			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string & str) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], BIND_ARGS, str.c_str());
+			resp.tuple()
+				.add(t.lt[0])
+				.add(BIND_ARGS)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], BIND_ARGS);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(BIND_ARGS)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
-	if(write_resp(resp) < 0)
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
         ret = true;
-
-	UNMAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), args);
 
     return ret;
 }
 
-bool command::exec_stmt(ETERM * command)
+extern size_t map_value_to_bind_args(term &, vector<var> &);
+bool command::exec_stmt(term & t)
 {
 	bool ret = false;
-    ETERM * resp = NULL;
+    term resp;
 
-    ETERM **args;
-    MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
-
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
-	    resp = erl_format((char*)"{~w,~i,{error,badargcount,~i,~i}}", args[0], EXEC_STMT, ARG_COUNT(command), CMD_ARGS_COUNT(EXEC_STMT));
-		if(!resp) REMOTE_LOG(ERR, "ERROR bad arguments count\n");
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(EXEC_STMT)){
+		resp.tuple()
+			.add(t.lt[0])
+			.add(EXEC_STMT)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(EXEC_STMT), CMD_ARGS_COUNT(EXEC_STMT), (t.lt.size() - 1));
 		ret = true;
 	    goto error_exit;
 	}
 
-    // Args: Connection Handle, Statement Handle, Bind List, auto_commit
-    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
-		&& ERL_IS_LIST(args[3])
-		&& (ERL_IS_INTEGER(args[4]) || ERL_IS_UNSIGNED_LONGLONG(args[4]) || ERL_IS_LONGLONG(args[4]))) {
-		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
-													? ERL_INT_VALUE(args[1])
-													: ERL_LL_UVALUE(args[1]));
-
-		ocistmt * statement_handle = (ocistmt *)(ERL_IS_INTEGER(args[2])
-													? ERL_INT_VALUE(args[2])
-													: ERL_LL_UVALUE(args[2]));
-		int auto_commit_val = (ERL_IS_INTEGER(args[4]) ? ERL_INT_VALUE(args[4]) : ERL_LL_UVALUE(args[4]));
-		bool auto_commit = auto_commit_val > 0 ? true : false;
-	    ETERM *columns = NULL, *rowids = NULL;
+	// {{pid, ref}, EXEC_STMT, Connection Handle, Statement Handle, BindList, auto_commit}
+    if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_list() && t.lt[5].is_any_int()) {
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		ocistmt * statement_handle = (ocistmt *)(t.lt[3].v.ll);
+		bool auto_commit = (t.lt[5].v.ll) > 0 ? true : false;
+	    term columns, rowids;
+		columns.list();
+		rowids.list();
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
-				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
-				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
+				resp.tuple()
+					.add(t.lt[0])
+					.add(EXEC_STMT)
+					.add(term().tuple()
+							.add(term().atom("error"))
+							.add(0)
+							.add(term().strng("invalid statement handle")));
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
-				size_t bound_count = map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
+				size_t bound_count = map_value_to_bind_args(t.lt[4], statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
 				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
 				// TODO : Also return bound values from here
-				if (columns == NULL && rowids == NULL)
-					resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
-				else if (columns != NULL && rowids == NULL)
-					resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
-				else if (columns == NULL && rowids != NULL)
-					resp = erl_format((char*)"{~w,~i,{rowids, ~w}}", args[0], EXEC_STMT, rowids);
+				if (columns.length() == 0 && rowids.length() == 0)
+					resp.tuple()
+						.add(t.lt[0])
+						.add(EXEC_STMT)
+						.add(term().tuple()
+								.add(term().atom("executed"))
+								.add(exec_ret));
+				else if (columns.length() > 0 && rowids.length() == 0)
+					resp.tuple()
+						.add(t.lt[0])
+						.add(EXEC_STMT)
+						.add(term().tuple()
+								.add(term().atom("cols"))
+								.add(columns));
+				else if (columns.length() == 0 && rowids.length() > 0)
+					resp.tuple()
+						.add(t.lt[0])
+						.add(EXEC_STMT)
+						.add(term().tuple()
+								.add(term().atom("rowids"))
+								.add(rowids));
 				else {
-					resp = erl_format((char*)"{~w,~i,{cols,~w},{rowids, ~w}}", args[0], EXEC_STMT, columns, rowids);
+					resp.tuple()
+						.add(t.lt[0])
+						.add(EXEC_STMT)
+						.add(term().tuple()
+								.add(term().atom("cols"))
+								.add(columns))
+						.add(term().tuple()
+								.add(term().atom("rowids"))
+								.add(rowids));
 				}
-				if (rowids != NULL) erl_free_term(rowids);
-				if (columns != NULL) erl_free_term(columns);
 			}
 		} catch (intf_ret r) {
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(EXEC_STMT)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
-				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute STMT %s\n", r.gerrbuf);
+				if(resp.is_undef())
+					REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n",
+						t.lt[3].str_len, t.lt[3].str, r.gerrbuf);
 			} else {
-				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], EXEC_STMT, str.c_str());
+			resp.tuple()
+				.add(t.lt[0])
+				.add(EXEC_STMT)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], EXEC_STMT);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(EXEC_STMT)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
 	} else {
-		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+//		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
-    if(write_resp(resp) < 0)
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
         ret = true;
-
-	UNMAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), args);
 
 	return ret;
 }
 
-bool command::fetch_rows(ETERM * command)
+bool command::fetch_rows(term & t)
 {
 	bool ret = false;
-    ETERM * resp = NULL;
+    term resp;
 
-    ETERM **args;
-    MAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), command, args);
-
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(FTCH_ROWS)) {
-	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], FTCH_ROWS);
-		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(FTCH_ROWS)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(FTCH_ROWS)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(PREP_STMT), CMD_ARGS_COUNT(PREP_STMT), (t.lt.size() - 1));
 		ret = true;
 	    goto error_exit;
 	}
 
-    // Args: Connection Handle, Statement Handle, Rowcount
-    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
-		&& ERL_IS_INTEGER(args[3])) {
+	// {{pid, ref}, FTCH_ROWS, Connection Handle, Statement Handle, Rowcount}
+    if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_any_int()) {
 
-		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
-										? ERL_INT_VALUE(args[1])
-										: ERL_LL_UVALUE(args[1]));
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		ocistmt * statement_handle = (ocistmt*)(t.lt[3].v.ll);
+        int rowcount = (t.lt[4].v.i);
 
-		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
-												? ERL_INT_VALUE(args[2])
-												: ERL_LL_UVALUE(args[2]));
-        int rowcount = ERL_INT_VALUE(args[3]);
-
-		ETERM *rows = NULL;
+		term rows;
+		rows.list();
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
-				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
-				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
+				resp.tuple()
+					.add(t.lt[0])
+					.add(FTCH_ROWS)
+					.add(term().tuple()
+							.add(term().atom("error"))
+							.add(0)
+							.add(term().strng("invalid statement handle")));
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				intf_ret r = statement_handle->rows(&rows,
 												   append_string_to_list,
@@ -736,41 +808,64 @@ bool command::fetch_rows(ETERM * command)
 												   calculate_resp_size,
 												   rowcount);
 				if (r.fn_ret == MORE || r.fn_ret == DONE) {
-					if (rows != NULL) {
-						resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
-						erl_free_term(rows);
-					}
-					else
-						resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
+					resp.tuple()
+						.add(t.lt[0])
+						.add(FTCH_ROWS)
+						.add(term().tuple()
+									.add(term().tuple()
+											.add(term().atom("rows"))
+											.add(rows))
+									.add(term().atom((r.fn_ret == MORE && rows.length() > 0) ? "false" : "true")));
 				}
 			}
 		} catch (intf_ret r) {
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(FTCH_ROWS)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
-				if(!resp) REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
+				if(resp.is_undef())
+					REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
 			} else {
-				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], FTCH_ROWS, str.c_str());
+			resp.tuple()
+				.add(t.lt[0])
+				.add(FTCH_ROWS)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], FTCH_ROWS);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(FTCH_ROWS)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+//		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
-	if(write_resp(resp) < 0)
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
         ret = true;
-
-	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
 
     return ret;
 }
@@ -955,6 +1050,9 @@ bool command::process(void * param, term & t)
         case RBK_SESSN:	ret = rollback(t);			break;
         case CMD_DSCRB:	ret = describe(t);			break;
         case PREP_STMT:	ret = prep_sql(t);			break;
+        case BIND_ARGS:	ret = bind_args(t);			break;
+        case EXEC_STMT:	ret = exec_stmt(t);			break;
+        case FTCH_ROWS:	ret = fetch_rows(t);		break;
         case CLSE_STMT:	ret = close_stmt(t);		break;
         case CMD_ECHOT:	ret = echo(t);				break;
 
@@ -964,9 +1062,9 @@ bool command::process(void * param, term & t)
         // case CMT_SESSN:	ret = commit(command);			break;
         //case RBK_SESSN:	ret = rollback(command);		break;
         //case PREP_STMT:	ret = prep_sql(command);		break;
-        case BIND_ARGS:	ret = bind_args(command);		break;
-        case EXEC_STMT:	ret = exec_stmt(command);		break;
-        case FTCH_ROWS:	ret = fetch_rows(command);		break;
+        //case BIND_ARGS:	ret = bind_args(command);		break;
+        //case EXEC_STMT:	ret = exec_stmt(command);		break;
+        //case FTCH_ROWS:	ret = fetch_rows(command);		break;
         //case CLSE_STMT:	ret = close_stmt(command);		break;
         //case CMD_DSCRB:	ret = describe(command);		break;
         //case CMD_ECHOT:	ret = echo(command);			break;
@@ -1298,6 +1396,230 @@ error_exit:
 	UNMAP_ARGS(CMD_ARGS_COUNT(PREP_STMT), args);
 
 	return ret;
+}
+
+bool command::bind_args(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp = NULL;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(BIND_ARGS)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], BIND_ARGS);
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Connection Handle, Statement Handle, BindList
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+		&& ERL_IS_LIST(args[3])) {
+
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+
+		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
+												? ERL_INT_VALUE(args[2])
+												: ERL_LL_UVALUE(args[2]));
+
+		try {
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+			} else {
+				map_schema_to_bind_args(args[3], statement_handle->get_in_bind_args());
+				resp = erl_format((char*)"{~w,~i,ok}", args[0], BIND_ARGS);
+			}
+		} catch (intf_ret r) {
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], BIND_ARGS, r.gerrcode, r.gerrbuf);
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+			ret = true;
+		} catch (string & str) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], BIND_ARGS, str.c_str());
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], BIND_ARGS);
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+	if(write_resp(resp) < 0)
+        ret = true;
+
+	UNMAP_ARGS(CMD_ARGS_COUNT(BIND_ARGS), args);
+
+    return ret;
+}
+
+bool command::exec_stmt(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp = NULL;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(EXEC_STMT)){
+	    resp = erl_format((char*)"{~w,~i,{error,badargcount,~i,~i}}", args[0], EXEC_STMT, ARG_COUNT(command), CMD_ARGS_COUNT(EXEC_STMT));
+		if(!resp) REMOTE_LOG(ERR, "ERROR bad arguments count\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Connection Handle, Statement Handle, Bind List, auto_commit
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+		&& ERL_IS_LIST(args[3])
+		&& (ERL_IS_INTEGER(args[4]) || ERL_IS_UNSIGNED_LONGLONG(args[4]) || ERL_IS_LONGLONG(args[4]))) {
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+
+		ocistmt * statement_handle = (ocistmt *)(ERL_IS_INTEGER(args[2])
+													? ERL_INT_VALUE(args[2])
+													: ERL_LL_UVALUE(args[2]));
+		int auto_commit_val = (ERL_IS_INTEGER(args[4]) ? ERL_INT_VALUE(args[4]) : ERL_LL_UVALUE(args[4]));
+		bool auto_commit = auto_commit_val > 0 ? true : false;
+	    ETERM *columns = NULL, *rowids = NULL;
+		try {
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
+			} else {
+				size_t bound_count = map_value_to_bind_args(args[3], statement_handle->get_in_bind_args());
+				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list_old, auto_commit);
+				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
+				// TODO : Also return bound values from here
+				if (columns == NULL && rowids == NULL)
+					resp = erl_format((char*)"{~w,~i,{executed,~i}}", args[0], EXEC_STMT, exec_ret);
+				else if (columns != NULL && rowids == NULL)
+					resp = erl_format((char*)"{~w,~i,{cols,~w}}", args[0], EXEC_STMT, columns);
+				else if (columns == NULL && rowids != NULL)
+					resp = erl_format((char*)"{~w,~i,{rowids, ~w}}", args[0], EXEC_STMT, rowids);
+				else {
+					resp = erl_format((char*)"{~w,~i,{cols,~w},{rowids, ~w}}", args[0], EXEC_STMT, columns, rowids);
+				}
+				if (rowids != NULL) erl_free_term(rowids);
+				if (columns != NULL) erl_free_term(columns);
+			}
+		} catch (intf_ret r) {
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], EXEC_STMT, r.gerrcode, r.gerrbuf);
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute STMT %s\n", r.gerrbuf);
+			} else {
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				ret = true;
+			}
+		} catch (string str) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], EXEC_STMT, str.c_str());
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], EXEC_STMT);
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+	} else {
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    if(write_resp(resp) < 0)
+        ret = true;
+
+	UNMAP_ARGS(CMD_ARGS_COUNT(EXEC_STMT), args);
+
+	return ret;
+}
+
+bool command::fetch_rows(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp = NULL;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(FTCH_ROWS)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], FTCH_ROWS);
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Connection Handle, Statement Handle, Rowcount
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& (ERL_IS_INTEGER(args[2]) || ERL_IS_UNSIGNED_LONGLONG(args[2]) || ERL_IS_LONGLONG(args[2]))
+		&& ERL_IS_INTEGER(args[3])) {
+
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+										? ERL_INT_VALUE(args[1])
+										: ERL_LL_UVALUE(args[1]));
+
+		ocistmt * statement_handle = (ocistmt*)(ERL_IS_INTEGER(args[2])
+												? ERL_INT_VALUE(args[2])
+												: ERL_LL_UVALUE(args[2]));
+        int rowcount = ERL_INT_VALUE(args[3]);
+
+		ETERM *rows = NULL;
+		try {
+			if (!conn_handle->has_statement(statement_handle)) {
+				resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CLSE_STMT, "invalid statement handle");
+				if(!resp) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
+			} else {
+				intf_ret r = statement_handle->rows(&rows,
+												   append_string_to_list,
+												   append_list_to_list,
+												   calculate_resp_size,
+												   rowcount);
+				if (r.fn_ret == MORE || r.fn_ret == DONE) {
+					if (rows != NULL) {
+						resp = erl_format((char*)"{~w,~i,{{rows,~w},~a}}", args[0], FTCH_ROWS, rows, (r.fn_ret == MORE ? "false" : "true"));
+						erl_free_term(rows);
+					}
+					else
+						resp = erl_format((char*)"{~w,~i,{{rows,[]},true}}", args[0], FTCH_ROWS);
+				}
+			}
+		} catch (intf_ret r) {
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], FTCH_ROWS, r.gerrcode, r.gerrbuf);
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
+			} else {
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				ret = true;
+			}
+		} catch (string str) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], FTCH_ROWS, str.c_str());
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], FTCH_ROWS);
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+	if(write_resp(resp) < 0)
+        ret = true;
+
+	UNMAP_ARGS(CMD_ARGS_COUNT(FTCH_ROWS), args);
+
+    return ret;
 }
 
 bool command::close_stmt(ETERM * command)

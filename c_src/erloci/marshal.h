@@ -141,12 +141,13 @@ extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
 extern void append_string_to_list(const char * string, size_t len, void * list);
+extern void append_string_to_list_old(const char * string, size_t len, void * list);
 extern void append_coldef_to_list(const char * col_name, size_t len,
 								  const unsigned short data_type, const unsigned int max_len, const unsigned short precision,
 								  const signed char scale, void * list);
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
-extern void map_schema_to_bind_args(void *, vector<var> &);
-extern size_t map_value_to_bind_args(void *, vector<var> &);
+//extern void map_schema_to_bind_args(void *, vector<var> &);
+//extern size_t map_value_to_bind_args(void *, vector<var> &);
 
 #define MAX_FORMATTED_STR_LEN 1024
 

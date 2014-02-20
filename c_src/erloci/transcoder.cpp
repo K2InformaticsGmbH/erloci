@@ -82,6 +82,7 @@ vector<unsigned char> transcoder::encode(term & t)
 	vector<unsigned char> buf;
 	if(lock()) {
 		ETERM * etermp = stl_to_erlterm(t);
+		ASSERT(etermp != NULL);
 
 		// If allocated != 0 after freeing the term
 		// we have a memory leak
@@ -179,8 +180,9 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 			break;
 		case term::TUPLE: {
 			ETERM ** et_ms = new ETERM*[t.lt.size()];
-			for(unsigned int i = 0; i < t.lt.size(); ++i)
+			for(unsigned int i = 0; i < t.lt.size(); ++i) {
 				et_ms[i] = stl_to_erlterm(t.lt[i]);
+			}
 			et = erl_mk_tuple(et_ms, (int)t.lt.size());
 						}
 			break;

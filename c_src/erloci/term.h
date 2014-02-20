@@ -68,9 +68,10 @@ public:
 		: type(t.type), v(t.v), lt(t.lt), str_len(t.str_len)
 	{
 		str = NULL;
-		if (t.str_len > 0 && t.str) {
-			str = new char[t.str_len];
-			copy(t.str, t.str + t.str_len, str);
+		// The string will always have a '\0'
+		if (t.str_len >= 0 && t.str) {
+			str = new char[t.str_len+1];
+			copy(t.str, t.str + t.str_len+1, str);
 		}
 	};
 
@@ -120,6 +121,7 @@ public:
 	inline term & dbl(float f)						{ v.d = f;		type = FLOAT;		return *this;	};
 	inline term & dbl(double d)						{ v.d = d;		type = FLOAT;		return *this;	};
 
+	inline term & add(const term * t)				{ lt.push_back(*t);						return *this;	};
 	inline term & add(const term & t)				{ lt.push_back(t);						return *this;	};
 	inline term & add(int i)						{ lt.push_back(term().integer(i));		return *this;	};
 	inline term & add(long i)						{ lt.push_back(term().integer(i));		return *this;	};
@@ -153,9 +155,10 @@ public:
 	{
 		type = BINARY;
 		if(str)	delete str;
-		str_len = len+1;
-		str = new char[str_len];
+		str = new char[len+1];
 		copy(_str, _str + len, str);
+		str[len] = '\0';
+		str_len = len;
 		return *this;
 	};
 	inline term & strng(const char *_str)
