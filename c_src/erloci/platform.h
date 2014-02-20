@@ -8,6 +8,7 @@
 	#include <stdio.h>
 	#include <WinSock2.h>
 	#include <Windows.h>
+	#include <crtdbg.h>
 	typedef u_long ul4;
 	typedef HANDLE mutex_type;
 	typedef SOCKET sock;
@@ -17,6 +18,7 @@
 	#define UNLOCK(_Lock)		ReleaseMutex(_Lock);
 	#define SLEEP(_S)			Sleep(_S)
 	#define VSPRINTF			vsprintf_s
+	#define ASSERT				_ASSERTE
 #else
 	#include <stdlib.h>
 	#include <stdarg.h>
@@ -25,6 +27,8 @@
 	#include <unistd.h>
 	#include <arpa/inet.h>
     #include <pthread.h>
+	#include<assert.h>
+
 	typedef  pthread_mutex_t mutex_type;
 	typedef uint32_t ul4;
 	typedef int sock;
@@ -34,6 +38,7 @@
     #define UNLOCK(_Lock)		pthread_mutex_unlock(&(_Lock))
 	#define SLEEP(_S)			usleep(1000 * (_S))
 	#define VSPRINTF			vsnprintf
+	#define ASSERT				assert
 #endif
 
 #endif //_PLATFORM_H_

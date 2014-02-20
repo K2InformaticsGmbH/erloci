@@ -15,6 +15,8 @@
 #ifndef OCI_MARSHAL_H
 #define OCI_MARSHAL_H
 
+#include "platform.h"
+
 #include <iostream>
 #include <queue>
 #include <vector>

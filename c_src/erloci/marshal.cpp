@@ -148,8 +148,7 @@ void append_string_to_list(const char * string, size_t len, void * list)
 void append_coldef_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len,
 						   const unsigned short precision, const signed char scale, void * list)
 {
-    if (list==NULL)
-        return;
+	ASSERT(list!=NULL);
 
     ETERM *container_list = (ETERM *)(*(ETERM**)list);
     if (container_list == NULL)
@@ -166,12 +165,10 @@ void append_coldef_to_list(const char * col_name, size_t len, const unsigned sho
 #include "term.h"
 void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list)
 {
-    if (list==NULL)
-        return;
+	ASSERT(list!=NULL);
 
     term *container_list = (term *)list;
-    if (!container_list->is_list())
-		return;
+    ASSERT(container_list->is_list());
 
 	container_list->add(term().tuple()
 							.add(term().binary(col_name, len))
