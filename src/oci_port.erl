@@ -505,12 +505,12 @@ db_test_() ->
         fun oci_test:teardown/1,
         {with, [
             fun drop_create/1
-            %, fun insert_select_update/1
-            %, fun auto_rollback_test/1
-            %, fun commit_rollback_test/1
+            , fun insert_select_update/1
+            , fun auto_rollback_test/1
+            , fun commit_rollback_test/1
             , fun asc_desc_test/1
             , fun describe_test/1
-            %, fun function_test/1
+            , fun function_test/1
         ]}
     }}.
 

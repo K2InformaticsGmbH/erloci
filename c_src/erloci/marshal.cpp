@@ -661,8 +661,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				case SQLT_VNU:
 					if(t.lt[li].lt[i].is_binary() && t.lt[li].lt[i].str_len > 0 && t.lt[li].lt[i].str_len <= OCI_NUMBER_SIZE) {
 						ind = 0;
+						arg_len = t.lt[li].lt[i].str_len;
 						tmp_arg = new char[arg_len];
-						memcpy(tmp_arg, t.lt[li].lt[i].str, t.lt[li].lt[i].str_len);
+						memcpy(tmp_arg, t.lt[li].lt[i].str, arg_len);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed number for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t.lt[li].lt[i].type);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
@@ -675,8 +676,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				case SQLT_DAT:
 					if(t.lt[li].lt[i].is_binary() && t.lt[li].lt[i].str_len > 0) {
 						ind = 0;
-						tmp_arg = new char[t.lt[li].lt[i].str_len];
-						memcpy(tmp_arg, t.lt[li].lt[i].str, t.lt[li].lt[i].str_len);
+						arg_len = t.lt[li].lt[i].str_len;
+						tmp_arg = new char[arg_len];
+						memcpy(tmp_arg, t.lt[li].lt[i].str, arg_len);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed binary for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t.lt[li].lt[i].type);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
@@ -688,8 +690,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				case SQLT_ODT:
 					if(t.lt[li].lt[i].is_binary() && t.lt[li].lt[i].str_len > 0) {
 						ind = 0;
-						tmp_arg = new char[t.lt[li].lt[i].str_len];
-						memcpy(tmp_arg, t.lt[li].lt[i].str, t.lt[li].lt[i].str_len);
+						arg_len = t.lt[li].lt[i].str_len;
+						tmp_arg = new char[arg_len];
+						memcpy(tmp_arg, t.lt[li].lt[i].str, arg_len);
 						((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed date for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t.lt[li].lt[i].type);
@@ -704,8 +707,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				case SQLT_LNG:
 					if(t.lt[li].lt[i].is_binary() && t.lt[li].lt[i].str_len > 0) {
 						ind = 0;
-						tmp_arg = new char[t.lt[li].lt[i].str_len];
-						memcpy(tmp_arg, t.lt[li].lt[i].str, t.lt[li].lt[i].str_len);
+						arg_len = t.lt[li].lt[i].str_len;
+						tmp_arg = new char[arg_len];
+						memcpy(tmp_arg, t.lt[li].lt[i].str, arg_len);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed string for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t.lt[li].lt[i].type);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
@@ -717,9 +721,10 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				case SQLT_STR:
 					if(t.lt[li].lt[i].is_binary() && t.lt[li].lt[i].str_len > 0) {
 						ind = 0;
-						tmp_arg = new char[t.lt[li].lt[i].str_len+1];
-						memcpy(tmp_arg, t.lt[li].lt[i].str, t.lt[li].lt[i].str_len);
-						((char*)tmp_arg)[t.lt[li].lt[i].str_len] = '\0';
+						arg_len = t.lt[li].lt[i].str_len;
+						tmp_arg = new char[arg_len+1];
+						memcpy(tmp_arg, t.lt[li].lt[i].str, arg_len);
+						((char*)tmp_arg)[arg_len] = '\0';
 						arg_len++;
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed string\\0 for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t.lt[li].lt[i].type);

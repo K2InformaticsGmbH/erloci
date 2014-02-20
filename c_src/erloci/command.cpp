@@ -660,7 +660,7 @@ bool command::exec_stmt(term & t)
     if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_list() && t.lt[5].is_any_int()) {
 		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
 		ocistmt * statement_handle = (ocistmt *)(t.lt[3].v.ll);
-		bool auto_commit = (t.lt[5].v.ll) > 0 ? true : false;
+		bool auto_commit = (t.lt[5].v.i) > 0 ? true : false;
 	    term columns, rowids;
 		columns.list();
 		rowids.list();
