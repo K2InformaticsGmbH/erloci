@@ -249,9 +249,9 @@ unsigned int ocistmt::execute(void * column_list,
 					throw r;
 				}
 
-				(*string_append)((char*)rowID, strlen((char*)rowID), rowid_list);
+				(*string_append)((char*)rowID, strlen((char*)rowID), &rowid_list);
 			} else {
-				(*string_append)(NULL, 0, rowid_list);
+				(*string_append)(NULL, 0, &rowid_list);
 			}
 #ifdef PRINT_ROWIDS
 			rowids.push_back((char*)rowID);
