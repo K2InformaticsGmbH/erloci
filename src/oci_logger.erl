@@ -89,11 +89,11 @@ handle_info({tcp, Socket, Data}, #state{sock = Socket, logfun = LogFun} = State)
         Log when is_tuple(Log) ->
             [Lvl|Rest] = tuple_to_list(Log),
             try
-                LogFun(list_to_tuple([?LLVL(Lvl), "_PRT_" | Rest]))
+                LogFun(list_to_tuple([?LLVL(Lvl) | Rest]))
             catch
-                _:_ ->
+                _:_ ->                   
                    [File, Func, Line, Msg | R] = Rest,
-                   io:format(user, ?T++" [~p] [_PRT_] {~s,~s,~p} ~s ~p~n", [?LLVL(Lvl), File, Func, Line, Msg, R])
+                   io:format(user, ?T++" [~p] {~s,~s,~p} ~s ~p~n", [?LLVL(Lvl), File, Func, Line, Msg, R])
             end;
         Other ->
             io:format(user, "~p Unknown log format ~p~n", [{?MODULE, ?LINE}, Other])

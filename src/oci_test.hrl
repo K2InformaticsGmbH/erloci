@@ -5,8 +5,8 @@
 -define(ELog(__Fmt,__Args),
 (fun(__F,__A) ->
     {_,_,__McS} = __Now = erlang:now(),
-    {_,{__H,__Min,__S}} = calendar:now_to_datetime(__Now),
-    ok = io:format(user, "~2..0B:~2..0B:~2..0B.~6..0B [~p:~p] "++__F++"~n", [__H,__Min,__S,__McS rem 1000000,?MODULE,?LINE | __A])
+    {_,{_,__Min,__S}} = calendar:now_to_datetime(__Now),
+    ok = io:format(user, "~2..0B:~2..0B.~6..0B ~p "++__F++"~n", [__Min,__S,__McS rem 1000000,{?MODULE,?LINE} | __A])
 end)(__Fmt,__Args)).
 
 -define(TESTTABLE, "erloci_test_1").

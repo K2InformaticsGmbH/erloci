@@ -156,7 +156,7 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 			et = erl_mk_ref(t.str, t.v.ppr.n, t.v.ppr.c);
 			break;
 		case term::BINARY:
-			et = erl_mk_binary(t.str, (int)t.str_len);
+			et = erl_mk_binary(t.str, (int)t.str_len-1);
 			break;
 		case term::INTEGER:
 			et = erl_mk_int(t.v.i);

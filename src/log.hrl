@@ -16,8 +16,8 @@
 -define(T,
 (fun() ->
     {_,_,__McS} = __Now = erlang:now(),
-    {_,{__H,__M,__S}} = calendar:now_to_local_time(__Now),
-    lists:flatten(io_lib:format("~2..0B:~2..0B:~2..0B.~6..0B ", [__H,__M,__S,__McS rem 1000000]))
+    {_,{_,__M,__S}} = calendar:now_to_local_time(__Now),
+    lists:flatten(io_lib:format("~2..0B:~2..0B.~6..0B ", [__M,__S,__McS rem 1000000]))
 end)()).
 -else.
 -define(T,
@@ -27,6 +27,7 @@ end)()).
     lists:flatten(io_lib:format("~2..0B.~2..0B.~4..0B ~2..0B:~2..0B:~2..0B.~6..0B ", [__DD,__MM,__YYYY,__H,__M,__S,__McS rem 1000000]))
 end)()).
 -endif.
+
 -ifndef(NOLOGGING).
 -define(LOG(__LMod,__T,__L,__M,__F,__A),
 (fun() ->    
@@ -72,4 +73,3 @@ end)()
                        6 -> fatal;
                        _ -> unknown
                    end).
-

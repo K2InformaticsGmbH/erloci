@@ -46,13 +46,13 @@
 
 void InitializeThreadPool(void)
 {
-    REMOTE_LOG(DBG, "Port: Initializing Thread pool...\n");
+    REMOTE_LOG(DBG, "Initializing Thread pool...\n");
 
 #ifdef __WIN32__
     InitializeThreadpoolEnvironment(&CallBackEnviron);
 
     if (NULL == (pool = CreateThreadpool(NULL))) {
-        _tprintf(_T("CreateThreadpool failed. LastError: %u\n"), GetLastError());
+	    REMOTE_LOG(CRT, "CreateThreadpool failed. LastError: %u\n", GetLastError());
         goto main_cleanup;
     }
     rollback = 1; // pool creation succeeded
@@ -60,13 +60,12 @@ void InitializeThreadPool(void)
     SetThreadpoolThreadMaximum(pool, THREAD);
 
     if (FALSE == SetThreadpoolThreadMinimum(pool, 1)) {
-        _tprintf(_T("SetThreadpoolThreadMinimum failed. LastError: %u\n"),
-                 GetLastError());
+	    REMOTE_LOG(CRT, "SetThreadpoolThreadMinimum failed. LastError: %u\n", GetLastError());
         goto main_cleanup;
     }
 
     if (NULL == (cleanupgroup = CreateThreadpoolCleanupGroup())) {
-        _tprintf(_T("CreateThreadpoolCleanupGroup failed. LastError: %u\n"), GetLastError());
+	    REMOTE_LOG(CRT, "CreateThreadpoolCleanupGroup failed. LastError: %u\n", GetLastError());
         goto main_cleanup;
     }
     rollback = 2;  // Cleanup group creation succeeded
@@ -88,34 +87,17 @@ main_cleanup:
 
 void CleanupThreadPool(void)
 {
-    REMOTE_LOG(DBG, "Port: Cleanup Thread pool...");
+    REMOTE_LOG(DBG, "Cleanup Thread pool...");
 
 #ifdef __WIN32__
     BOOL bRet = FALSE;
 
-    //
     // Wait for all callbacks to finish.
-    // CloseThreadpoolCleanupGroupMembers also releases objects
-    // that are members of the cleanup group, so it is not necessary
-    // to call close functions on individual objects
-    // after calling CloseThreadpoolCleanupGroupMembers.
-    //
     CloseThreadpoolCleanupGroupMembers(cleanupgroup, TRUE, NULL);
-
-    //
-    // Already cleaned up the work item with the
-    // CloseThreadpoolCleanupGroupMembers, so set rollback to 2.
-    //
     rollback = 2;
     goto main_cleanup;
 
 main_cleanup:
-    //
-    // Clean up any individual pieces manually
-    // Notice the fall-through structure of the switch.
-    // Clean up in reverse order.
-    //
-
     switch (rollback) {
     case 3:
         // Clean up the cleanup group members.

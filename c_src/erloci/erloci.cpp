@@ -81,13 +81,13 @@ int main(int argc, char * argv[])
 
     init_marshall();
 
-    REMOTE_LOG(DBG, "Port: OCI Process started...");
+    REMOTE_LOG(DBG, "OCI Process started...");
 
     InitializeThreadPool();
 	ProcessCommand();
-	REMOTE_LOG(DBG, "Port: Thread pool created...");
+	REMOTE_LOG(DBG, "Thread pool created...");
 
-    REMOTE_LOG(DBG, "Port: Initialized Oracle OCI");
+    REMOTE_LOG(DBG, "Initialized Oracle OCI");
 
 	port& prt = port::instance();
 	vector<unsigned char> read_buf;
@@ -97,8 +97,8 @@ int main(int argc, char * argv[])
 	run_threads = false;
 
     CleanupThreadPool();
-    REMOTE_LOG(DBG, "Port: Thread pool destroyed");
+    REMOTE_LOG(DBG, "Thread pool destroyed");
 
-	REMOTE_LOG(DBG, "Port: Process oci terminating...");
+	REMOTE_LOG(DBG, "Process oci terminating...");
     return 0;
 }

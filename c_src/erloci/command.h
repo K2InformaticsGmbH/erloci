@@ -38,6 +38,7 @@ private:
 	static bool rollback(term &);
 	static bool prep_sql(term &);
 	static bool close_stmt(term &);
+	static bool echo(term &);
 
 	//static bool change_log_flag(ETERM *);
 	//static bool get_session(ETERM *);
@@ -50,7 +51,7 @@ private:
 	static bool exec_stmt(ETERM *);
 	static bool fetch_rows(ETERM *);
 	//static bool close_stmt(ETERM *);
-	static bool echo(ETERM *);
+	//static bool echo(ETERM *);
 
 public:
 	//static bool process(void *);

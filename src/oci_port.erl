@@ -64,14 +64,38 @@
 %-define(DriverSleep, timer:sleep(100)).
 -define(DriverSleep, ok).
 
-%% External API
-start_link(Options) -> start_link(Options,
+-ifdef(TEST).
+-define(LOGFUN,
     fun
-        ({Lvl, Tag, File, Fun, Line, Msg}) -> io:format(user, "~p [~s] {~s,~s,~s} ~s", [Lvl, Tag, File, Fun, Line, Msg]);
-        ({Lvl, Tag, File, Fun, Line, Msg, Term}) -> io:format(user, "~p [~s] {~s,~s,~s} ~s : ~p", [Lvl, Tag, File, Fun, Line, Msg, Term]);
-        (Log) when is_list(Log) -> io:format(user, "~s", [Log]);
-        (Log) -> io:format(user, "~p~n", [Log])
+        ({Lvl, File, Fun, Line, Msg}) -> io:format(user, ?T++"[~p] {~s,~s,~p} ~s~n", [Lvl, File, Fun, Line, Msg]);
+        ({Lvl, File, Fun, Line, Msg, Term}) ->
+            STerm = case Term of
+                "" -> "";
+                Term when is_list(Term) -> Term;
+                _ -> lists:flatten(io_lib:format("~p", [Term]))
+            end,
+            io:format(user, ?T++"[~p] {~s,~s,~p} ~s : ~s~n", [Lvl, File, Fun, Line, Msg, STerm]);
+        (Log) when is_list(Log) -> io:format(user, ?T++"~s~n", [Log]);
+        (Log) -> io:format(user, ?T++".... ~p~n", [Log])
     end).
+-else.
+-define(LOGFUN,
+    fun
+        ({Lvl, File, Fun, Line, Msg}) -> io:format(user, ?T++"[~p] ["++?LOG_TAG++"] {~s,~s,~p} ~s~n", [Lvl, File, Fun, Line, Msg]);
+        ({Lvl, File, Fun, Line, Msg, Term}) ->
+            STerm = case Term of
+                "" -> "";
+                Term when is_list(Term) -> Term;
+                _ -> lists:flatten(io_lib:format("~p", [Term]))
+            end,
+            io:format(user, ?T++"[~p] ["++?LOG_TAG++"] {~s,~s,~p} ~s : ~s~n", [Lvl, File, Fun, Line, Msg, STerm]);
+        (Log) when is_list(Log) -> io:format(user, ?T++"["++?LOG_TAG++"] ~s~n", [Log]);
+        (Log) -> io:format(user, ?T++"["++?LOG_TAG++"] ~p~n", [Log])
+    end).
+-endif.
+
+%% External API
+start_link(Options) -> start_link(Options, ?LOGFUN).
 start_link(Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
@@ -441,6 +465,7 @@ db_negative_test_() ->
         fun setup/0,
         fun teardown/1,
         {with, [
+            fun echo/1,
             fun bad_password/1
         ]}
     }}.
@@ -452,6 +477,23 @@ bad_password(OciPort) ->
     ?ELog("get_session with wrong password", []),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
     ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
+
+echo(OciPort) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                           echo                                 |"),
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("echo back erlang terms", []),
+    ?assertEqual(1, OciPort:echo(1)),
+    ?assertEqual(1.2, OciPort:echo(1.2)),
+    ?assertEqual(atom, OciPort:echo(atom)),
+    ?assertEqual(self(), OciPort:echo(self())),
+    ?assertEqual(node(), OciPort:echo(node())),
+    Ref = make_ref(),
+    ?assertEqual(Ref, OciPort:echo(Ref)),
+    ?assertEqual("string", OciPort:echo("string")),
+    ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
+    ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
+    ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
 
 db_test_() ->
     {timeout, 60, {
