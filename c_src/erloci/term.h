@@ -143,9 +143,19 @@ public:
 	{
 		type = BINARY;
 		if(str)	delete str;
-		str_len = strlen(_str)+1;
+		str_len = strlen(_str);
+		str = new char[str_len+1];
+		copy(_str, _str + str_len, str);
+		str[str_len] = '\0';
+		return *this;
+	};
+	inline term & binary(const char *_str, size_t len)
+	{
+		type = BINARY;
+		if(str)	delete str;
+		str_len = len+1;
 		str = new char[str_len];
-		strcpy(str, _str);
+		copy(_str, _str + len, str);
 		return *this;
 	};
 	inline term & strng(const char *_str)

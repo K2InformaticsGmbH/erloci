@@ -163,6 +163,91 @@ void append_coldef_to_list(const char * col_name, size_t len, const unsigned sho
     (*(ETERM**)list) = new_container_list;
 }
 
+#include "term.h"
+void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list)
+{
+    if (list==NULL)
+        return;
+
+    term *container_list = (term *)list;
+    if (!container_list->is_list())
+		return;
+
+	container_list->add(term().tuple()
+							.add(term().binary(col_name, len))
+							.add((unsigned int)data_type)
+							.add(max_len));
+}
+
+#if 0
+void append_list_to_list(const void * sub_list, void * list)
+{
+    if (list == NULL || sub_list == NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+    ETERM *new_container_list = erl_cons((ETERM*)sub_list, container_list);
+    erl_free_term((ETERM*)sub_list);
+	erl_free_term(container_list);
+
+    (*(ETERM**)list) = new_container_list;
+}
+
+void append_int_to_list(const int integer, void * list)
+{
+    if (list==NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+    ETERM *new_container_list = erl_cons(erl_format((char*)"~i", integer), container_list);
+	erl_free_term(container_list);
+    (*(ETERM**)list) = new_container_list;
+}
+
+void append_string_to_list(const char * string, size_t len, void * list)
+{
+    if (list==NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+	if (string) {
+		ETERM *binstr = erl_mk_binary(string, (int)len);
+		ETERM *new_container_list = erl_cons(binstr, container_list);
+		erl_free_term(binstr);
+		erl_free_term(container_list);
+		(*(ETERM**)list) = new_container_list;
+	} else {
+		(*(ETERM**)list) = container_list;
+	}
+}
+
+void append_coldef_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len,
+						   const unsigned short precision, const signed char scale, void * list)
+{
+    if (list==NULL)
+        return;
+
+    ETERM *container_list = (ETERM *)(*(ETERM**)list);
+    if (container_list == NULL)
+        container_list = erl_mk_empty_list();
+
+	ETERM *cname = erl_mk_binary(col_name, (int)len);
+    ETERM *new_container_list = erl_cons(erl_format((char*)"{~w,~i,~i,~i,~i}", cname, data_type, max_len, precision, scale), container_list);
+    erl_free_term(cname);
+    erl_free_term(container_list);
+
+    (*(ETERM**)list) = new_container_list;
+}
+
 void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list)
 {
     if (list==NULL)
@@ -179,6 +264,7 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
 
     (*(ETERM**)list) = new_container_list;
 }
+#endif
 
 bool init_marshall(void)
 {

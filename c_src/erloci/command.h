@@ -36,6 +36,7 @@ private:
 	static bool release_conn(term &);
 	static bool commit(term &);
 	static bool rollback(term &);
+	static bool describe(term &);
 	static bool prep_sql(term &);
 	static bool close_stmt(term &);
 	static bool echo(term &);
@@ -45,7 +46,7 @@ private:
 	//static bool release_conn(ETERM *);
 	//static bool commit(ETERM *);
 	//static bool rollback(ETERM *);
-	static bool describe(ETERM *);
+	//static bool describe(ETERM *);
 	//static bool prep_sql(ETERM *);
 	static bool bind_args(ETERM *);
 	static bool exec_stmt(ETERM *);

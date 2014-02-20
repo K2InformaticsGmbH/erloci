@@ -108,9 +108,9 @@ bool command::get_session(term & t)
 
 		   try {
 				ocisession * conn_handle = new ocisession(
-					t.lt[2].str, t.lt[2].str_len-1,		// Connect String
-					t.lt[3].str, t.lt[3].str_len-1,		// User Name String
-					t.lt[4].str, t.lt[4].str_len-1);	// Password String
+					t.lt[2].str, t.lt[2].str_len,		// Connect String
+					t.lt[3].str, t.lt[3].str_len,		// User Name String
+					t.lt[4].str, t.lt[4].str_len);		// Password String
 		        REMOTE_LOG(INF, "got connection %lu\n", (unsigned long long)conn_handle);
 				resp.tuple()
 					.add(t.lt[0])
@@ -324,7 +324,7 @@ bool command::rollback(term & t)
 	    goto error_exit;
 	}
 
-	// {{pid, ref}, CMT_SESSN, Connection Handle}
+	// {{pid, ref}, RBK_SESSN, Connection Handle}
 	if(t.lt[2].is_any_int()) {
 
 		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
@@ -381,66 +381,88 @@ error_exit:
 	return ret;
 }
 
-bool command::describe(ETERM * command)
+bool command::describe(term & t)
 {
 	bool ret = false;
-    ETERM * resp = NULL;
+    term resp;
 
-    ETERM **args;
-    MAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), command, args);
-
-    if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_DSCRB)) {
-	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_DSCRB);
-		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+    if((t.lt.size() - 1) != CMD_ARGS_COUNT(CMD_DSCRB)) {
+		resp.tuple()
+			.add(t.lt[0])
+			.add(CMD_DSCRB)
+			.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().atom("badarg")));
+		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(CMD_DSCRB), CMD_ARGS_COUNT(CMD_DSCRB), (t.lt.size() - 1));
 		ret = true;
 	    goto error_exit;
 	}
 
-    // Args: Conn Handle, Describe Object string, Describe Object Type
-    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
-		&& ERL_IS_BINARY(args[2])
-		&& (ERL_IS_INTEGER(args[3]) || ERL_IS_UNSIGNED_LONGLONG(args[3]) || ERL_IS_LONGLONG(args[3]))) {
+	// {{pid, ref}, CMD_DSCRB, Connection Handle, Describe Object BinString, Describe Object Type int}
+    if(t.lt[2].is_any_int() && t.lt[3].is_binary() && t.lt[4].is_any_int()) {
 
-		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
-													? ERL_INT_VALUE(args[1])
-													: ERL_LL_UVALUE(args[1]));
-		unsigned char desc_typ = (unsigned char)(ERL_IS_INTEGER(args[3])
-													? ERL_INT_VALUE(args[3])
-													: ERL_LL_UVALUE(args[3]));
-		ETERM *describes = NULL;
+		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		unsigned char desc_typ = (unsigned char)(t.lt[4].v.ll);
+		term describes;
+		describes.list();
+
 		try {
-	        conn_handle->describe_object(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), desc_typ, &describes, append_desc_to_list);
-			if (describes)
-				resp = erl_format((char*)"{~w,~i,{desc,~w}}", args[0], CMD_DSCRB, describes);
-			else
-				resp = erl_format((char*)"{~w,~i,{desc,[]}}", args[0], CMD_DSCRB);
+	        conn_handle->describe_object(t.lt[3].str, t.lt[3].str_len, desc_typ, &describes, append_desc_to_list);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(CMD_DSCRB)
+				.add(term().tuple()
+							.add(term().atom("desc"))
+							.add(describes));
 		} catch (intf_ret r) {
-			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(CMD_DSCRB)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(r.gerrcode)
+								.add(term().strng(r.gerrbuf))));
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
-				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+				if(resp.is_undef())
+					REMOTE_LOG(INF, "Continue with ERROR Execute DESCRIBE \"%.*s;\" -> %s\n",
+						t.lt[3].str_len, t.lt[3].str, r.gerrbuf);
 			} else {
-				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
 			}
 		} catch (string str) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMD_DSCRB, str.c_str());
+			resp.tuple()
+				.add(t.lt[0])
+				.add(CMD_DSCRB)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().strng(str.c_str()))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
-			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_DSCRB);
+			resp.tuple()
+				.add(t.lt[0])
+				.add(CMD_DSCRB)
+				.add(term().tuple()
+						.add(term().atom("error"))
+						.add(term().tuple()
+								.add(0)
+								.add(term().atom("unknwon"))));
 			ret = true;
-			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
 		}
     } else {
-		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+//		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
 error_exit:
-	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
-    if(write_resp(resp) < 0)
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
         ret = true;
-
-	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), args);
 
 	return ret;
 }
@@ -469,7 +491,7 @@ bool command::prep_sql(term & t)
 
 		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
 		try {
-	        ocistmt * statement_handle = conn_handle->prepare_stmt((unsigned char *)t.lt[3].str, t.lt[3].str_len-1);
+	        ocistmt * statement_handle = conn_handle->prepare_stmt((unsigned char *)t.lt[3].str, t.lt[3].str_len);
 			resp.tuple()
 				.add(t.lt[0])
 				.add(PREP_STMT)
@@ -488,7 +510,7 @@ bool command::prep_sql(term & t)
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n",
-						t.lt[3].str_len-1, t.lt[3].str, r.gerrbuf);
+						t.lt[3].str_len, t.lt[3].str, r.gerrbuf);
 			} else {
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
@@ -931,6 +953,7 @@ bool command::process(void * param, term & t)
         case PUT_SESSN:	ret = release_conn(t);		break;
 		case CMT_SESSN:	ret = commit(t);			break;
         case RBK_SESSN:	ret = rollback(t);			break;
+        case CMD_DSCRB:	ret = describe(t);			break;
         case PREP_STMT:	ret = prep_sql(t);			break;
         case CLSE_STMT:	ret = close_stmt(t);		break;
         case CMD_ECHOT:	ret = echo(t);				break;
@@ -945,7 +968,7 @@ bool command::process(void * param, term & t)
         case EXEC_STMT:	ret = exec_stmt(command);		break;
         case FTCH_ROWS:	ret = fetch_rows(command);		break;
         //case CLSE_STMT:	ret = close_stmt(command);		break;
-        case CMD_DSCRB:	ret = describe(command);		break;
+        //case CMD_DSCRB:	ret = describe(command);		break;
         //case CMD_ECHOT:	ret = echo(command);			break;
         case OCIP_QUIT:
         default:
@@ -1336,6 +1359,70 @@ error_exit:
 	UNMAP_ARGS(CMD_ARGS_COUNT(CLSE_STMT), args);
 
     return ret;
+}
+
+bool command::describe(ETERM * command)
+{
+	bool ret = false;
+    ETERM * resp = NULL;
+
+    ETERM **args;
+    MAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), command, args);
+
+    if(ARG_COUNT(command) != CMD_ARGS_COUNT(CMD_DSCRB)) {
+	    resp = erl_format((char*)"{~w,~i,{error,badarg}}", args[0], CMD_DSCRB);
+		if(!resp) REMOTE_LOG(ERR, "ERROR badarg\n");
+		ret = true;
+	    goto error_exit;
+	}
+
+    // Args: Conn Handle, Describe Object string, Describe Object Type
+    if((ERL_IS_INTEGER(args[1]) || ERL_IS_UNSIGNED_LONGLONG(args[1]) || ERL_IS_LONGLONG(args[1]))
+		&& ERL_IS_BINARY(args[2])
+		&& (ERL_IS_INTEGER(args[3]) || ERL_IS_UNSIGNED_LONGLONG(args[3]) || ERL_IS_LONGLONG(args[3]))) {
+
+		ocisession * conn_handle = (ocisession *)(ERL_IS_INTEGER(args[1])
+													? ERL_INT_VALUE(args[1])
+													: ERL_LL_UVALUE(args[1]));
+		unsigned char desc_typ = (unsigned char)(ERL_IS_INTEGER(args[3])
+													? ERL_INT_VALUE(args[3])
+													: ERL_LL_UVALUE(args[3]));
+		ETERM *describes = NULL;
+		try {
+	        conn_handle->describe_object(ERL_BIN_PTR(args[2]), ERL_BIN_SIZE(args[2]), desc_typ, &describes, append_desc_to_list);
+			if (describes)
+				resp = erl_format((char*)"{~w,~i,{desc,~w}}", args[0], CMD_DSCRB, describes);
+			else
+				resp = erl_format((char*)"{~w,~i,{desc,[]}}", args[0], CMD_DSCRB);
+		} catch (intf_ret r) {
+			resp = erl_format((char*)"{~w,~i,{error,{~i,~s}}}", args[0], CMD_DSCRB, r.gerrcode, r.gerrbuf);
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
+				if(!resp) REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n", ERL_BIN_SIZE(args[2]), ERL_BIN_PTR(args[2]), r.gerrbuf);
+			} else {
+				if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				ret = true;
+			}
+		} catch (string str) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,~s}}}", args[0], CMD_DSCRB, str.c_str());
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			resp = erl_format((char*)"{~w,~i,{error,{0,unknown}}}", args[0], CMD_DSCRB);
+			ret = true;
+			if(!resp) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+error_exit:
+	if(!resp) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    if(write_resp(resp) < 0)
+        ret = true;
+
+	UNMAP_ARGS(CMD_ARGS_COUNT(CMD_DSCRB), args);
+
+	return ret;
 }
 
 bool command::echo(ETERM * command)

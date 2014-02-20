@@ -137,10 +137,10 @@ void term::set(Type t, unsigned char * s, int strl)
 {
 	type = t;
 	if(str)	delete str;
-	str_len = strl + 1;
-	str = new char[str_len];
-	strncpy(str, (const char *)s, strl);
+	str = new char[strl + 1];
+	copy(s, s+strl, str);
 	str[strl] = '\0';
+	str_len = strl;
 }
 
 void term::set(Type t, double dbl)
