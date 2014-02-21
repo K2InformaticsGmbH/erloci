@@ -6,8 +6,8 @@
 
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
--define(PROCESSES, 1).
--define(ROWS_PER_TABLE, 100).
+-define(PROCESSES, 2).
+-define(ROWS_PER_TABLE, 10).
 
 all() -> [load].
 
@@ -141,5 +141,5 @@ load_rows_to_end(Table, {{rows, Rows}, true}, _, _, Total) ->
     ct:pal(info, "[~s] Loaded ~p rows - Finished", [Table, Total]);
 load_rows_to_end(Table, {{rows, Rows}, false}, SelStmt, Count, Total) ->
     Loaded = length(Rows),
-    ct:pal(info, "[~s] Loaded ~p / ~p", [Loaded, Total]),
+    ct:pal(info, "[~s] Loaded ~p / ~p", [Table, Loaded, Total]),
     load_rows_to_end(Table, SelStmt:fetch_rows(Count), SelStmt, Count, Total+Loaded).
