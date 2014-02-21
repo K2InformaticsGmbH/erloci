@@ -75,7 +75,7 @@
                 _ -> lists:flatten(io_lib:format("~p", [Term]))
             end,
             io:format(user, ?T++"[~p] {~s,~s,~p} ~s : ~s~n", [Lvl, File, Fun, Line, Msg, STerm]);
-        (Log) when is_list(Log) -> io:format(user, ?T++"~s~n", [Log]);
+        (Log) when is_list(Log) -> io:format(user, "~s", [Log]);
         (Log) -> io:format(user, ?T++".... ~p~n", [Log])
     end).
 -else.
@@ -287,7 +287,8 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
         LdLibPath -> LdLibPath ++ PathSepStr
     end ++ OciDir,
 
-    ?Info(PortLogger, "New ~s path: ~s", [LibPath, re:replace(NewLibPath, "~", "~~", [global, {return, list}])]),
+    LibPathVal = lists:last(re:split(re:replace(NewLibPath, "~", "~~", [global, {return, list}]), "[:;]", [{return, list}])),
+    ?Info(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status

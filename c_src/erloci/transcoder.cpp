@@ -116,6 +116,7 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 	else if(ERL_IS_LONGLONG(et))			t.set(term::LONGLONG,	ERL_LL_VALUE(et));
 	else if(ERL_IS_UNSIGNED_LONGLONG(et))	t.set(term::U_LONGLONG,	ERL_LL_UVALUE(et));
 	else if(ERL_IS_EMPTY_LIST(et))			t.set(term::LIST,		NULL, 0);
+#if 1
 	else if(ERL_IS_CONS(et) || ERL_IS_LIST(et)) {
 		ETERM *erl_list = et;
 		unsigned long long list_idx = 0;
@@ -135,6 +136,31 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 			t.set(term::TUPLE, t1, tuple_idx);
 		}
 	}
+#else
+	else if(ERL_IS_CONS(et) || ERL_IS_LIST(et)) {
+		ETERM *erl_list = et;
+		unsigned long long list_idx = 0;
+		do {
+			ETERM *et1 = ERL_CONS_HEAD(erl_list);
+			term t1;
+			t.list()
+				.add(t1);
+			erlterm_to_stl(et1, t1);
+			//t.set(term::LIST, t1, list_idx);
+			erl_list = ERL_CONS_TAIL(erl_list);
+			++list_idx;
+		} while(erl_list && !ERL_IS_EMPTY_LIST(erl_list));
+	}
+	else if(ERL_IS_TUPLE(et)) {
+		for(unsigned long long tuple_idx = 0; tuple_idx < (unsigned long long)ERL_TUPLE_SIZE(et); ++tuple_idx) {
+			t.tuple()
+				.add();
+			term & t1 = t.get_last();
+			erlterm_to_stl(ERL_TUPLE_ELEMENT(et, tuple_idx), t1);
+			//t.set(term::TUPLE, t1, tuple_idx);
+		}
+	}
+#endif
 }
 
 ETERM * transcoder::stl_to_erlterm(term & t)

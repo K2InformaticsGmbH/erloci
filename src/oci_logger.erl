@@ -109,7 +109,7 @@ handle_info(Msg, State) ->
 
 handle_call({accept, LSock, LogFun}, _From, State) ->
     {ok, {_,LPort}} = inet:sockname(LSock),
-    io:format(user, ?T++" [debug] [_OCI_] Waiting for peer to connect on ~p~n", [LPort]),
+    io:format(user, ?T++"[debug] [_OCI_] Waiting for peer to connect on ~p~n", [LPort]),
     case gen_tcp:accept(LSock) of
         {ok, Sock} ->
             inet:setopts(Sock,[{active,once}]),
