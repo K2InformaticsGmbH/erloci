@@ -146,7 +146,6 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 {
 	ocisession * ocisess = NULL;
 	ocistmt *stmt = NULL;
-	intf_ret r;
 
 	try {
 		ocisess = new ocisession(tns, strlen(tns),
@@ -415,7 +414,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 
 		// :publisher
 		sprintf(tmp, "publisher%d", i);
-		tmp_len = strlen(tmp)+1;
+		tmp_len = (int)strlen(tmp)+1;
 		tmpp = new char[tmp_len];
 		memcpy(tmpp, tmp, tmp_len);
 		varsin[1].valuep.push_back(tmpp);
@@ -433,7 +432,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 
 		// :hero
 		sprintf(tmp, "hero%d", i);
-		tmp_len = strlen(tmp)+1;
+		tmp_len = (int)strlen(tmp)+1;
 		tmpp = new char[tmp_len];
 		memcpy(tmpp, tmp, tmp_len);
 		varsin[3].valuep.push_back(tmpp);
@@ -443,7 +442,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 
 		// :real
 		sprintf(tmp, "real%d", i);
-		tmp_len = strlen(tmp)+1;
+		tmp_len = (int)strlen(tmp)+1;
 		tmpp = new char[tmp_len];
 		memcpy(tmpp, tmp, tmp_len);
 		varsin[4].valuep.push_back(tmpp);
@@ -574,7 +573,6 @@ int _tmain(int argc, _TCHAR* argv[])
 		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=5437)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 		*usr = "scott",
 		*pwd = "regit";
-	intf_ret r;
 
 	// tests for memory leak detection
 	int ret = 

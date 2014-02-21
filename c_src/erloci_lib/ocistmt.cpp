@@ -36,7 +36,7 @@ struct column {
 	void * row_valp;
 };
 
-ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
+ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 {
 	intf_ret r;
 	
@@ -79,7 +79,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, ub4 stmt_len)
                                  (OCIStmt**)&_stmthp,	/* returned statement handle */
                                  (OCIError*)_errhp,		/* error handle */
                                  (OraText *) stmt,		/* the statement text */
-                                 stmt_len,				/* length of the text */
+                                 (ub4)stmt_len,				/* length of the text */
                                  NULL, 0,				/* tagging parameters: optional */
                                  OCI_NTV_SYNTAX, OCI_DEFAULT));
 
@@ -176,7 +176,7 @@ unsigned int ocistmt::execute(void * column_list,
 
 	if(_argsin.size() > 0)
 		_iters = _argsin[0].valuep.size();
-	for(unsigned int i = 0; i < _argsin.size(); ++i) {
+	for(size_t i = 0; i < _argsin.size(); ++i) {
 		checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_argsin[i].ocibind), (OCIError*)_errhp,
 									(text*)(_argsin[i].name), -1,
 									_argsin[i].datap, _argsin[i].value_sz,
@@ -259,7 +259,7 @@ unsigned int ocistmt::execute(void * column_list,
 		}
 
 		++row_count;
-	} while(row_count < _iters);
+	} while((size_t)row_count < _iters);
 #else
 	/* execute the statement all rows */
 	checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, _iters, 0,

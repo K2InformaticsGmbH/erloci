@@ -37,7 +37,7 @@ private:
 	void *_stmthp;
 	void *_errhp;
 	void *_ocisess;
-	unsigned int _iters;
+	size_t _iters;
 	unsigned int _stmt_typ;
 	vector<column> _columns;
 	vector<var> _argsin;
@@ -45,7 +45,7 @@ private:
 	~ocistmt(void);
 
 public:
-	ocistmt(void *ocisess, unsigned char *stmt, unsigned int stmt_len);
+	ocistmt(void *ocisess, unsigned char *stmt, size_t stmt_len);
 	inline void del() { delete this; };
 
 	unsigned int execute(void * column_list,

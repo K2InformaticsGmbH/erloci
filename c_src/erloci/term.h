@@ -64,6 +64,7 @@ public:
 
 	inline term()	{ str = NULL; str_len = 0; type = UNDEF; };
 	inline ~term()	{ if(str) delete str;		};
+#if 1
 	inline term(const term& t)
 		: type(t.type), v(t.v), lt(t.lt), str_len(t.str_len)
 	{
@@ -74,6 +75,7 @@ public:
 			copy(t.str, t.str + t.str_len+1, str);
 		}
 	};
+#endif
 
 	inline bool is_undef()		{ return type == UNDEF;			}
 	inline bool is_atom()		{ return type == ATOM;			}
@@ -141,6 +143,7 @@ public:
 		strcpy(str, _str);
 		return *this;
 	};
+
 	inline term & binary(const char *_str)
 	{
 		type = BINARY;

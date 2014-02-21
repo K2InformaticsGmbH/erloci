@@ -312,6 +312,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
+%            timer:sleep(10000),
             %% TODO -- Logging is turned after port creation for the integration tests to run
             case Logging of
                 true ->

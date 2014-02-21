@@ -104,13 +104,16 @@ bool command::get_session(term & t)
 	}
 
 	// {{pid, ref}, GET_SESSN, Connection String, User name, Password}
-    if(t.lt[2].is_binary() && t.lt[3].is_binary() && t.lt[4].is_binary()) {
+	term & con_str = t.lt[2];
+	term & usr_str = t.lt[3];
+	term & passwrd = t.lt[4];
+    if(con_str.is_binary() && usr_str.is_binary() && passwrd.is_binary()) {
 
 		   try {
 				ocisession * conn_handle = new ocisession(
-					t.lt[2].str, t.lt[2].str_len,		// Connect String
-					t.lt[3].str, t.lt[3].str_len,		// User Name String
-					t.lt[4].str, t.lt[4].str_len);		// Password String
+					con_str.str, con_str.str_len,		// Connect String
+					usr_str.str, usr_str.str_len,		// User Name String
+					passwrd.str, passwrd.str_len);		// Password String
 		        REMOTE_LOG(INF, "got connection %lu\n", (unsigned long long)conn_handle);
 				resp.tuple()
 					.add(t.lt[0])
@@ -399,15 +402,18 @@ bool command::describe(term & t)
 	}
 
 	// {{pid, ref}, CMD_DSCRB, Connection Handle, Describe Object BinString, Describe Object Type int}
-    if(t.lt[2].is_any_int() && t.lt[3].is_binary() && t.lt[4].is_any_int()) {
+	term & connection = t.lt[2];
+	term & obj_string = t.lt[3];
+	term & objct_type = t.lt[4];
+    if(connection.is_any_int() && t.lt[3].is_binary() && t.lt[4].is_any_int()) {
 
-		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
-		unsigned char desc_typ = (unsigned char)(t.lt[4].v.ll);
+		ocisession * conn_handle = (ocisession *)(connection.v.ll);
+		unsigned char desc_typ = (unsigned char)(objct_type.v.ll);
 		term describes;
 		describes.list();
 
 		try {
-	        conn_handle->describe_object(t.lt[3].str, t.lt[3].str_len, desc_typ, &describes, append_desc_to_list);
+	        conn_handle->describe_object(obj_string.str, obj_string.str_len, desc_typ, &describes, append_desc_to_list);
 			resp.tuple()
 				.add(t.lt[0])
 				.add(CMD_DSCRB)
@@ -485,13 +491,15 @@ bool command::prep_sql(term & t)
 	}
 
 	// {{pid, ref}, PREP_STMT, Connection Handle, SQL String}
-    if(t.lt[2].is_any_int() && t.lt[3].is_binary()) {
+	term & connection = t.lt[2];
+	term & sql_string = t.lt[3];
+    if(connection.is_any_int() && sql_string.is_binary()) {
 
         //LOG_ARGS(ARG_COUNT(command), args, "Execute SQL statement");
 
-		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
+		ocisession * conn_handle = (ocisession *)(connection.v.ll);
 		try {
-	        ocistmt * statement_handle = conn_handle->prepare_stmt((unsigned char *)t.lt[3].str, t.lt[3].str_len);
+	        ocistmt * statement_handle = conn_handle->prepare_stmt((unsigned char *)sql_string.str, sql_string.str_len);
 			resp.tuple()
 				.add(t.lt[0])
 				.add(PREP_STMT)
@@ -570,9 +578,12 @@ bool command::bind_args(term & t)
 	}
 
 	// {{pid, ref}, BIND_ARGS, Connection Handle, Statement Handle, BindList}
-    if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_list()) {
-		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
-		ocistmt * statement_handle = (ocistmt*)(t.lt[3].v.ll);
+	term & conection = t.lt[2];
+	term & statement = t.lt[3];
+	term & bind_list = t.lt[4];
+    if(conection.is_any_int() && statement.is_any_int() && bind_list.is_list()) {
+		ocisession * conn_handle = (ocisession *)(conection.v.ll);
+		ocistmt * statement_handle = (ocistmt*)(statement.v.ll);
 
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
@@ -585,7 +596,7 @@ bool command::bind_args(term & t)
 							.add(term().strng("invalid statement handle")));
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
-				map_schema_to_bind_args(t.lt[4], statement_handle->get_in_bind_args());
+				map_schema_to_bind_args(bind_list, statement_handle->get_in_bind_args());
 				resp.tuple()
 					.add(t.lt[0])
 					.add(BIND_ARGS)
@@ -656,10 +667,14 @@ bool command::exec_stmt(term & t)
 	}
 
 	// {{pid, ref}, EXEC_STMT, Connection Handle, Statement Handle, BindList, auto_commit}
-    if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_list() && t.lt[5].is_any_int()) {
-		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
-		ocistmt * statement_handle = (ocistmt *)(t.lt[3].v.ll);
-		bool auto_commit = (t.lt[5].v.i) > 0 ? true : false;
+	term & conection = t.lt[2];
+	term & statement = t.lt[3];
+	term & bind_list = t.lt[4];
+	term & auto_cmit = t.lt[5];
+    if(conection.is_any_int() && statement.is_any_int() && bind_list.is_list() && auto_cmit.is_any_int()) {
+		ocisession * conn_handle = (ocisession *)(conection.v.ll);
+		ocistmt * statement_handle = (ocistmt *)(statement.v.ll);
+		bool auto_commit = (auto_cmit.v.i) > 0 ? true : false;
 	    term columns, rowids;
 		columns.list();
 		rowids.list();
@@ -674,7 +689,7 @@ bool command::exec_stmt(term & t)
 							.add(term().strng("invalid statement handle")));
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
-				size_t bound_count = map_value_to_bind_args(t.lt[4], statement_handle->get_in_bind_args());
+				size_t bound_count = map_value_to_bind_args(bind_list, statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
 				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
 				// TODO : Also return bound values from here
@@ -782,11 +797,14 @@ bool command::fetch_rows(term & t)
 	}
 
 	// {{pid, ref}, FTCH_ROWS, Connection Handle, Statement Handle, Rowcount}
-    if(t.lt[2].is_any_int() && t.lt[3].is_any_int() && t.lt[4].is_any_int()) {
+	term & conection = t.lt[2];
+	term & statement = t.lt[3];
+	term & row_count = t.lt[4];
+    if(conection.is_any_int() && statement.is_any_int() && row_count.is_any_int()) {
 
-		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
-		ocistmt * statement_handle = (ocistmt*)(t.lt[3].v.ll);
-        int rowcount = (t.lt[4].v.i);
+		ocisession * conn_handle = (ocisession *)(conection.v.ll);
+		ocistmt * statement_handle = (ocistmt*)(statement.v.ll);
+        int rowcount = (row_count.v.i);
 
 		term rows;
 		rows.list();
@@ -887,10 +905,12 @@ bool command::close_stmt(term & t)
 	}
 
 	// {{pid, ref}, CLSE_STMT, Connection Handle, Statement Handle}
-    if(t.lt[2].is_any_int() && t.lt[3].is_any_int()) {
+    term & conection = t.lt[2];
+	term & statement = t.lt[3];
+	if(conection.is_any_int() && statement.is_any_int()) {
 
-		ocisession * conn_handle = (ocisession *)(t.lt[2].v.ll);
-		ocistmt * statement_handle = (ocistmt*)(t.lt[3].v.ll);
+		ocisession * conn_handle = (ocisession *)(conection.v.ll);
+		ocistmt * statement_handle = (ocistmt*)(statement.v.ll);
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				resp.tuple()

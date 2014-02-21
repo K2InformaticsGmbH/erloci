@@ -38,15 +38,15 @@ public:
 	static inline void * getenv() { return envhp; };
 
 	inline void *getsession() { return _svchp; }
-	ocisession(const char * connect_str, const int connect_str_len,
-		const char * user_name, const int user_name_len,
-		const char * password, const int password_len);
+	ocisession(const char * connect_str, size_t connect_str_len,
+		const char * user_name, size_t user_name_len,
+		const char * password, size_t password_len);
 	void commit(void);
 	void rollback(void);
-	void describe_object(void *objptr, unsigned int objptr_len, unsigned char objtyp, void *desc_list,
+	void describe_object(void *objptr, size_t objptr_len, unsigned char objtyp, void *desc_list,
 						 void (*append_desc_to_list)(const char * col_name, size_t len, const unsigned short data_type,
 													 const unsigned int max_len, void * list));
-	ocistmt* prepare_stmt(unsigned char *stmt, unsigned int stmt_len);
+	ocistmt* prepare_stmt(unsigned char *stmt, size_t stmt_len);
 	void release_stmt(ocistmt *stmt);
 	bool has_statement(ocistmt *stmt);
 

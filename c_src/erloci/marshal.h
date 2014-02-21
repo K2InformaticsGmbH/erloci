@@ -96,7 +96,6 @@ extern const erlcmdtable cmdtbl[];
 
 #include "lib_interface.h"
 
-extern bool init_marshall(void);
 extern void log_args(int, void *, const char *);
 
 #if DEBUG <= DBG_3
