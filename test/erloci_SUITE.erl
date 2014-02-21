@@ -7,7 +7,7 @@
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
 -define(PROCESSES, 1).
--define(ROWS_PER_TABLE, 10000).
+-define(ROWS_PER_TABLE, 100).
 
 all() -> [load].
 

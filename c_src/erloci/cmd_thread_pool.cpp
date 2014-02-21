@@ -169,25 +169,8 @@ ProcessCommandCb(
 
 	term t = transcoder::instance().decode(rxpkt);
 
-	void * cmd_tuple = erl_decode(&rxpkt[0]);
-	if (!cmd_tuple) {
-        REMOTE_LOG(CRT, "Term (%d) decoding failed...", rxpkt.size());
-		DUMP("rxpkt.buf", rxpkt.size(), ((unsigned char*)&rxpkt[0]));
+	if(command::process(t))
 		exit(1);
-    }
-
-	if(command::process(cmd_tuple, t))
-		exit(1);
-
-	erl_free_compound((ETERM*)cmd_tuple);
-	
-	// ETERM memory house keeping
-	unsigned long allocated, freed;
-	erl_eterm_statistics(&allocated,&freed);
-	if(freed * 2 < allocated) {
-		REMOTE_LOG(WRN, "ETERM alloc limit alloc %lu freed %lu!\n", allocated, freed);
-		erl_eterm_release();
-	}
 
 	return;
 }

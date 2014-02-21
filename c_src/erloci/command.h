@@ -44,25 +44,8 @@ private:
 	static bool echo(term &);
 	static bool bind_args(term &);
 
-	//static bool change_log_flag(ETERM *);
-	//static bool get_session(ETERM *);
-	//static bool release_conn(ETERM *);
-	//static bool commit(ETERM *);
-	//static bool rollback(ETERM *);
-	//static bool describe(ETERM *);
-	//static bool prep_sql(ETERM *);
-	//static bool bind_args(ETERM *);
-	//static bool exec_stmt(ETERM *);
-	//static bool fetch_rows(ETERM *);
-	//static bool close_stmt(ETERM *);
-	//static bool echo(ETERM *);
-
 public:
-	//static bool process(void *);
-	static bool process(void *, term &);
+	static bool process(term &);
 };
-
-// Externs
-extern bool cmd_processor(void *);
 
 #endif // COMMAND_H

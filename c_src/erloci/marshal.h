@@ -16,6 +16,7 @@
 #define OCI_MARSHAL_H
 
 #include "platform.h"
+#include "term.h"
 
 #include <iostream>
 #include <queue>
@@ -53,30 +54,29 @@ typedef enum _ERL_DEBUG {
  * MUST match with oci.hrl
  */
 typedef enum _ERL_CMD {
-    RMOTE_MSG			= 0,
-    CMD_UNKWN			= 1,
-    GET_SESSN			= 2,
-    PUT_SESSN			= 3,
-    PREP_STMT			= 4,
-    BIND_ARGS			= 5,
-    EXEC_STMT			= 6,
-    FTCH_ROWS			= 7,
-    CLSE_STMT			= 8,
-    CMT_SESSN			= 9,
-    RBK_SESSN			= 10,
-	CMD_DSCRB			= 11,
-	CMD_ECHOT			= 12,
-    OCIP_QUIT			= 13
+    RMOTE_MSG	= 0,
+    CMD_UNKWN	= 1,
+    GET_SESSN	= 2,
+    PUT_SESSN	= 3,
+    PREP_STMT	= 4,
+    BIND_ARGS	= 5,
+    EXEC_STMT	= 6,
+    FTCH_ROWS	= 7,
+    CLSE_STMT	= 8,
+    CMT_SESSN	= 9,
+    RBK_SESSN	= 10,
+	CMD_DSCRB	= 11,
+	CMD_ECHOT	= 12
 } ERL_CMD;
 
 /*
 TODO: document communication interface here
-Must match with that or erlang side
+Must match with that of erlang side
 */
 extern const erlcmdtable cmdtbl[];
-#define CMD_NAME_STR(_cmd)		cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].cmd_str
-#define CMD_ARGS_COUNT(_cmd)	cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].arg_count
-#define CMD_DESCIPTION(_cmd)	cmdtbl[((_cmd) > OCIP_QUIT ? 0 : (_cmd))].cmd_description
+#define CMD_NAME_STR(_cmd)		cmdtbl[(_cmd)].cmd_str
+#define CMD_ARGS_COUNT(_cmd)	cmdtbl[(_cmd)].arg_count
+#define CMD_DESCIPTION(_cmd)	cmdtbl[(_cmd)].cmd_description
 #define CMDTABLE \
 {\
     {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\
@@ -92,38 +92,11 @@ extern const erlcmdtable cmdtbl[];
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
     {CMD_ECHOT,	"CMD_ECHOT",	2, "Echo back erlang term"},\
-    {OCIP_QUIT,	"OCIP_QUIT",	1, "Exit the port process"},\
 }
-
-extern char * print_term(void*);
 
 #include "lib_interface.h"
 
-// Erlang Interface Macros
-#define ARG_COUNT(_command)				(erl_size(_command) - 1)
-#define MAP_ARGS(_cmdcnt, _command, _target) \
-{\
-	(_target) = new ETERM*[(_cmdcnt)];\
-	(_target)[0] = erl_element(1, _command);\
-	for(int _i=1;_i<ARG_COUNT(_command); ++_i)\
-		(_target)[_i] = erl_element(_i+2, _command);\
-}
-#define UNMAP_ARGS(_cmdcnt, _target) \
-{\
-	for(int _i=0;_i<(_cmdcnt); ++_i)\
-		erl_free_term((_target)[_i]);\
-	delete (_target);\
-}
-
-#define PRINT_ERL_ALLOC(_mark) \
-{\
-	unsigned long allocated=0, freed=0;\
-	erl_eterm_statistics(&allocated, &freed);\
-	REMOTE_LOG(_mark" eterm mem %lu, %lu\n", allocated, freed);\
-}
-
 extern bool init_marshall(void);
-extern int write_resp(void * resp_term);
 extern void log_args(int, void *, const char *);
 
 #if DEBUG <= DBG_3
@@ -141,13 +114,11 @@ extern size_t calculate_resp_size(void * resp);
 extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
 extern void append_string_to_list(const char * string, size_t len, void * list);
-extern void append_string_to_list_old(const char * string, size_t len, void * list);
 extern void append_coldef_to_list(const char * col_name, size_t len,
 								  const unsigned short data_type, const unsigned int max_len, const unsigned short precision,
 								  const signed char scale, void * list);
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
-//extern void map_schema_to_bind_args(void *, vector<var> &);
-//extern size_t map_value_to_bind_args(void *, vector<var> &);
+extern size_t map_value_to_bind_args(term &, vector<var> &);
 
 #define MAX_FORMATTED_STR_LEN 1024
 
@@ -170,11 +141,5 @@ extern void append_desc_to_list(const char * col_name, size_t len, const unsigne
 #else
 #define LOG_DUMP(__tag, __len, __buf)
 #endif
-
-// 32 bit packet header
-typedef union _pack_hdr {
-    char len_buf[4];
-    unsigned long len;
-} pkt_hdr;
 
 #endif // OCI_MARSHAL_H

@@ -40,12 +40,10 @@
 -define(CMT_SESSN,  9).
 -define(RBK_SESSN,  10).
 -define(CMD_DSCRB,  11).
--define(CMD_ECHOT,   12).
--define(OCIP_QUIT,  13).
+-define(CMD_ECHOT,  12).
 
 -define(CMDSTR(__CMD), (fun
                             (?RMOTE_MSG)    -> "RMOTE_MSG";
-                            (?OCIP_QUIT)    -> "OCIP_QUIT";
                             (?CMD_UNKWN)    -> "CMD_UNKWN";
                             (?GET_SESSN)    -> "GET_SESSN";
                             (?PUT_SESSN)    -> "PUT_SESSN";
