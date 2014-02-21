@@ -177,9 +177,8 @@ setupi(OciPort,Tns,User,Pswd) ->
     ?Log("[OCI Session] ~p~n", [OciSession]),
     OciSession.
 
-teardown({OciPort, OciSession}) ->
-    OciSession:close(),
-    OciPort:close(),
+teardown({_OciPort, OciSession}) ->
+    OciSession:close(port_close),
     application:stop(erloci).
 
 -define(RLog(__Target, __Fmt, __Vars), gen_server:cast(__Target, {log, lists:flatten(io_lib:format(__Fmt, __Vars))})).
