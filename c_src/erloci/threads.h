@@ -38,7 +38,7 @@ private:
 	static PTP_CLEANUP_GROUP cleanupgroup;
 	static UINT rollback;
 #else
-	static threadpool_t *pTp            = NULL;
+	static threadpool_t *pTp;
 #endif
 
 	threads(void);

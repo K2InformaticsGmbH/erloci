@@ -29,18 +29,6 @@ bool command::change_log_flag(term & t)
     bool ret = false;
 	term resp;
 
-	if((t.lt.size() - 1) != CMD_ARGS_COUNT(RMOTE_MSG)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(RMOTE_MSG)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(RMOTE_MSG), CMD_ARGS_COUNT(RMOTE_MSG), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
-
     // {undefined, RMOTE_MSG, DBG_FLAG_OFF/DBG_FLAG_ON}
     if(t.lt[2].is_any_int()) {
 		unsigned int log = t.lt[2].v.ui;
@@ -77,7 +65,6 @@ bool command::change_log_flag(term & t)
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -90,18 +77,6 @@ bool command::get_session(term & t)
 {
     bool ret = false;
 	term resp;
-
-	if((t.lt.size() - 1) != CMD_ARGS_COUNT(GET_SESSN)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(GET_SESSN)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(GET_SESSN), CMD_ARGS_COUNT(GET_SESSN), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, GET_SESSN, Connection String, User name, Password}
 	term & con_str = t.lt[2];
@@ -154,7 +129,6 @@ bool command::get_session(term & t)
 		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -167,18 +141,6 @@ bool command::release_conn(term & t)
 {
     bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(PUT_SESSN)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(PUT_SESSN)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(PUT_SESSN), CMD_ARGS_COUNT(PUT_SESSN), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 	
 	// {{pid, ref}, PUT_SESSN, Connection Handle}
 	if(t.lt[2].is_any_int()) {
@@ -227,7 +189,6 @@ bool command::release_conn(term & t)
 		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -240,18 +201,6 @@ bool command::commit(term & t)
 {
     bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(CMT_SESSN)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(CMT_SESSN)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(CMT_SESSN), CMD_ARGS_COUNT(CMT_SESSN), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, CMT_SESSN, Connection Handle}
 	if(t.lt[2].is_any_int()) {
@@ -301,7 +250,6 @@ bool command::commit(term & t)
 		// REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -314,18 +262,6 @@ bool command::rollback(term & t)
 {
     bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(RBK_SESSN)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(RBK_SESSN)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(RBK_SESSN), CMD_ARGS_COUNT(RBK_SESSN), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, RBK_SESSN, Connection Handle}
 	if(t.lt[2].is_any_int()) {
@@ -375,7 +311,6 @@ bool command::rollback(term & t)
 		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -388,18 +323,6 @@ bool command::describe(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(CMD_DSCRB)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(CMD_DSCRB)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(CMD_DSCRB), CMD_ARGS_COUNT(CMD_DSCRB), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, CMD_DSCRB, Connection Handle, Describe Object BinString, Describe Object Type int}
 	term & connection = t.lt[2];
@@ -464,7 +387,6 @@ bool command::describe(term & t)
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -477,18 +399,6 @@ bool command::prep_sql(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(PREP_STMT)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(PREP_STMT)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(PREP_STMT), CMD_ARGS_COUNT(PREP_STMT), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, PREP_STMT, Connection Handle, SQL String}
 	term & connection = t.lt[2];
@@ -550,7 +460,6 @@ bool command::prep_sql(term & t)
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -564,18 +473,6 @@ bool command::bind_args(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(BIND_ARGS)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(BIND_ARGS)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(BIND_ARGS), CMD_ARGS_COUNT(BIND_ARGS), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, BIND_ARGS, Connection Handle, Statement Handle, BindList}
 	term & conection = t.lt[2];
@@ -640,7 +537,6 @@ bool command::bind_args(term & t)
 		//REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -653,18 +549,6 @@ bool command::exec_stmt(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(EXEC_STMT)){
-		resp.tuple()
-			.add(t.lt[0])
-			.add(EXEC_STMT)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(EXEC_STMT), CMD_ARGS_COUNT(EXEC_STMT), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, EXEC_STMT, Connection Handle, Statement Handle, BindList, auto_commit}
 	term & conection = t.lt[2];
@@ -770,7 +654,6 @@ bool command::exec_stmt(term & t)
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -783,18 +666,6 @@ bool command::fetch_rows(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(FTCH_ROWS)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(FTCH_ROWS)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(PREP_STMT), CMD_ARGS_COUNT(PREP_STMT), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, FTCH_ROWS, Connection Handle, Statement Handle, Rowcount}
 	term & conection = t.lt[2];
@@ -878,7 +749,6 @@ bool command::fetch_rows(term & t)
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -891,18 +761,6 @@ bool command::close_stmt(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(CLSE_STMT)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(CLSE_STMT)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(CLSE_STMT), CMD_ARGS_COUNT(CLSE_STMT), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, CLSE_STMT, Connection Handle, Statement Handle}
     term & conection = t.lt[2];
@@ -966,7 +824,6 @@ bool command::close_stmt(term & t)
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -979,18 +836,6 @@ bool command::echo(term & t)
 {
 	bool ret = false;
     term resp;
-
-    if((t.lt.size() - 1) != CMD_ARGS_COUNT(CMD_ECHOT)) {
-		resp.tuple()
-			.add(t.lt[0])
-			.add(CMD_ECHOT)
-			.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
-		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(CMD_ECHOT), CMD_ARGS_COUNT(CMD_ECHOT), (t.lt.size() - 1));
-		ret = true;
-	    goto error_exit;
-	}
 
 	// {{pid, ref}, CMD_ECHOT, Term}
 	try {
@@ -1033,7 +878,6 @@ bool command::echo(term & t)
 		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
 	}    
 
-error_exit:
 	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
     vector<unsigned char> respv = tc.encode(resp);
     if(p.write_cmd(respv) <= 0)
@@ -1056,22 +900,39 @@ bool command::process(term & t)
 #endif
 
 	if(t.is_tuple() && t.lt[1].is_integer()) {
-		switch(t.lt[1].v.i) {
-        case RMOTE_MSG:	ret = change_log_flag(t);	break;
-        case GET_SESSN:	ret = get_session(t);		break;
-        case PUT_SESSN:	ret = release_conn(t);		break;
-		case CMT_SESSN:	ret = commit(t);			break;
-        case RBK_SESSN:	ret = rollback(t);			break;
-        case CMD_DSCRB:	ret = describe(t);			break;
-        case PREP_STMT:	ret = prep_sql(t);			break;
-        case BIND_ARGS:	ret = bind_args(t);			break;
-        case EXEC_STMT:	ret = exec_stmt(t);			break;
-        case FTCH_ROWS:	ret = fetch_rows(t);		break;
-        case CLSE_STMT:	ret = close_stmt(t);		break;
-        case CMD_ECHOT:	ret = echo(t);				break;
-        default:
-			ret = true;
-            break;
+        int cmd = t.lt[1].v.i;
+        if((t.lt.size() - 1) != CMD_ARGS_COUNT(cmd)) {
+	    	term resp;
+            resp.tuple()
+	    		.add(t.lt[0])
+	    		.add(cmd)
+	    		.add(term().tuple()
+	    					.add(term().atom("error"))
+	    					.add(term().atom("badarg")));
+	    	if(resp.is_undef())
+                REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(cmd)
+                    , CMD_ARGS_COUNT(cmd), (t.lt.size() - 1));
+	        if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+            vector<unsigned char> respv = tc.encode(resp);
+            p.write_cmd(respv);
+	    } else {
+		    switch(cmd) {
+            case RMOTE_MSG:	ret = change_log_flag(t);	break;
+            case GET_SESSN:	ret = get_session(t);		break;
+            case PUT_SESSN:	ret = release_conn(t);		break;
+		    case CMT_SESSN:	ret = commit(t);			break;
+            case RBK_SESSN:	ret = rollback(t);			break;
+            case CMD_DSCRB:	ret = describe(t);			break;
+            case PREP_STMT:	ret = prep_sql(t);			break;
+            case BIND_ARGS:	ret = bind_args(t);			break;
+            case EXEC_STMT:	ret = exec_stmt(t);			break;
+            case FTCH_ROWS:	ret = fetch_rows(t);		break;
+            case CLSE_STMT:	ret = close_stmt(t);		break;
+            case CMD_ECHOT:	ret = echo(t);				break;
+            default:
+		    	ret = true;
+                break;
+            }
         }
     }
 
