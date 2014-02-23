@@ -16,6 +16,7 @@
 -behaviour(gen_server).
 
 -include("oci.hrl").
+%-define(WITH_VALGRIND, 1).
 
 %% API
 -export([
@@ -287,7 +288,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
         LdLibPath -> LdLibPath ++ PathSepStr
     end ++ OciDir,
 
-    LibPathVal = lists:last(re:split(re:replace(NewLibPath, "~", "~~", [global, {return, list}]), "[:;]", [{return, list}])),
+    LibPathVal = lists:last(re:split(re:replace(NewLibPath, "~", "~~", [global, {return, list}]), "["++PathSepStr++"]", [{return, list}])),
     ?Info(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     PortOptions = [ {packet, 4}
                   , binary
@@ -298,7 +299,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
                            , integer_to_list(ListenPort)]}
                   , {env, [{LibPath, NewLibPath}]}
                   ],
-    case (catch open_port({spawn_executable, Executable}, PortOptions)) of
+    case (catch portstart(Executable, PortOptions)) of
         {'EXIT', Reason} ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
             {stop, Reason};
@@ -315,6 +316,19 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
                     {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger}}
             end
     end.
+
+-ifdef(WITH_VALGRIND).
+portstart(Executable, PortOptions) ->
+    Args = proplists:get_value(args, PortOptions),
+    NewArgs = ["--leak-check=yes", Executable | Args],
+    NewExecutable = "/usr/bin/valgrind",
+    NewPortOptions = lists:keyreplace(args, 1, PortOptions, {args, NewArgs}),
+    io:format(user, "NewExecutable ~p, NewPortOptions = ~p~n", [NewExecutable, NewPortOptions]),
+    open_port({spawn_executable, NewExecutable}, NewPortOptions).
+-else.
+portstart(Executable, PortOptions) ->
+    open_port({spawn_executable, Executable}, PortOptions).
+-endif.
 
 handle_call(close, _From, #state{port=Port} = State) ->
     try
