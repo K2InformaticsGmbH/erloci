@@ -120,7 +120,7 @@ void logger::log(const char * filename, const char * funcname, unsigned int line
 	vector<unsigned char> log = transcoder::instance().encode_with_header(t);
 
     if(self.lock()) {
-		send(self.log_sock, (char*) &log[0], log.size(), 0);
+		send(self.log_sock, (char*) &log[0], (int)log.size(), 0);
 		self.unlock();
     }
 

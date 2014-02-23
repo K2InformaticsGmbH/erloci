@@ -12,39 +12,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#include "erl_interface.h"
-#include "ei.h"
+//#include "erl_interface.h"
+//#include "ei.h"
+
+#include "platform.h"
+#include "threads.h"
 
 #include "marshal.h"
 #include "command.h"
 #include "lib_interface.h"
 
+bool threads::run_threads = true;
+transcoder & threads::tc = transcoder::instance();
+
+
+#ifdef __WIN32__
+	PTP_POOL threads::pool							= NULL;
+	TP_CALLBACK_ENVIRON threads::CallBackEnviron;
+	PTP_CLEANUP_GROUP threads::cleanupgroup			= NULL;
+	UINT threads::rollback							= 0;
+#else
+	threadpool_t * threads::pTp						= NULL;
+#endif
+
 #define THREAD          10
 #define QUEUE           256
 
-#ifdef __WIN32__
-#include <windows.h>
-#include <tchar.h>
-#else
-#include <sys/time.h>
-#include <event.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include "threadpool.h"
-#endif
-
-#include <stdio.h>
-
-#ifdef __WIN32__
-	static PTP_POOL pool = NULL;
-	static TP_CALLBACK_ENVIRON CallBackEnviron;
-	static PTP_CLEANUP_GROUP cleanupgroup = NULL;
-	static UINT rollback = 0;
-#else
-	static threadpool_t *pTp            = NULL;
-#endif
-
-void InitializeThreadPool(void)
+threads::threads(void)
 {
     REMOTE_LOG(DBG, "Initializing Thread pool...\n");
 
@@ -85,7 +79,7 @@ main_cleanup:
     exit(0);
 }
 
-void CleanupThreadPool(void)
+threads::~threads(void)
 {
     REMOTE_LOG(DBG, "Cleanup Thread pool...");
 
@@ -118,9 +112,7 @@ main_cleanup:
 #endif
 }
 
-bool run_threads = true;
 #include "cmd_queue.h"
-#include "transcoder.h"
 #include "term.h"
 
 //
@@ -151,7 +143,7 @@ ProcessCommandCb(
 #endif
 
 	vector<unsigned char> rxpkt;
-	while (run_threads) {
+	while (threads::run_threads) {
 		rxpkt = cmd_queue::pop();
 		if (rxpkt.size() > 0)
 			break;
@@ -163,11 +155,11 @@ ProcessCommandCb(
 		usleep(50000);
 #endif
 	}
-	if(!run_threads)
+	if(!threads::run_threads)
 		return;
-	ProcessCommand();
+	threads::start();
 
-	term t = transcoder::instance().decode(rxpkt);
+	term t = threads::tc.decode(rxpkt);
 
 	if(command::process(t))
 		exit(1);
@@ -175,14 +167,11 @@ ProcessCommandCb(
 	return;
 }
 
-void ProcessCommand()
+void threads::start(void)
 {
     //REMOTE_LOG(DBG, "Port: Delegating command processing to WorkThread...");
 #ifdef __WIN32__
     PTP_WORK work = NULL;
-    //
-    // Create work with the callback environment.
-    //
     work = CreateThreadpoolWork(ProcessCommandCb, NULL, &CallBackEnviron);
 
     if (NULL == work) {

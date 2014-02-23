@@ -34,8 +34,8 @@ private:
 	ETERM * stl_to_erlterm(term &);
 
 	transcoder(void);
-	transcoder(transcoder const&);          // Not implemented
-    void operator=(transcoder const&); // Not implemented
+	transcoder(transcoder const&);      // Not implemented
+    void operator=(transcoder const&);	// Not implemented
 
 public:
 	static transcoder & instance()

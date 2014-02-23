@@ -107,10 +107,10 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 	if(0);
 	else if(ERL_IS_ATOM(et))				t.set(term::ATOM,		ERL_ATOM_PTR_UTF8(et));
 	else if(ERL_IS_FLOAT(et))				t.set(term::FLOAT,		ERL_FLOAT_VALUE(et));
-	else if(ERL_IS_PID(et))					t.set(term::PID,		ERL_PID_NODE_UTF8(et),	ERL_PID_NUMBER(et),		ERL_PID_SERIAL(et),	ERL_PID_CREATION(et));
+	else if(ERL_IS_PID(et))					t.set(term::PID,		ERL_PID_NODE_UTF8(et),	ERL_PID_NUMBER(et),		ERL_PID_SERIAL(et),		ERL_PID_CREATION(et));
 	else if(ERL_IS_PORT(et))				t.set(term::PORT,		ERL_PORT_NODE_UTF8(et),	ERL_PORT_NUMBER(et),	ERL_PORT_CREATION(et));
 	else if(ERL_IS_REF(et))					t.set(term::REF,		ERL_REF_NODE_UTF8(et),	ERL_REF_NUMBER(et),		ERL_REF_CREATION(et));
-	else if(ERL_IS_BINARY(et))				t.set(term::BINARY,		ERL_BIN_PTR(et), ERL_BIN_SIZE(et));
+	else if(ERL_IS_BINARY(et))				t.set(term::BINARY,		ERL_BIN_PTR(et),		ERL_BIN_SIZE(et));
 	else if(ERL_IS_INTEGER(et))				t.set(term::INTEGER,	ERL_INT_VALUE(et));
 	else if(ERL_IS_UNSIGNED_INTEGER(et))	t.set(term::U_INTEGER,	ERL_INT_UVALUE(et));
 	else if(ERL_IS_LONGLONG(et))			t.set(term::LONGLONG,	ERL_LL_VALUE(et));
@@ -137,27 +137,21 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 		}
 	}
 #else
-	else if(ERL_IS_CONS(et) || ERL_IS_LIST(et)) {
+		else if(ERL_IS_CONS(et) || ERL_IS_LIST(et)) {
 		ETERM *erl_list = et;
 		unsigned long long list_idx = 0;
 		do {
 			ETERM *et1 = ERL_CONS_HEAD(erl_list);
-			term t1;
-			t.list()
-				.add(t1);
-			erlterm_to_stl(et1, t1);
-			//t.set(term::LIST, t1, list_idx);
+			t.list();
+			erlterm_to_stl(et1, t.insert());
 			erl_list = ERL_CONS_TAIL(erl_list);
 			++list_idx;
 		} while(erl_list && !ERL_IS_EMPTY_LIST(erl_list));
 	}
 	else if(ERL_IS_TUPLE(et)) {
 		for(unsigned long long tuple_idx = 0; tuple_idx < (unsigned long long)ERL_TUPLE_SIZE(et); ++tuple_idx) {
-			t.tuple()
-				.add();
-			term & t1 = t.get_last();
-			erlterm_to_stl(ERL_TUPLE_ELEMENT(et, tuple_idx), t1);
-			//t.set(term::TUPLE, t1, tuple_idx);
+			t.tuple();
+			erlterm_to_stl(ERL_TUPLE_ELEMENT(et, tuple_idx), t.insert());
 		}
 	}
 #endif

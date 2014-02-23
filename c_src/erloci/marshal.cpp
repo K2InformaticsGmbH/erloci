@@ -37,14 +37,6 @@
 
 const erlcmdtable cmdtbl[] = CMDTABLE;
 
-#ifdef __WIN32__
-static HANDLE write_mutex;
-#else
-static pthread_mutex_t write_mutex;
-#endif
-
-queue<vector<unsigned char> > cmd_queue;
-
 size_t calculate_resp_size(void * resp)
 {
     //return (size_t)erl_term_len(*(ETERM**)resp);
@@ -145,23 +137,6 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
 							.add(max_len));
 }
 
-bool init_marshall(void)
-{
-#ifdef __WIN32__
-    write_mutex = CreateMutex(NULL, FALSE, NULL);
-    if (NULL == write_mutex) {
-        REMOTE_LOG(CRT, "Write Mutex creation failed\n");
-        return false;
-    }
-#else
-    if(pthread_mutex_init(&write_mutex, NULL) != 0) {
-        REMOTE_LOG(CRT, "Write Mutex creation failed");
-        return false;
-    }
-#endif
-    return true;
-}
-
 void map_schema_to_bind_args(term & t, vector<var> & vars)
 {
 	ASSERT(t.is_list() && t.length() > 0);
@@ -224,7 +199,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	void * tmp_arg = NULL;
 	size_t len = 0;
 	sb2 ind = -1;
-	unsigned short arg_len = 0;
+	size_t arg_len = 0;
 	
 	// remove any old bind from the vars
 	for(unsigned int i=0; i < vars.size(); ++i) {
@@ -370,9 +345,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					throw r;
 					break;
 			}
-			vars[i].alen.push_back(arg_len);
+			vars[i].alen.push_back((unsigned short)arg_len);
 			if (arg_len > vars[i].value_sz)
-				vars[i].value_sz = arg_len;
+				vars[i].value_sz = (unsigned short)arg_len;
 			vars[i].valuep.push_back(tmp_arg);
 			vars[i].ind.push_back(ind);
 		}

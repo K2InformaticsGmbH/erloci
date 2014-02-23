@@ -43,7 +43,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="C:\Oracle\instantclient\instantclient_12_1\sdk\include"
-				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;__WIN32__"
+				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;__WIN32__;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"

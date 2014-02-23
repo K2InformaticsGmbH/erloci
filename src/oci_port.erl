@@ -36,6 +36,7 @@
     fetch_rows/2,
     keep_alive/2,
     close/1,
+    close/2,
     echo/2
 ]).
 
@@ -137,12 +138,20 @@ when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
         SessionId -> {?MODULE, PortPid, SessionId}
     end.
 
-close({?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT);
-close({?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT);
+close({?MODULE, statement, _, _, _} = Ctx)  -> close(ignore_port, Ctx);
+close({?MODULE, _, _} = Ctx)                -> close(ignore_port, Ctx);
 close({?MODULE, PortPid}) ->
+    io:format(user, "port close ~n", []),
     gen_server:call(PortPid, close, ?PORT_TIMEOUT).
+
+close(port_close, {?MODULE, statement, PortPid, _SessionId, _StmtId}) ->
+    close({?MODULE, PortPid});
+close(port_close, {?MODULE, PortPid, _SessionId}) ->
+    close({?MODULE, PortPid});
+close(_, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT);
+close(_, {?MODULE, PortPid, SessionId}) ->
+    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT).
 
 bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
     TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
@@ -304,6 +313,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
+%            timer:sleep(10000),
             %% TODO -- Logging is turned after port creation for the integration tests to run
             case Logging of
                 true ->

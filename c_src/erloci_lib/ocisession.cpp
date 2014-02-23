@@ -22,9 +22,9 @@
 void * ocisession::envhp = NULL;
 list<ocisession*> ocisession::_sessions;
 
-ocisession::ocisession(const char * connect_str, const int connect_str_len,
-					   const char * user_name, const int user_name_len,
-					   const char * password, const int password_len)
+ocisession::ocisession(const char * connect_str, size_t connect_str_len,
+					   const char * user_name, size_t user_name_len,
+					   const char * password, size_t password_len)
 {
 	intf_ret r;
 	OCIAuthInfo *authp = NULL;
@@ -54,10 +54,10 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
 
 	// usrname and password
 	checkerr(&r, OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,
-								(void*) user_name, user_name_len,
+								(void*) user_name, (ub4)user_name_len,
 								OCI_ATTR_USERNAME, (OCIError *)_errhp));
 	checkerr(&r, OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,
-								(void*) password, password_len,
+								(void*) password, (ub4)password_len,
 								OCI_ATTR_PASSWORD, (OCIError *)_errhp));
 
 
@@ -65,7 +65,7 @@ ocisession::ocisession(const char * connect_str, const int connect_str_len,
     checkerr(&r, OCISessionGet((OCIEnv*)envhp, (OCIError *)_errhp,
                                (OCISvcCtx**)&_svchp,					/* returned database connection */
                                authp,									/* initialized authentication handle */                               
-                               (OraText *) connect_str, connect_str_len,/* connect string */
+                               (OraText *) connect_str, (ub4)connect_str_len,/* connect string */
                                NULL, 0, NULL, NULL, NULL,				/* session tagging parameters: optional */
                                OCI_DEFAULT));					        /* modes */
 	if(r.fn_ret != SUCCESS) {
@@ -102,7 +102,7 @@ void ocisession::rollback()
 	}
 }
 
-void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
+void ocisession::describe_object(void *objptr, size_t objptr_len, ub1 objtyp,
 								 void * desc_list,
 								 void (*append_desc_to_list)(const char * col_name, size_t len, const unsigned short data_type,
 													 const unsigned int max_len, void * list))
@@ -125,7 +125,7 @@ void ocisession::describe_object(void *objptr, ub4 objptr_len, ub1 objtyp,
 	r.handle = _errhp;
 
 	checkerr(&r, OCIDescribeAny((OCISvcCtx*)_svchp, (OCIError*)_errhp,
-					   objptr, objptr_len, OCI_OTYPE_NAME,
+					   objptr, (ub4)objptr_len, OCI_OTYPE_NAME,
                        OCI_DEFAULT, objtyp, dschp));
 	if(r.fn_ret != SUCCESS) {
 		REMOTE_LOG(ERR, "failed OCIDescribeAny(OCI_OTYPE_NAME) %s\n", r.gerrbuf);
@@ -222,7 +222,7 @@ error_exit:
 	throw r;
 }
 
-ocistmt* ocisession::prepare_stmt(OraText *stmt, ub4 stmt_len)
+ocistmt* ocisession::prepare_stmt(OraText *stmt, size_t stmt_len)
 {
 	ocistmt * statement = new ocistmt(this, stmt, stmt_len);
 	_statements.push_back(statement);
