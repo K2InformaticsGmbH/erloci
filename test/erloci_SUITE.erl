@@ -7,7 +7,7 @@
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
 -define(PROCESSES, 2).
--define(ROWS_PER_TABLE, 10).
+-define(ROWS_PER_TABLE, 50000).
 
 all() -> [load].
 
@@ -26,7 +26,7 @@ init_per_suite(InitConfigData) ->
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
     [{tables, Tables}, {binds, Binds} | InitConfigData].
 
-end_per_suite(ConfigData) ->
+end_per_suite(_ConfigData) ->
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
@@ -54,7 +54,7 @@ collect_processes(Tables, Acc) ->
         Table ->
             case lists:sort([Table | Acc]) of
                 Tables -> ok;
-                NewAcc -> collect_processes(Tables, Acc)
+                NewAcc -> collect_processes(Tables, NewAcc)
             end
     end.
 
@@ -138,8 +138,12 @@ tab_access(OciSession, Table, Count) ->
     ok.
 
 load_rows_to_end(Table, {{rows, Rows}, true}, _, _, Total) ->
-    ct:pal(info, "[~s] Loaded ~p rows - Finished", [Table, Total]);
+    Loaded = length(Rows),
+    ct:pal(info, "[~s] Loaded ~p / ~p rows - Finished", [Table, Loaded, Total+Loaded]);
+load_rows_to_end(Table, {error, Error}, SelStmt, Count, Total) ->
+    ct:pal(info, "[~s] Loaded ~p error - ~p", [Table, Total, Error]),
+    load_rows_to_end(Table, SelStmt:fetch_rows(Count), SelStmt, Count, Total);
 load_rows_to_end(Table, {{rows, Rows}, false}, SelStmt, Count, Total) ->
     Loaded = length(Rows),
-    ct:pal(info, "[~s] Loaded ~p / ~p", [Table, Loaded, Total]),
+    ct:pal(info, "[~s] Loaded ~p / ~p", [Table, Loaded, Total+Loaded]),
     load_rows_to_end(Table, SelStmt:fetch_rows(Count), SelStmt, Count, Total+Loaded).

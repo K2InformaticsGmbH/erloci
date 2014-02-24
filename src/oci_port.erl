@@ -192,7 +192,7 @@ exec_stmt({?MODULE, statement, PortPid, SessionId, StmtId}) ->
 exec_stmt(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
 exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    GroupedBindVars = split_binds(BindVars,?MAX_REQ_SIZE div 2),
+    GroupedBindVars = split_binds(BindVars,?MAX_REQ_SIZE),
     collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, []).
 
 collect_grouped_bind_request([], _, _, _, _, Acc) ->

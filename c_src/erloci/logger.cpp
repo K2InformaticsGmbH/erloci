@@ -14,7 +14,6 @@
  */
 #include "platform.h"
 #include "logger.h"
-#include "port.h"
 #include "term.h"
 #include "transcoder.h"
 

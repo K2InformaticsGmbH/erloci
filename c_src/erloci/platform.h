@@ -7,8 +7,12 @@
 	#include <fcntl.h>
 	#include <stdio.h>
 	#include <WinSock2.h>
+	#define WIN32_LEAN_AND_MEAN
 	#include <Windows.h>
 	#include <crtdbg.h>
+
+	#pragma comment(lib, "Ws2_32.lib")
+
 	typedef u_long ul4;
 	typedef HANDLE mutex_type;
 	typedef SOCKET sock;

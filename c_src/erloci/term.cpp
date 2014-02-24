@@ -104,7 +104,7 @@ unsigned long long term::length()
 void term::set(Type t, char * s)
 {
 	type = t;
-	if(str)	delete str;
+	if(str != NULL)	delete str;
 	str_len = strlen(s) + 1;
 	str = new char[str_len];
 	strcpy(str, s);
@@ -113,7 +113,7 @@ void term::set(Type t, char * s)
 void term::set(Type t, char *ns, int n, int c)
 {
 	type = t;
-	if(str)	delete str;
+	if(str != NULL)	delete str;
 	str_len = strlen(ns) + 1;
 	str = new char[str_len];
 	strcpy(str, ns);
@@ -124,7 +124,7 @@ void term::set(Type t, char *ns, int n, int c)
 void term::set(Type t, char *ns, int n, int s, int c)
 {
 	type = t;
-	if(str)	delete str;
+	if(str != NULL)	delete str;
 	str_len = strlen(ns) + 1;
 	str = new char[str_len];
 	strcpy(str, ns);
@@ -136,7 +136,7 @@ void term::set(Type t, char *ns, int n, int s, int c)
 void term::set(Type t, unsigned char * s, int strl)
 {
 	type = t;
-	if(str)	delete str;
+	if(str != NULL)	delete str;
 	str = new char[strl + 1];
 	copy(s, s+strl, str);
 	str[strl] = '\0';

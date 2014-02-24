@@ -73,7 +73,7 @@ public:
 			copy(t.str, t.str + t.str_len+1, str);
 		}
 	};
-	inline ~term()	{ if(str) delete str;		};
+	inline ~term()	{ if(str != NULL) delete str; };
 
 	inline bool is_undef()		{ return type == UNDEF;			}
 	inline bool is_atom()		{ return type == ATOM;			}

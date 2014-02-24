@@ -37,9 +37,6 @@
 typedef unsigned char byte;
 
 bool log_flag;
-extern bool run_threads;
-
-//bool exit_loop = false;
 
 int main(int argc, char * argv[])
 {
