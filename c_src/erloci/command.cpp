@@ -901,7 +901,7 @@ bool command::process(term & t)
 
 	if(t.is_tuple() && t.lt[1].is_integer()) {
         int cmd = t.lt[1].v.i;
-        if((t.lt.size() - 1) != CMD_ARGS_COUNT(cmd)) {
+        if((t.lt.size() - 1) != (size_t)CMD_ARGS_COUNT(cmd)) {
 	    	term resp;
             resp.tuple()
 	    		.add(t.lt[0])

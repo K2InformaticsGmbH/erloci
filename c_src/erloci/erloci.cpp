@@ -73,7 +73,7 @@ int main(int argc, char * argv[])
 	int log_tcp_port = 0;
 	if (argc >= 4) {
 		log_tcp_port = atol(argv[3]);
-		char * ret = logger::init(log_tcp_port);
+		const char * ret = logger::init(log_tcp_port);
 		if(ret != NULL) {
 			return -1;
 		}

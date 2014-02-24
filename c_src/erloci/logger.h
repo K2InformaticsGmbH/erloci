@@ -33,7 +33,7 @@ private:
 	inline void unlock()	{ UNLOCK(log_lock);			}
 
 public:
-	static char * init(int);
+	static const char * init(int);
 	static void log(const char *, const char *, unsigned int, unsigned int, void *, const char *);
 
 	~logger(void);

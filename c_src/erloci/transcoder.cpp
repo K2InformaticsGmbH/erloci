@@ -206,6 +206,8 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 			et = erl_mk_tuple(et_ms, (int)t.lt.size());
 						}
 			break;
+        default:
+            break;
 	}
 	return et;
 }

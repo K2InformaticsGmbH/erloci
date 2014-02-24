@@ -33,7 +33,7 @@ void log_remote(const char * filename, const char * funcname, unsigned int linen
 
 logger logger::self;
 
-char * logger::init(int port)
+const char * logger::init(int port)
 {
 #ifdef __WIN32__
     //Start up Winsock

@@ -63,10 +63,8 @@ public:
 	} v;
 
 	inline term()	{ str = NULL; str_len = 0; type = UNDEF; };
-	inline ~term()	{ if(str) delete str;		};
-#if 1
 	inline term(const term& t)
-		: type(t.type), v(t.v), lt(t.lt), str_len(t.str_len)
+		: type(t.type), lt(t.lt), str_len(t.str_len), v(t.v)
 	{
 		str = NULL;
 		// The string will always have a '\0'
@@ -75,7 +73,7 @@ public:
 			copy(t.str, t.str + t.str_len+1, str);
 		}
 	};
-#endif
+	inline ~term()	{ if(str) delete str;		};
 
 	inline bool is_undef()		{ return type == UNDEF;			}
 	inline bool is_atom()		{ return type == ATOM;			}
