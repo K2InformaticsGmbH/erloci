@@ -217,7 +217,7 @@ collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, Stm
     case R of
         {error, Error}  -> {error, Error};
         {cols, Clms}    -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
-                                                       , [{cols, lists:reverse([{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms])} | Acc]);
+                                                       , [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
         R               -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
     end.
 
