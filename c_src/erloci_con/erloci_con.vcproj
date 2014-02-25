@@ -63,10 +63,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="erloci_lib.lib"
 				OutputFile="$(OutDir)\$(ProjectName).exe"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="&quot;$(SolutionDir)..\priv\&quot;"
+				AdditionalLibraryDirectories=""
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)\$(TargetName).pdb"
 				SubSystem="1"
@@ -171,6 +170,10 @@
 		</Configuration>
 	</Configurations>
 	<References>
+		<ProjectReference
+			ReferencedProjectIdentifier="{7C2A067E-4DE0-41B3-98BA-05B971CCF708}"
+			RelativePathToProject=".\erloci_lib\erloci_lib.vcproj"
+		/>
 	</References>
 	<Files>
 		<Filter

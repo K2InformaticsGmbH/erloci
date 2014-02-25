@@ -21,7 +21,7 @@
 
 
 %% Exec name
--define(EXE_NAME, "erloci").
+-define(EXE_NAME, "ocierl").
 
 %% Interface commands
 % pool commands

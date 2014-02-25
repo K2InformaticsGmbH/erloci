@@ -16,6 +16,7 @@ c_src/Debug/
 c_src/Stub/Debug/
 *.ncb
 *.suo
+*.sln.cache
 c_src/x64/
 *.user
 *.beam

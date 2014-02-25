@@ -308,6 +308,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
                            , integer_to_list(ListenPort)]}
                   , {env, [{LibPath, NewLibPath}]}
                   ],
+    io:format(user, "Executable ~p~nOptions :~p~n", [Executable, PortOptions]),
     case (catch portstart(Executable, PortOptions)) of
         {'EXIT', Reason} ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),

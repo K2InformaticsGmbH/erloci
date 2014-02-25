@@ -1,8 +1,5 @@
 all:
-	vcbuild /platform:x64 /logcommands c_src/erloci_lib/erloci_lib.vcproj debug
-	vcbuild /platform:x64 /logcommands c_src/erloci/erloci.vcproj debug
-	cp c_src/priv/*.* priv/
+	MSBuild c_src/erlocisln.sln /t:Rebuild /p:Configuration=Debug
 
 clean:
-	vcbuild /clean /logcommands c_src/erloci/erloci.vcproj debug
-	vcbuild /clean /logcommands c_src/erloci_lib/erloci_lib.vcproj debug
+	MSBuild c_src/erlocisln.sln /t:Clean /p:Configuration=Debug

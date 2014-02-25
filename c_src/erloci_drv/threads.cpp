@@ -12,15 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-//#include "erl_interface.h"
-//#include "ei.h"
-
 #include "platform.h"
 #include "threads.h"
 
 #include "marshal.h"
 #include "command.h"
-#include "lib_interface.h"
 
 bool threads::run_threads = true;
 transcoder & threads::tc = transcoder::instance();
@@ -40,13 +36,13 @@ transcoder & threads::tc = transcoder::instance();
 
 threads::threads(void)
 {
-    REMOTE_LOG(DBG, "Initializing Thread pool...\n");
+    REMOTE_LOG(DBG, "Initializing Thread pool...");
 
 #ifdef __WIN32__
     InitializeThreadpoolEnvironment(&CallBackEnviron);
 
     if (NULL == (pool = CreateThreadpool(NULL))) {
-	    REMOTE_LOG(CRT, "CreateThreadpool failed. LastError: %u\n", GetLastError());
+	    REMOTE_LOG(CRT, "CreateThreadpool failed. LastError: %u", GetLastError());
         goto main_cleanup;
     }
     rollback = 1; // pool creation succeeded
@@ -54,12 +50,12 @@ threads::threads(void)
     SetThreadpoolThreadMaximum(pool, THREAD);
 
     if (FALSE == SetThreadpoolThreadMinimum(pool, 1)) {
-	    REMOTE_LOG(CRT, "SetThreadpoolThreadMinimum failed. LastError: %u\n", GetLastError());
+	    REMOTE_LOG(CRT, "SetThreadpoolThreadMinimum failed. LastError: %u", GetLastError());
         goto main_cleanup;
     }
 
     if (NULL == (cleanupgroup = CreateThreadpoolCleanupGroup())) {
-	    REMOTE_LOG(CRT, "CreateThreadpoolCleanupGroup failed. LastError: %u\n", GetLastError());
+	    REMOTE_LOG(CRT, "CreateThreadpoolCleanupGroup failed. LastError: %u", GetLastError());
         goto main_cleanup;
     }
     rollback = 2;  // Cleanup group creation succeeded

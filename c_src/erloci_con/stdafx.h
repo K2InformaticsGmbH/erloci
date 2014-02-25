@@ -11,5 +11,5 @@
 #include <tchar.h>
 
 
-
+#pragma comment(lib, "Ws2_32.lib")
 // TODO: reference additional headers your program requires here

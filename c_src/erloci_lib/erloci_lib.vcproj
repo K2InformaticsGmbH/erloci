@@ -25,6 +25,8 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
+				Description="del $(SolutionDir)..\priv\$(ProjectName).lib"
+				CommandLine="del $(SolutionDir)..\priv\$(ProjectName).lib"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -63,8 +65,8 @@
 			<Tool
 				Name="VCLibrarianTool"
 				LinkLibraryDependencies="true"
-				AdditionalDependencies="wsock32.lib oci.lib  oraocci12.lib"
-				OutputFile="$(SolutionDir)..\priv\$(ProjectName).lib"
+				AdditionalDependencies="oci.lib oraocci12.lib"
+				OutputFile="$(OutDir)\$(ProjectName).lib"
 				AdditionalLibraryDirectories="C:\Oracle\instantclient\instantclient_12_1\sdk\lib\msvc"
 				IgnoreDefaultLibraryNames="libcmt.lib;msvcrt.lib"
 			/>
@@ -82,6 +84,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				Description="copy $(OutDir)\$(ProjectName).lib $(SolutionDir)..\priv\$(ProjectName).lib"
+				CommandLine="copy $(OutDir)\$(ProjectName).lib $(SolutionDir)..\priv\$(ProjectName).lib"
 			/>
 		</Configuration>
 		<Configuration

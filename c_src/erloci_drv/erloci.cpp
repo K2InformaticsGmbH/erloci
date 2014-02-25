@@ -11,30 +11,15 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- */ 
-#include "marshal.h"
+ */
+#include "platform.h"
 #include "logger.h"
 
-#include "erl_interface.h"
-#include "ei.h"
-
-#ifdef __WIN32__
-#include <io.h>
-#include <fcntl.h>
-#include <share.h>
-#include <WinBase.h>
-#else
-#include <stdlib.h>
-#include <unistd.h>
-#endif
-
-#include <time.h>
 #include "port.h"
 #include "cmd_queue.h"
 #include "transcoder.h"
 #include "threads.h"
-
-typedef unsigned char byte;
+#include "marshal.h"
 
 bool log_flag;
 

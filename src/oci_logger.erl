@@ -54,7 +54,7 @@ start_link() ->
     end.
 
 accept(LSock, LogFun, {?MODULE, Pid}) when is_function(LogFun, 1) ->
-    gen_server:call(Pid, {accept, LSock, LogFun}).
+    gen_server:call(Pid, {accept, LSock, LogFun}, infinity).
 
 -ifdef(TEST).
 log({Lvl, _Tag, File, Func, Line, Msg}, Mod) ->
