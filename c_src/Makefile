@@ -1,9 +1,8 @@
-EXE_TARGET = erloci
+EXE_TARGET = ocierl
 LIB_TARGET = liberloci.a
 
-ERLOCI_PATH = c_src/erloci
+ERLOCI_PATH = c_src/erloci_drv
 ERLOCI_LIB_PATH = c_src/erloci_lib
-OCI_DIR = c_src/lib/instantclient
 OCI_INCLUDE_PATH = $(INSTANT_CLIENT_INCLUDE_PATH)
 OCI_LIB_PATH = $(INSTANT_CLIENT_LIB_PATH)
 ERL_INTERFACE_DIR = $(OTPROOT)/lib/erl_interface-3.7.11
