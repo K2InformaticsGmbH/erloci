@@ -171,7 +171,7 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 		case term::LIST: {
 			ETERM ** et_ms = new ETERM*[t.length()];
 			int i=0;
-			for (vector<term>::iterator it = t.begin() ; it != t.end(); ++it) {
+			for (term::iterator it = t.begin() ; it != t.end(); ++it) {
 				et_ms[i] = stl_to_erlterm(*it);
 				++i;
 			}
@@ -182,7 +182,7 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 		case term::TUPLE: {
 			ETERM ** et_ms = new ETERM*[t.length()];
 			int i=0;
-			for (vector<term>::iterator it = t.begin(); it != t.end(); ++it) {
+			for (term::iterator it = t.begin(); it != t.end(); ++it) {
 				et_ms[i] = stl_to_erlterm(*it);
 				++i;
 			}

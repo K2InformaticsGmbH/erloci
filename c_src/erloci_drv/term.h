@@ -30,6 +30,7 @@ private:
 	vector<term> lt; // list or tuple
 
 public:
+	typedef vector<term>::iterator iterator;
 	enum Type {
 		UNDEF		= ERL_UNDEF,
 		ATOM		= ERL_ATOM,
@@ -215,13 +216,13 @@ public:
 		int _x = (int)x;
 		if(_x<0)
 			throw("index out of bounds");
-		for (vector<term>::iterator it = lt.begin(); it != lt.end(); ++it)
+		for (iterator it = lt.begin(); it != lt.end(); ++it)
 			if(--_x < 0)
 				return (*it);
 		throw("index out of bounds");
     }
-	inline vector<term>::iterator begin()		{ return lt.begin();	}
-	inline vector<term>::iterator end()		{ return lt.end();		}
+	inline iterator begin()		{ return lt.begin();	}
+	inline iterator end()		{ return lt.end();		}
 
 	string print();
 };

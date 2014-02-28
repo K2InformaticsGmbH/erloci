@@ -144,20 +144,20 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
     var v;
 
 	size_t len = 0;
-	for(size_t idx = 0; idx < t.length(); ++idx) {
-		ASSERT(t[idx].is_tuple()
-			&& t[idx].length() == 2
-			&& t[idx][0].is_binary()
-			&& t[idx][1].is_any_int());
+	for (term::iterator it = t.begin() ; it != t.end(); ++it) {
+		ASSERT((*it).is_tuple()
+			&& (*it).length() == 2
+			&& (*it)[0].is_binary()
+			&& (*it)[1].is_any_int());
 
-		if(sizeof(v.name) < t[idx][0].str_len+1) {
-			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", t[idx][0].str, sizeof(v.name)-1);
+		if(sizeof(v.name) < (*it)[0].str_len+1) {
+			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", (*it)[0].str, sizeof(v.name)-1);
 			throw string("variable name is larger then 255 characters");
 		}
-		strncpy(v.name, t[idx][0].str, t[idx][0].str_len);
-		v.name[t[idx][0].str_len]='\0';
+		strncpy(v.name, (*it)[0].str, (*it)[0].str_len);
+		v.name[(*it)[0].str_len]='\0';
 
-		v.dty = t[idx][1].v.ui;
+		v.dty = (*it)[1].v.ui;
 
 		// Initialized, to be prepared later on first execute
 		v.value_sz = 0;
@@ -166,26 +166,6 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
 
 		vars.push_back(v);
 	}
-}
-
-char * termtypestr(ETERM * term)
-{
-	if(ERL_IS_TUPLE(term))					return "ERL_TUPLE";
-	else if(ERL_IS_LIST(term))				return "ERL_LIST";
-	else if(ERL_IS_ATOM(term))				return "ERL_ATOM";
-	else if(ERL_IS_UNSIGNED_LONGLONG(term))	return "ERL_UNSIGNED_LONGLONG";
-	else if(ERL_IS_LONGLONG(term))			return "ERL_LONGLONG";
-	else if(ERL_IS_UNSIGNED_INTEGER(term))	return "ERL_UNSIGNED_INTEGER";
-	else if(ERL_IS_INTEGER(term))			return "ERL_INTEGER";
-	else if(ERL_IS_FLOAT(term))				return "ERL_FLOAT";
-	else if(ERL_IS_PID(term))				return "ERL_PID";
-	else if(ERL_IS_REF(term))				return "ERL_REF";
-	else if(ERL_IS_PORT(term))				return "ERL_PORT";
-	else if(ERL_IS_CONS(term))				return "ERL_CONS";
-	else if(ERL_IS_EMPTY_LIST(term))		return "ERL_EMPTY_LIST";
-	else if(ERL_IS_NIL(term))				return "ERL_NIL";
-	else if(ERL_IS_BINARY(term))			return "ERL_BINARY";
-	else									return "ERL_UNKNOWN";
 }
 
 size_t map_value_to_bind_args(term & t, vector<var> & vars)
@@ -197,7 +177,6 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	r.fn_ret = CONTINUE_WITH_ERROR;
 
 	void * tmp_arg = NULL;
-	size_t len = 0;
 	sb2 ind = -1;
 	size_t arg_len = 0;
 	
@@ -209,20 +188,20 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	
 	// loop through the list
 	size_t bind_count = 0;
-	for (size_t li = 0; li < t.length(); ++li) {
+	//for (size_t li = 0; li < t.length(); ++li) {
+	for (term::iterator it = t.begin() ; it != t.end(); ++it) {
 		++bind_count;
-		term & t1 = t[li];
+		term & t1 = (*it);
         if (!t1.is_tuple() || t1.length() != vars.size()) {
 			REMOTE_LOG(ERR, "malformed ETERM\n");
 			strcpy(r.gerrbuf, "Malformed ETERM");
             throw r;
 		}
 
-		len = t1.length();
-
 		// loop through each value of the tuple
-		for(size_t i=0; i < len; ++i) {
-			term & t2 = t1[i];
+		int i = 0;
+		for (term::iterator it1 = (*it).begin(); it1 != (*it).end(); ++it1) {
+			term & t2 = (*it1);
 			if (t2.is_undef()) {
 				REMOTE_LOG(ERR, "row %d: missing parameter for %s\n", bind_count, vars[i].name);
 				strcpy(r.gerrbuf, "Missing parameter term");
@@ -350,6 +329,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				vars[i].value_sz = (unsigned short)arg_len;
 			vars[i].valuep.push_back(tmp_arg);
 			vars[i].ind.push_back(ind);
+			++i;
 		}
     }
 
