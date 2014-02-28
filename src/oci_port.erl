@@ -20,6 +20,8 @@
 
 %% API
 -export([
+    start/1,
+    start/2,
     start_link/1,
     start_link/2,
     stop/1,
@@ -97,17 +99,24 @@
 -endif.
 
 %% External API
+start(Options) -> start_link(Options, ?LOGFUN).
+start(Options,LogFun) ->
+    start(start,Options,LogFun).
+
 start_link(Options) -> start_link(Options, ?LOGFUN).
 start_link(Options,LogFun) ->
+    start(start_link,Options,LogFun).
+
+start(Type,Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
     AcceptLogFun = fun(Logger) -> Logger:accept(LSock, LogFun) end,
     StartRes = case Options of
         undefined ->
-            gen_server:start_link(?MODULE, [false, ListenPort, AcceptLogFun], []);
+            gen_server:Type(?MODULE, [false, ListenPort, AcceptLogFun], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            gen_server:start_link(?MODULE, [Logging, ListenPort, AcceptLogFun], [])
+            gen_server:Type(?MODULE, [Logging, ListenPort, AcceptLogFun], [])
     end,
     case StartRes of
         {ok, Pid} -> {?MODULE, Pid};

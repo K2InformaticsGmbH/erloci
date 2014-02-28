@@ -6,13 +6,24 @@
 
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
--define(PROCESSES, 2).
--define(ROWS_PER_TABLE, 50000).
+
+% 10 5 100
+-define(CONNECTIONS, 2).
+-define(STATEMENTS, 2).
+-define(ROWS_PER_TABLE, 100).
+
+-define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
+-define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
 
 all() -> [load].
 
 init_per_suite(InitConfigData) ->
-    Tables = [lists:flatten([?TAB,"_",integer_to_list(I)]) || I <- lists:seq(1, ?PROCESSES)],
+    application:start(erloci),
+    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    Tables = [{C,
+                [lists:flatten([?TAB,"_",integer_to_list(C),"_", integer_to_list(S)])
+                || S <- ?STMTIDLIST]}
+            || C <- ?CONNIDLIST],
     ct:pal(info, "Building ~p rows to bind for ~p tables", [?ROWS_PER_TABLE, length(Tables)]),
     Binds = [{ I
      , list_to_binary(["_publisher_",integer_to_list(I),"_"])
@@ -24,30 +35,56 @@ init_per_suite(InitConfigData) ->
      , I
      } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
-    [{tables, Tables}, {binds, Binds} | InitConfigData].
+    [{tables, Tables}, {binds, Binds}, {config, {Tns,User,Pswd}}  | InitConfigData].
 
-end_per_suite(_ConfigData) ->
+end_per_suite(ConfigData) ->
+    Tables = lists:merge([T || {_,T} <- ?value(tables, ConfigData)]),
+    {Tns,User,Pswd} = ?value(config, ConfigData),
+    OciPort = oci_port:start_link([{logging, true}]),
+    OciSession = OciPort:get_session(Tns, User, Pswd),
+    [tab_drop(OciSession, Table) || Table <- Tables],
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
     Tables = ?value(tables, ConfigData),
     Binds = ?value(binds, ConfigData),
+    {Tns,User,Pswd} = ?value(config, ConfigData),
     RowsPerProcess = length(Binds),
-    {OciPort, OciSession} = oci_test:setup(),
-    ct:pal(info, "Starting ~p processes each for ~p rows", [length(Tables), RowsPerProcess]),
+    OciPort = oci_port:start_link([{logging, true}]),
+    ct:pal(info, "Starting ~p connection processes with ~p", [?CONNECTIONS, Tables]),
     This = self(),
     [spawn(fun() ->
-        tab_setup(OciSession, Table),
-        tab_load(OciSession, Table, RowsPerProcess, Binds),
-        tab_access(OciSession, Table, 1000),
-        This ! Table
+        connection(OciPort, C, proplists:get_value(C,Tables,[]), Tns, User, Pswd, This, RowsPerProcess, Binds)
      end)
-    || Table <- Tables],
-    collect_processes(lists:sort(Tables), []),
-    ct:pal(info, "Closing session ~p", [OciSession]),
-    ok = OciSession:close(),
+    || C <- ?CONNIDLIST],
+    collect_processes(Tables, []),
     ct:pal(info, "Closing port ~p", [OciPort]),
     ok = OciPort:close().
+
+connection(OciPort, Cid, Tables, Tns, User, Pswd, Master, RowsPerProcess, Binds) ->
+    OciSession = OciPort:get_session(Tns, User, Pswd),
+    ct:pal(info, "Connection ~p -> ~p", [Cid, OciSession]),
+    [begin
+        tab_drop(OciSession, Table),
+        tab_create(OciSession, Table)
+    end
+    || Table <- Tables],
+    This = self(),
+    [spawn(fun() ->
+        table(OciSession, Cid, Tid, This, RowsPerProcess, Binds)
+     end)
+    || Tid <- ?STMTIDLIST],
+    collect_processes(Tables, []),
+    ct:pal(info, "Closing session ~p", [OciSession]),
+    ok = OciSession:close(),
+    Master ! {Cid, Tables}.
+
+table(OciSession, Cid, Tid, Master, RowsPerProcess, Binds) ->
+    Table = lists:flatten([?TAB,"_",integer_to_list(Cid),"_", integer_to_list(Tid)]),
+    tab_load(OciSession, Table, RowsPerProcess, Binds),
+    tab_access(OciSession, Table, 10),
+    tab_drop(OciSession, Table),
+    Master ! Table.
 
 collect_processes(Tables, Acc) ->
     receive
@@ -100,14 +137,16 @@ collect_processes(Tables, Acc) ->
     "select ",__T,".rowid, ",__T,".* from ",__T])
 ).
 
-tab_setup(OciSession, Table) when is_list(Table) ->
+tab_drop(OciSession, Table) when is_list(Table) ->
     ct:pal(info, "[~s] Dropping...", [Table]),
     DropStmt = OciSession:prep_sql(?B(["drop table ", Table])),
     {oci_port, statement, _, _, _} = DropStmt,
     case DropStmt:exec_stmt() of
         {error, _} -> ok; 
         _ -> ok = DropStmt:close()
-    end,
+    end.
+
+tab_create(OciSession, Table) when is_list(Table) ->
     ct:pal(info, "[~s] Creating...", [Table]),
     StmtCreate = OciSession:prep_sql(?CREATE(Table)),
     {oci_port, statement, _, _, _} = StmtCreate,
