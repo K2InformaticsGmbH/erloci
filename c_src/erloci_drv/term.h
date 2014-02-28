@@ -26,6 +26,9 @@ using namespace std;
 #include "ei.h"
 
 class term {
+private:
+	vector<term> lt; // list or tuple
+
 public:
 	enum Type {
 		UNDEF		= ERL_UNDEF,
@@ -44,7 +47,6 @@ public:
 	};
 	Type type;
 
-	vector<term> lt; // list or tuple
 	char * str;
 	size_t str_len;
 	union {
@@ -111,7 +113,7 @@ public:
 	unsigned long long length();
 
 	inline term & tuple(void)						{				type = TUPLE;		return *this;	};
-	inline term & list(void)						{				type = LIST;		return *this;	};
+	inline term & lst(void)						{				type = LIST;		return *this;	};
 	inline term & integer(int i)					{ v.i = i;		type = INTEGER;		return *this;	};
 	inline term & integer(long l)					{ v.l = l;		type = INTEGER;		return *this;	};
 	inline term & integer(long long ll)				{ v.ll = ll;	type = LONGLONG;	return *this;	};
@@ -208,9 +210,20 @@ public:
 		return *this;
 	};
 
-	string print();
+	term & operator[] (size_t x)
+	{
+		int _x = (int)x;
+		if(_x<0)
+			throw("index out of bounds");
+		for (vector<term>::iterator it = lt.begin(); it != lt.end(); ++it)
+			if(--_x < 0)
+				return (*it);
+		throw("index out of bounds");
+    }
+	inline vector<term>::iterator begin()		{ return lt.begin();	}
+	inline vector<term>::iterator end()		{ return lt.end();		}
 
-private:
+	string print();
 };
 
 #endif // TERM_H

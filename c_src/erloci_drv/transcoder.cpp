@@ -21,10 +21,9 @@ void transcoder::unlock()
 	UNLOCK(transcoder_lock);
 }
 
-term transcoder::decode(vector<unsigned char> & buf)
+void transcoder::decode(vector<unsigned char> & buf, term & t)
 {
 	unsigned long allocated, freed;
-	term t;
 	if(lock()) {
 		ETERM * etermp = erl_decode(&buf[0]);
 
@@ -37,11 +36,9 @@ term transcoder::decode(vector<unsigned char> & buf)
 		stats(allocated, freed);
 		if (allocated != 0) {
 			unlock();
-			return t;
 		}
 		unlock();
 	}
-	return t;
 }
 
 vector<unsigned char> transcoder::encode_with_header(term & t)
@@ -172,19 +169,24 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 			et = erl_mk_ulonglong(t.v.ull);
 			break;
 		case term::LIST: {
-			ETERM ** et_ms = new ETERM*[t.lt.size()];
-			for(unsigned int i = 0; i < t.lt.size(); ++i)
-				et_ms[i] = stl_to_erlterm(t.lt[i]);
-			et = erl_mk_list(et_ms, (int)t.lt.size());
+			ETERM ** et_ms = new ETERM*[t.length()];
+			int i=0;
+			for (vector<term>::iterator it = t.begin() ; it != t.end(); ++it) {
+				et_ms[i] = stl_to_erlterm(*it);
+				++i;
+			}
+			et = erl_mk_list(et_ms, (int)t.length());
             delete et_ms;
 					   }
 			break;
 		case term::TUPLE: {
-			ETERM ** et_ms = new ETERM*[t.lt.size()];
-			for(unsigned int i = 0; i < t.lt.size(); ++i) {
-				et_ms[i] = stl_to_erlterm(t.lt[i]);
+			ETERM ** et_ms = new ETERM*[t.length()];
+			int i=0;
+			for (vector<term>::iterator it = t.begin(); it != t.end(); ++it) {
+				et_ms[i] = stl_to_erlterm(*it);
+				++i;
 			}
-			et = erl_mk_tuple(et_ms, (int)t.lt.size());
+			et = erl_mk_tuple(et_ms, (int)t.length());
             delete et_ms;
 						}
 			break;

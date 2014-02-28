@@ -44,7 +44,7 @@ public:
 		return t;
 	}
 	static inline void stats(unsigned long & allocated, unsigned long & freed) { erl_eterm_statistics(&allocated,&freed); };
-	term decode(vector<unsigned char> &);
+	void decode(vector<unsigned char> &, term &);
 	vector<unsigned char> encode(term &);
 	vector<unsigned char> encode_with_header(term &);
 	inline ~transcoder(void) {};

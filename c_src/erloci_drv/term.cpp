@@ -5,6 +5,7 @@ string term::print()
 {
 	string term;
 
+#if 0
 	switch(type) {
 		case TUPLE:
 			term += "{";
@@ -78,6 +79,7 @@ string term::print()
 			term += "_";
 			break;
 	}
+#endif
 
 	return term;
 }

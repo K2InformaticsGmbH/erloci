@@ -155,8 +155,8 @@ ProcessCommandCb(
 		return;
 	threads::start();
 
-	term t = threads::tc.decode(rxpkt);
-
+	term t;
+	threads::tc.decode(rxpkt, t);
 	if(command::process(t))
 		exit(1);
 

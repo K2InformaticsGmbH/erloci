@@ -97,7 +97,7 @@ void append_string_to_list(const char * string, size_t len, void * list)
     term *container_list = *(term **)list;
 	if (!container_list) {
 		container_list = new term();
-		container_list->list();
+		container_list->lst();
 	}
     ASSERT(container_list->is_list());
 
@@ -144,20 +144,20 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
     var v;
 
 	size_t len = 0;
-	for(size_t idx = 0; idx < t.lt.size(); ++idx) {
-		ASSERT(t.lt[idx].is_tuple()
-			&& t.lt[idx].length() == 2
-			&& t.lt[idx].lt[0].is_binary()
-			&& t.lt[idx].lt[1].is_any_int());
+	for(size_t idx = 0; idx < t.length(); ++idx) {
+		ASSERT(t[idx].is_tuple()
+			&& t[idx].length() == 2
+			&& t[idx][0].is_binary()
+			&& t[idx][1].is_any_int());
 
-		if(sizeof(v.name) < t.lt[idx].lt[0].str_len+1) {
-			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", t.lt[idx].lt[0].str, sizeof(v.name)-1);
+		if(sizeof(v.name) < t[idx][0].str_len+1) {
+			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", t[idx][0].str, sizeof(v.name)-1);
 			throw string("variable name is larger then 255 characters");
 		}
-		strncpy(v.name, t.lt[idx].lt[0].str, t.lt[idx].lt[0].str_len);
-		v.name[t.lt[idx].lt[0].str_len]='\0';
+		strncpy(v.name, t[idx][0].str, t[idx][0].str_len);
+		v.name[t[idx][0].str_len]='\0';
 
-		v.dty = t.lt[idx].lt[1].v.ui;
+		v.dty = t[idx][1].v.ui;
 
 		// Initialized, to be prepared later on first execute
 		v.value_sz = 0;
@@ -211,7 +211,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	size_t bind_count = 0;
 	for (size_t li = 0; li < t.length(); ++li) {
 		++bind_count;
-		term & t1 = t.lt[li];
+		term & t1 = t[li];
         if (!t1.is_tuple() || t1.length() != vars.size()) {
 			REMOTE_LOG(ERR, "malformed ETERM\n");
 			strcpy(r.gerrbuf, "Malformed ETERM");
@@ -222,7 +222,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 
 		// loop through each value of the tuple
 		for(size_t i=0; i < len; ++i) {
-			term & t2 = t1.lt[i];
+			term & t2 = t1[i];
 			if (t2.is_undef()) {
 				REMOTE_LOG(ERR, "row %d: missing parameter for %s\n", bind_count, vars[i].name);
 				strcpy(r.gerrbuf, "Missing parameter term");
