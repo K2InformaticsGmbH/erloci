@@ -1,8 +1,16 @@
 EXE_TARGET = ocierl
 LIB_TARGET = liberloci.a
 
-ERLOCI_PATH = c_src/erloci_drv
-ERLOCI_LIB_PATH = c_src/erloci_lib
+ifeq "$(wildcard c_src)" ""
+	SRC_PATH_PREFIX = 
+	PRIV_DIR = ../priv
+else
+	SRC_PATH_PREFIX = c_src/
+	PRIV_DIR = priv
+endif
+
+ERLOCI_PATH = $(SRC_PATH_PREFIX)erloci_drv
+ERLOCI_LIB_PATH = $(SRC_PATH_PREFIX)erloci_lib
 OCI_INCLUDE_PATH = $(INSTANT_CLIENT_INCLUDE_PATH)
 OCI_LIB_PATH = $(INSTANT_CLIENT_LIB_PATH)
 ERL_INTERFACE_DIR = $(OTPROOT)/lib/erl_interface-3.7.11
@@ -16,17 +24,17 @@ ERLOCI_SRCS = $(wildcard $(addprefix $(ERLOCI_PATH)/, *.cpp))
 ERLOCI_OBJS = $(ERLOCI_SRCS:.cpp=.o)
 
 CXXFLAGS = -ggdb -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_INCLUDE_PATH)
-LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -Lpriv -L$(OCI_LIB_PATH)
+LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(PRIV_DIR) -L$(OCI_LIB_PATH)
 LINKFLAGS = -levent -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12
 
-all: priv/$(EXE_TARGET)
+all: $(PRIV_DIR)/$(EXE_TARGET)
 	@echo "erloci compiled!!!"
 
-priv/$(EXE_TARGET): priv/$(LIB_TARGET) $(ERLOCI_OBJS)
+$(PRIV_DIR)/$(EXE_TARGET): $(PRIV_DIR)/$(LIB_TARGET) $(ERLOCI_OBJS)
 	g++ -Wall $(LINKDIRS) $^ $(LINKFLAGS) -o $@
 
-priv/$(LIB_TARGET): $(ERLOCI_LIB_OBJS)
-	ar rcs priv/$(LIB_TARGET) $(ERLOCI_LIB_OBJS)
+$(PRIV_DIR)/$(LIB_TARGET): $(ERLOCI_LIB_OBJS)
+	ar rcs $(PRIV_DIR)/$(LIB_TARGET) $(ERLOCI_LIB_OBJS)
 
 $(ERLOCI_LIB_SRCS): $(ERLOCI_LIB_HDRS)
 	touch $(ERLOCI_LIB_SRCS)
@@ -38,5 +46,5 @@ $(ERLOCI_SRCS): $(ERLOCI_HDRS) $(ERLOCI_LIB_HDRS)
 clean:
 	rm -rf $(ERLOCI_OBJS)
 	rm -rf $(ERLOCI_LIB_OBJS)
-	rm -rf priv/$(LIB_TARGET)
-	rm -rf priv/$(EXE_TARGET)
+	rm -rf $(PRIV_DIR)/$(LIB_TARGET)
+	rm -rf $(PRIV_DIR)/$(EXE_TARGET)
