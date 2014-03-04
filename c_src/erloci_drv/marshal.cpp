@@ -148,7 +148,7 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
 			&& (*it)[1].is_any_int());
 
 		if(sizeof(v.name) < (*it)[0].str_len+1) {
-			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", (*it)[0].str, sizeof(v.name)-1);
+			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", &(*it)[0].str[0], sizeof(v.name)-1);
 			throw string("variable name is larger then 255 characters");
 		}
 		strncpy(v.name, &((*it)[0].str[0]), (*it)[0].str_len);

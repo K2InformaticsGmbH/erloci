@@ -8,9 +8,9 @@
 -define(TAB, "erloci_load").
 
 % 10 10 10
--define(CONNECTIONS, 25).
--define(STATEMENTS, 4).
--define(ROWS_PER_TABLE, 1000).
+-define(CONNECTIONS, 10).
+-define(STATEMENTS, 10).
+-define(ROWS_PER_TABLE, 10).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).

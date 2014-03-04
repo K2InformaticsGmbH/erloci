@@ -306,7 +306,7 @@ bool command::describe(term & t, term & resp)
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute DESCRIBE \"%.*s;\" -> %s\n",
-						t[3].str_len, t[3].str, r.gerrbuf);
+						t[3].str_len, &t[3].str[0], r.gerrbuf);
 			} else {
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
@@ -366,7 +366,7 @@ bool command::prep_sql(term & t, term & resp)
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n",
-						t[3].str_len, t[3].str, r.gerrbuf);
+						t[3].str_len, &t[3].str[0], r.gerrbuf);
 			} else {
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
@@ -515,7 +515,7 @@ bool command::exec_stmt(term & t, term & resp)
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n",
-						t[3].str_len, t[3].str, r.gerrbuf);
+						t[3].str_len, &t[3].str[0], r.gerrbuf);
 			} else {
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 				ret = true;
