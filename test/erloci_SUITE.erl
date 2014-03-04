@@ -7,10 +7,10 @@
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
 
-% 10 5 100
--define(CONNECTIONS, 2).
--define(STATEMENTS, 1).
--define(ROWS_PER_TABLE, 5).
+% 10 10 10
+-define(CONNECTIONS, 25).
+-define(STATEMENTS, 4).
+-define(ROWS_PER_TABLE, 1000).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
@@ -37,12 +37,7 @@ init_per_suite(InitConfigData) ->
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
     [{tables, Tables}, {binds, Binds}, {config, {Tns,User,Pswd}}  | InitConfigData].
 
-end_per_suite(ConfigData) ->
-    Tables = lists:merge([T || {_,T} <- ?value(tables, ConfigData)]),
-    {Tns,User,Pswd} = ?value(config, ConfigData),
-    OciPort = oci_port:start_link([{logging, true}]),
-    OciSession = OciPort:get_session(Tns, User, Pswd),
-    [tab_drop(OciSession, Table) || Table <- Tables],
+end_per_suite(_ConfigData) ->
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
@@ -50,20 +45,20 @@ load(ConfigData) ->
     Binds = ?value(binds, ConfigData),
     {Tns,User,Pswd} = ?value(config, ConfigData),
     RowsPerProcess = length(Binds),
-    OciPort = oci_port:start_link([{logging, true}]),
     ct:pal(info, "Starting ~p connection processes with ~p", [?CONNECTIONS, Tables]),
+    OciPort = oci_port:start_link([{logging, true}]),
     This = self(),
     [spawn(fun() ->
         connection(OciPort, C, proplists:get_value(C,Tables,[]), Tns, User, Pswd, This, RowsPerProcess, Binds)
      end)
     || C <- ?CONNIDLIST],
-    collect_processes(Tables, []),
+    collect_processes(lists:sort(Tables), []),
     ct:pal(info, "Closing port ~p", [OciPort]),
     ok = OciPort:close().
 
 connection(OciPort, Cid, Tables, Tns, User, Pswd, Master, RowsPerProcess, Binds) ->
     OciSession = OciPort:get_session(Tns, User, Pswd),
-    ct:pal(info, "Connection ~p -> ~p", [Cid, OciSession]),
+    ct:pal(info, "Got session ~p", [OciSession]),
     [begin
         tab_drop(OciSession, Table),
         tab_create(OciSession, Table)
@@ -74,7 +69,7 @@ connection(OciPort, Cid, Tables, Tns, User, Pswd, Master, RowsPerProcess, Binds)
         table(OciSession, Cid, Tid, This, RowsPerProcess, Binds)
      end)
     || Tid <- ?STMTIDLIST],
-    collect_processes(Tables, []),
+    collect_processes(lists:sort(Tables), []),
     ct:pal(info, "Closing session ~p", [OciSession]),
     ok = OciSession:close(),
     Master ! {Cid, Tables}.
@@ -91,7 +86,10 @@ collect_processes(Tables, Acc) ->
         Table ->
             case lists:sort([Table | Acc]) of
                 Tables -> ok;
-                NewAcc -> collect_processes(Tables, NewAcc)
+                NewAcc ->
+                    ct:pal(info, "Expecting ~p", [Tables -- NewAcc]),
+                    timer:sleep(1000),
+                    collect_processes(Tables, NewAcc)
             end
     end.
 
@@ -140,22 +138,21 @@ collect_processes(Tables, Acc) ->
 tab_drop(OciSession, Table) when is_list(Table) ->
     DropStmt = OciSession:prep_sql(?B(["drop table ", Table])),
     {oci_port, statement, _, _, _} = DropStmt,
-    ct:pal(info, "[~s] Dropping...", [Table]),
     case DropStmt:exec_stmt() of
         {error, _} -> ok; 
-        _ -> ok = DropStmt:close()
+        _ ->
+            ct:pal(info, "[~s] Droped!", [Table]),
+            ok = DropStmt:close()
     end.
 
 tab_create(OciSession, Table) when is_list(Table) ->
-    ct:pal(info, "[~s] Creating...", [Table]),
     StmtCreate = OciSession:prep_sql(?CREATE(Table)),
     {oci_port, statement, _, _, _} = StmtCreate,
     {executed, 0} = StmtCreate:exec_stmt(),
     ok = StmtCreate:close(),
-    ct:pal(info, "[~s] setup complete...", [Table]).
+    ct:pal(info, "[~s] Created", [Table]).
 
 tab_load(OciSession, Table, RowCount, Binds) ->
-    ct:pal(info, "[~s] Loading ~p rows", [Table, RowCount]),
     BoundInsStmt = OciSession:prep_sql(?INSERT(Table)),
     {oci_port, statement, _, _, _} = BoundInsStmt,
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
@@ -163,7 +160,7 @@ tab_load(OciSession, Table, RowCount, Binds) ->
     {rowids, RowIds} = BoundInsStmt:exec_stmt(Binds),
     RowCount = length(RowIds),
     ok = BoundInsStmt:close(),
-    ok.
+    ct:pal(info, "[~s] Loaded ~p rows", [Table, RowCount]).
 
 tab_access(OciSession, Table, Count) ->
     ct:pal(info, "[~s]  Loading rows @ ~p per fetch", [Table, Count]),

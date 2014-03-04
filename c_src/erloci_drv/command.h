@@ -31,25 +31,24 @@ private:
 	static port & p;
 	static transcoder & tc;
 
-	static bool change_log_flag(term &);
-	static bool get_session(term &);
-	static bool release_conn(term &);
-	static bool commit(term &);
-	static bool rollback(term &);
-	static bool describe(term &);
-	static bool prep_sql(term &);
-	static bool fetch_rows(term &);
-	static bool exec_stmt(term &);
-	static bool close_stmt(term &);
-	static bool echo(term &);
-	static bool bind_args(term &);
+	static bool change_log_flag(term &, term &);
+	static bool get_session(term &, term &);
+	static bool release_conn(term &, term &);
+	static bool commit(term &, term &);
+	static bool rollback(term &, term &);
+	static bool describe(term &, term &);
+	static bool prep_sql(term &, term &);
+	static bool fetch_rows(term &, term &);
+	static bool exec_stmt(term &, term &);
+	static bool close_stmt(term &, term &);
+	static bool bind_args(term &, term &);
+	static bool echo(term &, term &);
 
 public:
 	static bool process(term &);
 	static void config(
 		void * (*)(void *),						// child_list
 		size_t (*)(void *),						// calculate_resp_size
-		//void (*)(const void *, void *),			// append_list_to_list
 		void (*)(const int, void *),			// append_int_to_list
 		void (*)(const char *, size_t, void *),	// append_string_to_list
 		// append_coldef_to_list

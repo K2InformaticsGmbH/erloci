@@ -20,12 +20,51 @@
 #include <oci.h>
 
 void * ocisession::envhp = NULL;
+void * ocisession::stmt_lock = NULL;
+
 ocisession::FNAD2L ocisession::append_desc_to_list = NULL;
 list<ocisession*> ocisession::_sessions;
 
 void ocisession::config(FNAD2L _append_desc_to_list)
 {
 	append_desc_to_list = _append_desc_to_list;
+
+	// Initialize OCI layer (late initializer)
+	intf_ret r;
+ 	r.fn_ret = SUCCESS;
+
+	if(envhp == NULL) {
+		sword ret = 0;
+		ret = OCIEnvCreate((OCIEnv**)&envhp,		/* returned env handle */
+						   OCI_THREADED,			/* initilization modes */
+						   NULL, NULL, NULL, NULL,	/* callbacks, context */
+						   (size_t) 0,				/* optional extra memory size: optional */
+						   (void**) NULL);			/* returned extra memeory */
+
+		r.handle = envhp;
+		checkenv(&r, ret);
+		if(r.fn_ret != SUCCESS)
+        throw r;
+	}
+
+	if(stmt_lock == NULL) {
+		void *ehp;
+		sword ret = 0;
+		checkenv(&r, OCIHandleAlloc((OCIEnv*)envhp,	/* environment handle */
+                            (void **) &ehp,			/* returned err handle */
+                            OCI_HTYPE_ERROR,		/* typ of handle to allocate */
+                            (size_t) 0,				/* optional extra memory size */
+                            (void **) NULL));		/* returned extra memeory */
+		ret = OCIThreadMutexInit((OCIEnv*)envhp,
+                           (OCIError*)ehp, 
+                           (OCIThreadMutex**)&stmt_lock);
+		r.handle = envhp;
+		checkenv(&r, ret);
+		if(r.fn_ret != SUCCESS)
+        throw r;
+	}
+
+	REMOTE_LOG(INF, "OCI Initialized");
 }
 
 ocisession::ocisession(const char * connect_str, size_t connect_str_len,
@@ -34,8 +73,6 @@ ocisession::ocisession(const char * connect_str, size_t connect_str_len,
 {
 	intf_ret r;
 	OCIAuthInfo *authp = NULL;
-
-	init();
 
 	r.handle = envhp;
 
@@ -47,7 +84,7 @@ ocisession::ocisession(const char * connect_str, size_t connect_str_len,
                             (void **) NULL));	/* returned extra memeory */
 
 	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCISessionGet %s\n", r.gerrbuf);
+   		REMOTE_LOG(ERR, "failed OCIHandleAlloc %s\n", r.gerrbuf);
         throw r;
 	}
 
@@ -228,28 +265,75 @@ error_exit:
 
 ocistmt* ocisession::prepare_stmt(OraText *stmt, size_t stmt_len)
 {
+	intf_ret r;
+
+	r.handle = envhp;
+	checkenv(&r, OCIThreadMutexAcquire((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
+	if(r.fn_ret != SUCCESS) {
+   		REMOTE_LOG(ERR, "failed OCIThreadMutexAcquire %s\n", r.gerrbuf);
+        throw r;
+	}
+
 	ocistmt * statement = new ocistmt(this, stmt, stmt_len);
 	_statements.push_back(statement);
+
+	checkenv(&r, OCIThreadMutexRelease((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
+	if(r.fn_ret != SUCCESS) {
+   		REMOTE_LOG(ERR, "failed OCIThreadMutexRelease %s\n", r.gerrbuf);
+        throw r;
+	}
+
 	return statement;
 }
 
 void ocisession::release_stmt(ocistmt *stmt)
 {
+	intf_ret r;
+
+	r.handle = envhp;
+	checkenv(&r, OCIThreadMutexAcquire((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
+	if(r.fn_ret != SUCCESS) {
+   		REMOTE_LOG(ERR, "failed OCIThreadMutexAcquire %s\n", r.gerrbuf);
+        throw r;
+	}
+
 	list<ocistmt*>::iterator it = std::find(_statements.begin(), _statements.end(), stmt);
 	if (it != _statements.end()) {
 		_statements.remove(*it);
+	}
+
+	checkenv(&r, OCIThreadMutexRelease((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
+	if(r.fn_ret != SUCCESS) {
+   		REMOTE_LOG(ERR, "failed OCIThreadMutexRelease %s\n", r.gerrbuf);
+        throw r;
 	}
 }
 
 bool ocisession::has_statement(ocistmt *stmt)
 {
 	bool found = false;
+	intf_ret r;
+
+	r.handle = envhp;
+	checkenv(&r, OCIThreadMutexAcquire((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
+	if(r.fn_ret != SUCCESS) {
+   		REMOTE_LOG(ERR, "failed OCIThreadMutexAcquire %s\n", r.gerrbuf);
+        throw r;
+	}
+
 	for (list<ocistmt*>::iterator it = _statements.begin(); it != _statements.end(); ++it) {
 		if(*it == stmt) {
 			found = true;
 			break;
 		}
 	}
+
+	checkenv(&r, OCIThreadMutexRelease((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
+	if(r.fn_ret != SUCCESS) {
+   		REMOTE_LOG(ERR, "failed OCIThreadMutexRelease %s\n", r.gerrbuf);
+        throw r;
+	}
+
 	return found;
 }
 
@@ -270,28 +354,5 @@ ocisession::~ocisession(void)
 
 	(void) OCIHandleFree(_errhp, OCI_HTYPE_ERROR);
 
-	// cleanup the environment if this is the last oci session from this environment
 	_sessions.remove(this);
-
-	//REMOTE_LOG("release session %p\n", _svchp);
-}
-
-void ocisession::init(void)
-{
-	intf_ret r;
- 	r.fn_ret = SUCCESS;
-
-	if(envhp == NULL) {
-		sword ret = 0;
-		ret = OCIEnvCreate((OCIEnv**)&envhp,		/* returned env handle */
-						   OCI_THREADED,			/* initilization modes */
-						   NULL, NULL, NULL, NULL,	/* callbacks, context */
-						   (size_t) 0,				/* optional extra memory size: optional */
-						   (void**) NULL);			/* returned extra memeory */
-
-		r.handle = envhp;
-		checkenv(&r, ret);
-		if(r.fn_ret != SUCCESS)
-        throw r;
-	}
 }

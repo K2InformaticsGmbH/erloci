@@ -46,9 +46,8 @@ public:
 private:
 	static FNAD2L append_desc_to_list;
 	static void * envhp;
+	static void * stmt_lock;
 	static list<ocisession*> _sessions;
-
-	static void init();
 
 	void *_svchp;
 	void *_errhp;
