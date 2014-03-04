@@ -9,8 +9,8 @@
 
 % 10 5 100
 -define(CONNECTIONS, 2).
--define(STATEMENTS, 2).
--define(ROWS_PER_TABLE, 100).
+-define(STATEMENTS, 1).
+-define(ROWS_PER_TABLE, 5).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
@@ -138,9 +138,9 @@ collect_processes(Tables, Acc) ->
 ).
 
 tab_drop(OciSession, Table) when is_list(Table) ->
-    ct:pal(info, "[~s] Dropping...", [Table]),
     DropStmt = OciSession:prep_sql(?B(["drop table ", Table])),
     {oci_port, statement, _, _, _} = DropStmt,
+    ct:pal(info, "[~s] Dropping...", [Table]),
     case DropStmt:exec_stmt() of
         {error, _} -> ok; 
         _ -> ok = DropStmt:close()

@@ -24,17 +24,10 @@ using namespace std;
 
 class ocisession
 {
-private:
-	static void * envhp;
-	static list<ocisession*> _sessions;
-
-	static void init();
-
-	void *_svchp;
-	void *_errhp;
-	list<ocistmt*> _statements;
-
 public:
+	typedef void (*FNAD2L)(const char * col_name, size_t len, const unsigned short data_type,
+													 const unsigned int max_len, void * list);
+	static void config(FNAD2L);
 	static inline void * getenv() { return envhp; };
 
 	inline void *getsession() { return _svchp; }
@@ -43,14 +36,23 @@ public:
 		const char * password, size_t password_len);
 	void commit(void);
 	void rollback(void);
-	void describe_object(void *objptr, size_t objptr_len, unsigned char objtyp, void *desc_list,
-						 void (*append_desc_to_list)(const char * col_name, size_t len, const unsigned short data_type,
-													 const unsigned int max_len, void * list));
+	void describe_object(void *objptr, size_t objptr_len, unsigned char objtyp, void *desc_list);
 	ocistmt* prepare_stmt(unsigned char *stmt, size_t stmt_len);
 	void release_stmt(ocistmt *stmt);
 	bool has_statement(ocistmt *stmt);
 
 	~ocisession(void);
+
+private:
+	static FNAD2L append_desc_to_list;
+	static void * envhp;
+	static list<ocisession*> _sessions;
+
+	static void init();
+
+	void *_svchp;
+	void *_errhp;
+	list<ocistmt*> _statements;
 };
 
 #endif // OCISESSION_H

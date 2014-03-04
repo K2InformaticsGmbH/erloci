@@ -118,18 +118,22 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 		unsigned long long list_idx = 0;
 		do {
 			ETERM *et1 = ERL_CONS_HEAD(erl_list);
-			term t1;
+			if (t.is_undef())
+				t.lst();
+			term & t1 = t.insert();
 			erlterm_to_stl(et1, t1);
-			t.set(term::LIST, t1, list_idx);
+			//t.set(term::LIST, t1, list_idx);
 			erl_list = ERL_CONS_TAIL(erl_list);
 			++list_idx;
 		} while(erl_list && !ERL_IS_EMPTY_LIST(erl_list));
 	}
 	else if(ERL_IS_TUPLE(et)) {
 		for(unsigned long long tuple_idx = 0; tuple_idx < (unsigned long long)ERL_TUPLE_SIZE(et); ++tuple_idx) {
-			term t1;
+			if (t.is_undef())
+				t.tuple();
+			term & t1 = t.insert();
 			erlterm_to_stl(ERL_TUPLE_ELEMENT(et, tuple_idx), t1);
-			t.set(term::TUPLE, t1, tuple_idx);
+			//t.set(term::TUPLE, t1, tuple_idx);
 		}
 	}
 }
@@ -139,22 +143,22 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 	ETERM * et = NULL;
 	switch (t.type) {
 		case term::ATOM:
-			et = erl_mk_atom(t.str);
+			et = erl_mk_atom(&t.str[0]);
 			break;
 		case term::FLOAT:
 			et = erl_mk_float(t.v.d);
 			break;
 		case term::PID:
-			et = erl_mk_pid(t.str, t.v.ppr.n, t.v.ppr.s, t.v.ppr.c);
+			et = erl_mk_pid(&t.str[0], t.v.ppr.n, t.v.ppr.s, t.v.ppr.c);
 			break;
 		case term::PORT:
-			et = erl_mk_port(t.str, t.v.ppr.n, t.v.ppr.c);
+			et = erl_mk_port(&t.str[0], t.v.ppr.n, t.v.ppr.c);
 			break;
 		case term::REF:
-			et = erl_mk_ref(t.str, t.v.ppr.n, t.v.ppr.c);
+			et = erl_mk_ref(&t.str[0], t.v.ppr.n, t.v.ppr.c);
 			break;
 		case term::BINARY:
-			et = erl_mk_binary(t.str, (int)t.str_len);
+			et = erl_mk_binary(&t.str[0], (int)t.str_len);
 			break;
 		case term::INTEGER:
 			et = erl_mk_int(t.v.i);

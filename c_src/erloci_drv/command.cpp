@@ -24,6 +24,29 @@
 port & command::p			= port::instance();
 transcoder & command::tc	= transcoder::instance();
 
+extern void map_schema_to_bind_args(term &, vector<var> &);
+extern size_t map_value_to_bind_args(term &, vector<var> &);
+
+void command::config(
+		void * (*child_list)(void *),								// child_list
+		size_t (*calculate_resp_size)(void *),						// calculate_resp_size
+		//void (*append_list_to_list)(const void *, void *),			// append_list_to_list
+		void (*append_int_to_list)(const int, void *),				// append_int_to_list
+		void (*append_string_to_list)(const char *, size_t, void *),// append_string_to_list
+		// append_coldef_to_list
+		void (*append_coldef_to_list)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
+		// append_desc_to_list
+		void (*append_desc_to_list)(const char *, size_t, const unsigned short, const unsigned int, void *)
+		)
+{
+	ocisession::config((ocisession::FNAD2L)append_desc_to_list);
+	ocistmt::config((ocistmt::FNCDEFAPP)append_coldef_to_list,
+					(ocistmt::FNSTRAPP)append_string_to_list,
+					/*(ocistmt::FNLISTAPP)append_list_to_list,*/
+					(ocistmt::FNSZAPP)calculate_resp_size,
+					(ocistmt::FNCHLDLST)child_list);
+}
+
 bool command::change_log_flag(term & t)
 {
     bool ret = false;
@@ -40,24 +63,25 @@ bool command::change_log_flag(term & t)
             REMOTE_LOG(CRT, "This line will never show up!!\n");
 			resp.tuple()
 				.add(t[0])
-				.add(RMOTE_MSG)
-				.add(term().atom("log_disabled"));
+				.add(RMOTE_MSG);
+			resp.insert().atom("log_disabled");
             break;
         case DBG_FLAG_ON:
             log_flag = true;
 			resp.tuple()
 				.add(t[0])
-				.add(RMOTE_MSG)
-				.add(term().atom("log_enabled"));
+				.add(RMOTE_MSG);
+			resp.insert().atom("log_enabled");
 			REMOTE_LOG(INF, "Enabled logging...");
             break;
         default:
 			resp.tuple()
 				.add(t[0])
-				.add(RMOTE_MSG)
-				.add(term().tuple()
-						.add(term().atom("error"))
-						.add(term().atom("badarg")));
+				.add(RMOTE_MSG);
+			term & _t = resp.insert();
+			_t.tuple();
+			_t.insert().atom("error");
+			_t.insert().atom("badarg");
 			REMOTE_LOG(ERR, "ERROR badarg %d\n", log);
             break;
         }
@@ -86,9 +110,9 @@ bool command::get_session(term & t)
 
 		   try {
 				ocisession * conn_handle = new ocisession(
-					con_str.str, con_str.str_len,		// Connect String
-					usr_str.str, usr_str.str_len,		// User Name String
-					passwrd.str, passwrd.str_len);		// Password String
+					&con_str.str[0], con_str.str_len,		// Connect String
+					&usr_str.str[0], usr_str.str_len,		// User Name String
+					&passwrd.str[0], passwrd.str_len);		// Password String
 		        REMOTE_LOG(INF, "got connection %lu\n", (unsigned long long)conn_handle);
 				resp.tuple()
 					.add(t[0])
@@ -336,7 +360,7 @@ bool command::describe(term & t)
 		describes.lst();
 
 		try {
-	        conn_handle->describe_object(obj_string.str, obj_string.str_len, desc_typ, &describes, append_desc_to_list);
+	        conn_handle->describe_object(&obj_string.str[0], obj_string.str_len, desc_typ, &describes);
 			resp.tuple()
 				.add(t[0])
 				.add(CMD_DSCRB)
@@ -409,7 +433,7 @@ bool command::prep_sql(term & t)
 
 		ocisession * conn_handle = (ocisession *)(connection.v.ll);
 		try {
-	        ocistmt * statement_handle = conn_handle->prepare_stmt((unsigned char *)sql_string.str, sql_string.str_len);
+	        ocistmt * statement_handle = conn_handle->prepare_stmt((unsigned char *)&sql_string.str[0], sql_string.str_len);
 			resp.tuple()
 				.add(t[0])
 				.add(PREP_STMT)
@@ -468,7 +492,6 @@ bool command::prep_sql(term & t)
 	return ret;
 }
 
-extern void map_schema_to_bind_args(term &, vector<var> &);
 bool command::bind_args(term & t)
 {
 	bool ret = false;
@@ -574,7 +597,7 @@ bool command::exec_stmt(term & t)
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				size_t bound_count = map_value_to_bind_args(bind_list, statement_handle->get_in_bind_args());
-				unsigned int exec_ret = statement_handle->execute(&columns, append_coldef_to_list, &rowids, append_string_to_list, auto_commit);
+				unsigned int exec_ret = statement_handle->execute(&columns, &rowids, auto_commit);
 				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
 				// TODO : Also return bound values from here
 				if (columns.length() == 0 && rowids.length() == 0)
@@ -690,11 +713,7 @@ bool command::fetch_rows(term & t)
 							.add(term().strng("invalid statement handle")));
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
-				intf_ret r = statement_handle->rows(&rows,
-												   append_string_to_list,
-												   append_list_to_list,
-												   calculate_resp_size,
-												   rowcount);
+				intf_ret r = statement_handle->rows(&rows, rowcount);
 				if (r.fn_ret == MORE || r.fn_ret == DONE) {
 					resp.tuple()
 						.add(t[0])
@@ -903,12 +922,12 @@ bool command::process(term & t)
         int cmd = t[1].v.i;
         if((t.length() - 1) != (size_t)CMD_ARGS_COUNT(cmd)) {
 	    	term resp;
-            resp.tuple()
-	    		.add(t[0])
-	    		.add(cmd)
-	    		.add(term().tuple()
-	    					.add(term().atom("error"))
-	    					.add(term().atom("badarg")));
+            resp.tuple();
+			resp.add(t[0]);
+			resp.insert().integer(cmd);
+			term & _t = resp.insert().tuple();
+	    	_t.insert().atom("error");
+	    	_t.insert().atom("badarg");
 	    	if(resp.is_undef())
                 REMOTE_LOG(ERR, "ERROR badarg %s expected %d, got %d\n", CMD_NAME_STR(cmd)
                     , CMD_ARGS_COUNT(cmd), (t.length() - 1));

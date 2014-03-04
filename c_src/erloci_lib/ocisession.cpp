@@ -20,7 +20,13 @@
 #include <oci.h>
 
 void * ocisession::envhp = NULL;
+ocisession::FNAD2L ocisession::append_desc_to_list = NULL;
 list<ocisession*> ocisession::_sessions;
+
+void ocisession::config(FNAD2L _append_desc_to_list)
+{
+	append_desc_to_list = _append_desc_to_list;
+}
 
 ocisession::ocisession(const char * connect_str, size_t connect_str_len,
 					   const char * user_name, size_t user_name_len,
@@ -103,9 +109,7 @@ void ocisession::rollback()
 }
 
 void ocisession::describe_object(void *objptr, size_t objptr_len, ub1 objtyp,
-								 void * desc_list,
-								 void (*append_desc_to_list)(const char * col_name, size_t len, const unsigned short data_type,
-													 const unsigned int max_len, void * list))
+								 void * desc_list)
 {
 	intf_ret r;
 

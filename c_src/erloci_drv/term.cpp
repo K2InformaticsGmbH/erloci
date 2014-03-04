@@ -106,43 +106,44 @@ unsigned long long term::length()
 void term::set(Type t, char * s)
 {
 	type = t;
-	if(str != NULL)	delete str;
-	str_len = strlen(s) + 1;
-	str = new char[str_len];
-	strcpy(str, s);
+	if (s) {
+		str_len = strlen(s) + 1;
+		str.assign(s, s + str_len);
+	}
 }
 
 void term::set(Type t, char *ns, int n, int c)
 {
 	type = t;
-	if(str != NULL)	delete str;
-	str_len = strlen(ns) + 1;
-	str = new char[str_len];
-	strcpy(str, ns);
 	v.ppr.n = n;
 	v.ppr.c = c;
+	if (ns) {
+		str_len = strlen(ns) + 1;
+		str.assign(ns, ns + str_len);
+	}
 }
 
 void term::set(Type t, char *ns, int n, int s, int c)
 {
 	type = t;
-	if(str != NULL)	delete str;
-	str_len = strlen(ns) + 1;
-	str = new char[str_len];
-	strcpy(str, ns);
 	v.ppr.n = n;
 	v.ppr.s = s;
 	v.ppr.c = c;
+	if (ns) {
+		str_len = strlen(ns) + 1;
+		str.assign(ns, ns + str_len);
+	}
 }
 
 void term::set(Type t, unsigned char * s, int strl)
 {
 	type = t;
-	if(str != NULL)	delete str;
-	str = new char[strl + 1];
-	copy(s, s+strl, str);
-	str[strl] = '\0';
-	str_len = strl;
+	if (s) {
+		str_len = strl;
+		str.resize(str_len+1);
+		str.assign(s, s+str_len+1);
+		str.push_back('\0');
+	}
 }
 
 void term::set(Type t, double dbl)

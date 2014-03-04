@@ -109,12 +109,12 @@ logger::~logger(void)
 void logger::log(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *trm, const char * log_str)
 {
 	term t;
-	t.tuple()
-		.add(level)
-		.add(term().strng(filename))
-		.add(term().strng(funcname))
-		.add(linenumber)
-		.add(term().strng(log_str));
+	t.tuple();
+	t.insert().integer(level);
+	t.insert().strng(filename);
+	t.insert().strng(funcname);
+	t.insert().integer(linenumber);
+	t.insert().strng(log_str);
 
 	vector<unsigned char> log = transcoder::instance().encode_with_header(t);
 

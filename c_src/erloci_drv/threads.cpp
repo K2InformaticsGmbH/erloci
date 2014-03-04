@@ -38,6 +38,13 @@ threads::threads(void)
 {
     REMOTE_LOG(DBG, "Initializing Thread pool...");
 
+	command::config(child_list
+		, calculate_resp_size
+		, append_int_to_list
+		, append_string_to_list
+		, append_coldef_to_list
+		, append_desc_to_list);
+
 #ifdef __WIN32__
     InitializeThreadpoolEnvironment(&CallBackEnviron);
 

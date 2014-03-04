@@ -27,14 +27,12 @@
             {<<"(DESCRIPTION="
                 "(ADDRESS_LIST="
                     "(ADDRESS=(PROTOCOL=tcp)"
-                        %"(HOST=127.0.0.1)"
-                        "(HOST=192.168.1.43)"
+                        "(HOST=127.0.0.1)"
                         "(PORT=1521)"
                     ")"
                 ")"
                 "(CONNECT_DATA=(SERVICE_NAME=XE))"
-               %")">>, <<"scott">>, <<"tiger">>}
-               ")">>, <<"scott">>, <<"regit">>}
+               ")">>, <<"scott">>, <<"tiger">>}
           }
         ]}
  ]}.

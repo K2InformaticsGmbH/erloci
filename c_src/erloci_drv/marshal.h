@@ -105,19 +105,14 @@ extern void log_args(int, void *, const char *);
 #endif
 
 // ThreadPool and IdleTimer
-extern void InitializeThreadPool(void);
-extern void CleanupThreadPool(void);
-extern void ProcessCommand(void);
-
 extern size_t calculate_resp_size(void * resp);
-extern void append_list_to_list(const void * sub_list, void * list);
 extern void append_int_to_list(const int integer, void * list);
 extern void append_string_to_list(const char * string, size_t len, void * list);
 extern void append_coldef_to_list(const char * col_name, size_t len,
 								  const unsigned short data_type, const unsigned int max_len, const unsigned short precision,
 								  const signed char scale, void * list);
 extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
-extern size_t map_value_to_bind_args(term &, vector<var> &);
+extern void * child_list(void * list);
 
 #define MAX_FORMATTED_STR_LEN 1024
 
@@ -140,5 +135,4 @@ extern size_t map_value_to_bind_args(term &, vector<var> &);
 #else
 #define LOG_DUMP(__tag, __len, __buf)
 #endif
-
 #endif // OCI_MARSHAL_H

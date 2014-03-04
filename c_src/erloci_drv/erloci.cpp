@@ -30,12 +30,24 @@ int main(int argc, char * argv[])
     _setmode( _fileno( stdin  ), _O_BINARY );
 #endif
 
-    //erl_init(NULL, 0);
 	transcoder::instance();
 #if 0
-	unsigned char b[] = {131,104,2,97,1,104,1,97,1};
-	vector<unsigned char> buf(b, b + sizeof(b) / sizeof(b[0]));
-	term t = transcoder::instance().decode(buf);
+	{
+		// A = {{self(), make_ref()},1,<<"connstr">>,<<"user">>,<<"pwd">>}.
+		unsigned char b[] = {131,104,5,104,2,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,
+	  116,0,0,0,32,0,0,0,0,0,114,0,3,100,0,13,110,111,110,111,100,101,64,110,111,
+	  104,111,115,116,0,0,0,0,26,0,0,0,0,0,0,0,0,97,1,109,0,0,0,7,99,111,110,110,
+	  115,116,114,109,0,0,0,4,117,115,101,114,109,0,0,0,3,112,119,100};
+		vector<unsigned char> buf(b, b + sizeof(b) / sizeof(b[0]));
+		term t;
+		transcoder::instance().decode(buf, t);
+			{
+				term resp;
+				resp.tuple()
+						.add(t[0])
+						.add(1);
+			}
+	}
 #endif
 
     log_flag = false;
@@ -63,7 +75,6 @@ int main(int argc, char * argv[])
 
 	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d"
 		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port);
-
 	threads::init();
 	port& prt = port::instance();
 	vector<unsigned char> read_buf;

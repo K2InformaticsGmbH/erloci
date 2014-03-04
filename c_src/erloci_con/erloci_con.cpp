@@ -77,7 +77,7 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd)
 		printf("Columns:\n");
 		try {
 			stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-			stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+			stmt->execute(NULL, NULL, true);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -91,7 +91,7 @@ int memory_leak_test(const char *tns, const char *usr, const char *pwd)
 		}
 		
 		try {
-			stmt->rows(NULL, string_append, list_append, sizeof_resp, 100);
+			stmt->rows(NULL, 100);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -167,7 +167,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	sprintf(modqry, "drop table oci_test_table_%d", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -190,7 +190,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
                                        votes_first_rank number)", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -211,7 +211,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 		sprintf(modqry, "insert into oci_test_table_%d values (%d,'publisher%d',%d,'hero%d','real%d',%d,%d)", tid, i, i, i, i, i, i, i);
 		try {
 			stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-			stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+			stmt->execute(NULL, NULL, true);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {
@@ -229,7 +229,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	sprintf(modqry, "select * from oci_test_table_%d", tid);
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -243,7 +243,7 @@ int drop_create_insert_select(const char *tns, const char *usr, const char *pwd,
 	}
 
 	try {
-		stmt->rows(NULL,string_append, list_append, sizeof_resp, 100);
+		stmt->rows(NULL, 100);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -318,7 +318,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 	qry = "drop table erloci_table";
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -341,7 +341,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
                                      votes_first_rank number)";
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -469,7 +469,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 
 	printf("inserting %d rows\n", rows);
 	try {
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -502,7 +502,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 	qry = "select * from erloci_table";
 	try {
 		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-		stmt->execute(NULL, append_coldef_to_list, NULL, string_append, true);
+		stmt->execute(NULL, NULL, true);
 	}
 	catch (intf_ret r) {
 		switch(r.fn_ret) {
@@ -517,7 +517,7 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 
 	do {
 		try {
-			r = stmt->rows(NULL,string_append, list_append, sizeof_resp, 100);
+			r = stmt->rows(NULL, 100);
 		}
 		catch (intf_ret r) {
 			switch(r.fn_ret) {

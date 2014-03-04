@@ -741,6 +741,7 @@ commit_rollback_test({_, OciSession}) ->
     {cols, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
+    ?assertEqual(RowCount, length(Rows)),
     ?assertEqual(ok, SelStmt:close()),
 
     ?ELog("update in table ~s", [?TESTTABLE]),
@@ -808,11 +809,13 @@ asc_desc_test({_, OciSession}) ->
     {{rows, Rows12}, false} = SelStmt1:fetch_rows(5),
     {{rows, []}, true} = SelStmt1:fetch_rows(1),
     Rows1 = Rows11++Rows12,
+    ?assertEqual(RowCount, length(Rows1)),
 
     {{rows, Rows21}, false} = SelStmt2:fetch_rows(5),
     {{rows, Rows22}, false} = SelStmt2:fetch_rows(5),
     {{rows, []}, true} = SelStmt2:fetch_rows(1),
     Rows2 = Rows21++Rows22,
+    ?assertEqual(RowCount, length(Rows2)),
 
     ?ELog("Got rows asc ~p~n desc ~p", [Rows1, Rows2]),
 

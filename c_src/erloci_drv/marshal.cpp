@@ -70,16 +70,6 @@ void log_args(int argc, void * argv, const char * str)
 void log_args(int argc, void * argv, const char * str) {}
 #endif
 
-void append_list_to_list(const void * sub_list, void * list)
-{
-    ASSERT(list != NULL || sub_list != NULL);
-
-    term *container_list = (term *)list;
-    ASSERT(container_list->is_list());
-
-	container_list->add((const term *)sub_list);
-}
-
 void append_int_to_list(const int integer, void * list)
 {
 	ASSERT(list!=NULL);
@@ -90,21 +80,27 @@ void append_int_to_list(const int integer, void * list)
 	container_list->add(integer);
 }
 
+void * child_list(void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	term & _t = container_list->insert();
+	_t.lst();
+	return &_t;
+}
+
 void append_string_to_list(const char * string, size_t len, void * list)
 {
 	ASSERT(list!=NULL);
 
-    term *container_list = *(term **)list;
-	if (!container_list) {
-		container_list = new term();
-		container_list->lst();
-	}
+    term *container_list = (term *)list;
     ASSERT(container_list->is_list());
 
 	if (string)
-		container_list->add(term().binary(string, len));
-
-	(*(term**)list) = container_list;
+		container_list->insert().binary(string, len);
 }
 
 void append_coldef_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len,
@@ -115,13 +111,13 @@ void append_coldef_to_list(const char * col_name, size_t len, const unsigned sho
     term *container_list = (term *)list;
     ASSERT(container_list->is_list());
 
-	container_list->add(term().tuple()
-		.add(term().binary(col_name, len))
-		.add(data_type)
-		.add(max_len)
-		.add(precision)
-		.add(scale)
-	);
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().binary(col_name, len);
+	_t.insert().integer(data_type);
+	_t.insert().integer(max_len);
+	_t.insert().integer(precision);
+	_t.insert().integer(scale);
 }
 
 void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list)
@@ -131,10 +127,11 @@ void append_desc_to_list(const char * col_name, size_t len, const unsigned short
     term *container_list = (term *)list;
     ASSERT(container_list->is_list());
 
-	container_list->add(term().tuple()
-							.add(term().binary(col_name, len))
-							.add((unsigned int)data_type)
-							.add(max_len));
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().binary(col_name, len);
+	_t.insert().integer(data_type);
+	_t.insert().integer(max_len);
 }
 
 void map_schema_to_bind_args(term & t, vector<var> & vars)
@@ -154,7 +151,7 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
 			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", (*it)[0].str, sizeof(v.name)-1);
 			throw string("variable name is larger then 255 characters");
 		}
-		strncpy(v.name, (*it)[0].str, (*it)[0].str_len);
+		strncpy(v.name, &((*it)[0].str[0]), (*it)[0].str_len);
 		v.name[(*it)[0].str_len]='\0';
 
 		v.dty = (*it)[1].v.ui;
@@ -200,7 +197,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 
 		// loop through each value of the tuple
 		int i = 0;
-		for (term::iterator it1 = (*it).begin(); it1 != (*it).end(); ++it1) {
+		for (term::iterator it1 = t1.begin(); it1 != t1.end(); ++it1) {
 			term & t2 = (*it1);
 			if (t2.is_undef()) {
 				REMOTE_LOG(ERR, "row %d: missing parameter for %s\n", bind_count, vars[i].name);
@@ -248,7 +245,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						ind = 0;
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
-						memcpy(tmp_arg, t2.str, arg_len);
+						memcpy(tmp_arg, &t2.str[0], arg_len);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed number for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
@@ -263,7 +260,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						ind = 0;
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
-						memcpy(tmp_arg, t2.str, arg_len);
+						memcpy(tmp_arg, &t2.str[0], arg_len);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed binary for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
@@ -277,7 +274,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						ind = 0;
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
-						memcpy(tmp_arg, t2.str, arg_len);
+						memcpy(tmp_arg, &t2.str[0], arg_len);
 						((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed date for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
@@ -294,7 +291,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						ind = 0;
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
-						memcpy(tmp_arg, t2.str, arg_len);
+						memcpy(tmp_arg, &t2.str[0], arg_len);
 					} else {
 						REMOTE_LOG(ERR, "row %d: malformed string for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
@@ -308,7 +305,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						ind = 0;
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len+1];
-						memcpy(tmp_arg, t2.str, arg_len);
+						memcpy(tmp_arg, &t2.str[0], arg_len);
 						((char*)tmp_arg)[arg_len] = '\0';
 						arg_len++;
 					} else {

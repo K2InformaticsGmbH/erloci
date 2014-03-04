@@ -36,6 +36,19 @@ struct column {
 	void * row_valp;
 };
 
+ocistmt::FNCDEFAPP ocistmt::coldef_append = NULL;
+ocistmt::FNSTRAPP ocistmt::string_append = NULL;
+ocistmt::FNSZAPP ocistmt::sizeof_resp = NULL;
+ocistmt::FNCHLDLST ocistmt::child_list = NULL;
+
+void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl)
+{
+	coldef_append = cda;
+	string_append = sa;
+	sizeof_resp = sr;
+	child_list = cl;
+}
+
 ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 {
 	intf_ret r;
@@ -131,12 +144,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 //#define PRINT_ROWIDS
 #endif
 
-unsigned int ocistmt::execute(void * column_list,
-					  void (*coldef_append)(const char *, size_t, const unsigned short, const unsigned int,
-											const unsigned short, const signed char, void *),
-					  void * rowid_list,
-					  void (*string_append)(const char *, size_t, void *),
-					  bool auto_commit)
+unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_commit)
 {
 	ub4 row_count = 0;
 	intf_ret r;
@@ -249,9 +257,9 @@ unsigned int ocistmt::execute(void * column_list,
 					throw r;
 				}
 
-				(*string_append)((char*)rowID, strlen((char*)rowID), &rowid_list);
+				(*string_append)((char*)rowID, strlen((char*)rowID), rowid_list);
 			} else {
-				(*string_append)(NULL, 0, &rowid_list);
+				(*string_append)(NULL, 0, rowid_list);
 			}
 #ifdef PRINT_ROWIDS
 			rowids.push_back((char*)rowID);
@@ -495,11 +503,7 @@ unsigned int ocistmt::execute(void * column_list,
 	return row_count;
 }
 
-intf_ret ocistmt::rows(void * row_list,
-					   void (*string_append)(const char * string, size_t len, void * list),
-					   void (*list_append)(const void * sub_list, void * list),
-					   size_t (*sizeof_resp)(void * resp),
-					   unsigned int maxrowcount)
+intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 {
 	intf_ret r;
 
@@ -531,12 +535,12 @@ intf_ret ocistmt::rows(void * row_list,
 		    throw r;
 		}
 
-        row = NULL;
 		if (res != OCI_NO_DATA) {
+	        row = (*child_list)(row_list);
 			for (unsigned int i = 0; i < _columns.size(); ++i)
 					switch (_columns[i].dtype) {
 					case SQLT_NUM:
-						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
+						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, row);
 						memset(_columns[i].row_valp, 0, sizeof(OCINumber));
 						break;
 					case SQLT_TIMESTAMP:
@@ -554,7 +558,7 @@ intf_ret ocistmt::rows(void * row_list,
 						break;*/
 					case SQLT_DAT:
 						((OCIDate*)_columns[i].row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)_columns[i].row_valp)->OCIDateYYYY);
-						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, &row);
+						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, row);
 						memset(_columns[i].row_valp, 0, sizeof(OCIDate));
 						break;
 					case SQLT_RID:
@@ -565,13 +569,12 @@ intf_ret ocistmt::rows(void * row_list,
 					default:
 						{
 							size_t str_len = strlen((char*)_columns[i].row_valp);
-							(*string_append)((char*)_columns[i].row_valp, str_len, &row);
+							(*string_append)((char*)_columns[i].row_valp, str_len, row);
 							memset(_columns[i].row_valp, 0, str_len);
 						}
 						break;
 					}
-			total_est_row_size += (*sizeof_resp)(&row);
-			(*list_append)(row, row_list);
+			total_est_row_size += (*sizeof_resp)(row);
 		}
     } while (res != OCI_NO_DATA
 			&& num_rows < maxrowcount

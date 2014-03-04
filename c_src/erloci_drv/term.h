@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <string>
+#include <list>
 #include <vector>
 #include <sstream>
 
@@ -27,10 +28,10 @@ using namespace std;
 
 class term {
 private:
-	vector<term> lt; // list or tuple
+	list<term> lt; // list or tuple
 
 public:
-	typedef vector<term>::iterator iterator;
+	typedef list<term>::iterator iterator;
 	enum Type {
 		UNDEF		= ERL_UNDEF,
 		ATOM		= ERL_ATOM,
@@ -48,7 +49,7 @@ public:
 	};
 	Type type;
 
-	char * str;
+	vector<char> str;
 	size_t str_len;
 	union {
 		int	i;
@@ -65,18 +66,7 @@ public:
 		} ppr; // pid, port, ref, string or binary
 	} v;
 
-	inline term()	{ str = NULL; str_len = 0; type = UNDEF; };
-	inline term(const term& t)
-		: type(t.type), lt(t.lt), str_len(t.str_len), v(t.v)
-	{
-		str = NULL;
-		// The string will always have a '\0'
-		if (t.str_len >= 0 && t.str) {
-			str = new char[t.str_len+1];
-			copy(t.str, t.str + t.str_len+1, str);
-		}
-	};
-	inline ~term()	{ if(str != NULL) delete str; };
+	inline term()	{ str_len = 0; type = UNDEF; };
 
 	inline bool is_undef()		{ return type == UNDEF;			}
 	inline bool is_atom()		{ return type == ATOM;			}
@@ -113,8 +103,8 @@ public:
 
 	unsigned long long length();
 
-	inline term & tuple(void)						{				type = TUPLE;		return *this;	};
-	inline term & lst(void)						{				type = LIST;		return *this;	};
+	inline term & tuple(void)						{ lt.clear();	type = TUPLE;		return *this;	};
+	inline term & lst(void)							{ lt.clear();	type = LIST;		return *this;	};
 	inline term & integer(int i)					{ v.i = i;		type = INTEGER;		return *this;	};
 	inline term & integer(long l)					{ v.l = l;		type = INTEGER;		return *this;	};
 	inline term & integer(long long ll)				{ v.ll = ll;	type = LONGLONG;	return *this;	};
@@ -124,44 +114,46 @@ public:
 	inline term & dbl(float f)						{ v.d = f;		type = FLOAT;		return *this;	};
 	inline term & dbl(double d)						{ v.d = d;		type = FLOAT;		return *this;	};
 
-	inline term & add(const term * t)				{ lt.push_back(*t);						return *this;	};
-	inline term & add(const term & t)				{ lt.push_back(t);						return *this;	};
-	inline term & add(int i)						{ lt.push_back(term().integer(i));		return *this;	};
-	inline term & add(long i)						{ lt.push_back(term().integer(i));		return *this;	};
-	inline term & add(long long i)					{ lt.push_back(term().integer(i));		return *this;	};
-	inline term & add(unsigned int i)				{ lt.push_back(term().integer(i));		return *this;	};
-	inline term & add(unsigned long i)				{ lt.push_back(term().integer(i));		return *this;	};
-	inline term & add(unsigned long long i)			{ lt.push_back(term().integer(i));		return *this;	};
-	inline term & add(float i)						{ lt.push_back(term().dbl(i));			return *this;	};
-	inline term & add(double i)						{ lt.push_back(term().dbl(i));			return *this;	};
+	inline term & add(const term & t)				{ lt.push_back(t);					return *this;	};
+	inline term & add(int i)						{ lt.push_back(term().integer(i));	return *this;	};
+	inline term & add(long i)						{ lt.push_back(term().integer(i));	return *this;	};
+	inline term & add(long long i)					{ lt.push_back(term().integer(i));	return *this;	};
+	inline term & add(unsigned int i)				{ lt.push_back(term().integer(i));	return *this;	};
+	inline term & add(unsigned long i)				{ lt.push_back(term().integer(i));	return *this;	};
+	inline term & add(unsigned long long i)			{ lt.push_back(term().integer(i));	return *this;	};
+	inline term & add(float i)						{ lt.push_back(term().dbl(i));		return *this;	};
+	inline term & add(double i)						{ lt.push_back(term().dbl(i));		return *this;	};
+
+	inline term & insert()
+	{
+		lt.resize(lt.size()+1);
+		return lt.back();
+	}
 
 	inline term & atom(const char *_str)
 	{
 		type = ATOM;
-		if(str)	delete str;
 		str_len = strlen(_str)+1;
-		str = new char[str_len];
-		strcpy(str, _str);
+		str.resize(str_len);
+		str.assign(_str, _str + str_len);
 		return *this;
 	};
 
 	inline term & binary(const char *_str)
 	{
 		type = BINARY;
-		if(str)	delete str;
 		str_len = strlen(_str);
-		str = new char[str_len+1];
-		copy(_str, _str + str_len, str);
-		str[str_len] = '\0';
+		str.resize(str_len+1);
+		str.assign(_str, _str+str_len+1);
+		str.push_back('\0');
 		return *this;
 	};
 	inline term & binary(const char *_str, size_t len)
 	{
 		type = BINARY;
-		if(str)	delete str;
-		str = new char[len+1];
-		copy(_str, _str + len, str);
-		str[len] = '\0';
+		str.resize(len+1);
+		str.assign(_str, _str + len + 1);
+		str.push_back('\0');
 		str_len = len;
 		return *this;
 	};
@@ -169,11 +161,10 @@ public:
 	{
 		type = LIST;
 		for(size_t idx = 0; idx < strlen(_str); ++idx) {
-			term t;
+			term & t = this->insert();
 			t.integer((int)_str[idx]);
-			lt.push_back(t);
 		}
-		str = NULL; str_len = 0;
+		str_len = 0;
 		return *this;
 	};
 	inline term & pid(char *_str, int n, int s, int c)
@@ -182,10 +173,8 @@ public:
 		v.ppr.n = n;
 		v.ppr.s = s;
 		v.ppr.c = c;
-		if(str)	delete str;
 		str_len = strlen(_str)+1;
-		str = new char[str_len];
-		strcpy(str, _str);
+		str.assign(_str, _str + str_len);
 		return *this;
 	};
 	inline term & ref(char *_str, int n, int c)
@@ -193,10 +182,8 @@ public:
 		type = REF;
 		v.ppr.n = n;
 		v.ppr.c = c;
-		if(str)	delete str;
 		str_len = strlen(_str)+1;
-		str = new char[str_len];
-		strcpy(str, _str);
+		str.assign(_str, _str + str_len);
 		return *this;
 	};
 	inline term & port(char *_str, int n, int c)
@@ -204,10 +191,8 @@ public:
 		type = PORT;
 		v.ppr.n = n;
 		v.ppr.c = c;
-		if(str)	delete str;
 		str_len = strlen(_str)+1;
-		str = new char[str_len];
-		strcpy(str, _str);
+		str.assign(_str, _str + str_len);
 		return *this;
 	};
 
