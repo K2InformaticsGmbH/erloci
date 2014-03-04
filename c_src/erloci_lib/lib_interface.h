@@ -100,25 +100,4 @@ extern unsigned long max_term_byte_size;
 #define checkenv(envhp, status) checkerr0((envhp), OCI_HTYPE_ENV, (status), __FUNCTION__, __LINE__)
 extern void checkerr0(intf_ret *, unsigned int, int, const char *, int);
 
-
-class marshall 
-{
-public:
-	inline void * get() { return t; };
-	void * insert(void);
-	inline ~marshall()	{ delete t; };
-
-	marshall();
-
-	size_t size();
-	void append_list(void *);
-	void append_int(const int);
-	void append_string(const char *, size_t);
-	void append_coldef(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char);
-	void append_desc(const char *, size_t, const unsigned short, const unsigned int);
-
-private:
-	void * t;
-};
-
 #endif // OCI_LIB_INTF
