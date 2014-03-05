@@ -23,16 +23,20 @@ OCI Libraries   : /usr/lib/oracle/12.1/client64/lib/
 ```
 INSTANT_CLIENT_LIB_PATH     = path to oci libraries
 INSTANT_CLIENT_INCLUDE_PATH = path to oci headers
+ERL_INTERFACE_DIR           = path to erl_interface or erlang installation
 ```
 
 For example:
 ```
 (x64 Fedora)
-INSTANT_CLIENT_LIB_PATH=/usr/lib/oracle/12.1/client64/lib/
-INSTANT_CLIENT_INCLUDE_PATH=/usr/include/oracle/12.1/client64/
+INSTANT_CLIENT_LIB_PATH     = /usr/lib/oracle/12.1/client64/lib/
+INSTANT_CLIENT_INCLUDE_PATH = /usr/include/oracle/12.1/client64/
+ERL_INTERFACE_DIR           = /usr/local/lib/erlang/lib/erl_interface-3.7.11
+
 
 (x64 Windows 7)
 INSTANT_CLIENT_LIB_PATH     = C:\Oracle\instantclient\instantclient_12_1\
+ERL_INTERFACE_DIR           = C:\Program Files\erlang\erl5.10.4\lib\erl_interface-3.7.15
 ```
 
 ### Compiling
