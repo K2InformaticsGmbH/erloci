@@ -8,9 +8,10 @@
 -define(TAB, "erloci_load").
 
 %10 10 100
+%select table_name from all_tables where table_name like 'ERL%';
 -define(CONNECTIONS, 10).
 -define(STATEMENTS, 10).
--define(ROWS_PER_TABLE, 1000).
+-define(ROWS_PER_TABLE, 5000).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
@@ -37,7 +38,12 @@ init_per_suite(InitConfigData) ->
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
     [{tables, Tables}, {binds, Binds}, {config, {Tns,User,Pswd}}  | InitConfigData].
 
-end_per_suite(_ConfigData) ->
+end_per_suite(ConfigData) ->
+    Tables = lists:merge([Tabs || {_,Tabs} <- ?value(tables, ConfigData)]),
+    {Tns,User,Pswd} = ?value(config, ConfigData),
+    OciPort = oci_port:start_link([{logging, true}]),
+    OciSession = OciPort:get_session(Tns, User, Pswd),
+    [tab_drop(OciSession, Table) || Table <- Tables],
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
@@ -141,7 +147,7 @@ tab_drop(OciSession, Table) when is_list(Table) ->
     case DropStmt:exec_stmt() of
         {error, _} -> ok; 
         _ ->
-            ct:pal(info, "[~s] Droped!", [Table]),
+            %ct:pal(info, "[~s] Droped!", [Table]),
             ok = DropStmt:close()
     end.
 
