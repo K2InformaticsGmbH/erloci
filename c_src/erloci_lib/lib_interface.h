@@ -29,10 +29,6 @@ typedef enum _LOG_LEVEL {
 #define MAX_RESP_SIZE 0x00040000UL
 #define MAX_COLUMNS 500
 
-//
-// Exposed linkages (export)
-//
-extern void log_remote(const char *, const char *, unsigned int, unsigned int, void *, const char *, ...);
 
 #ifndef __WIN32__
 #include <string.h>
@@ -86,14 +82,12 @@ typedef struct intf_ret {
 	INTF_RET	fn_ret;
 } intf_ret;
 
-typedef void (*fn_coldefappend)(const char *, size_t, const unsigned short, const unsigned int,
-							  const unsigned int, const unsigned int, void *);
-
 // External linkages (import)
 extern bool	log_flag;
 extern unsigned long max_term_byte_size;
 
-//extern void log_remote(const char *, const char *, unsigned int, unsigned int, void *, const char *, ...);
+// External linkages (export)
+extern void log_remote(const char *, const char *, unsigned int, unsigned int, void *, const char *, ...);
 
 /* Error checking functions and macros */
 #define checkerr(errhp, status) checkerr0((errhp), OCI_HTYPE_ERROR, (status), __FUNCTION__, __LINE__)

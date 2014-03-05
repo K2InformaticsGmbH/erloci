@@ -7,10 +7,10 @@
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
 
-% 10 10 10
+%10 10 100
 -define(CONNECTIONS, 10).
 -define(STATEMENTS, 10).
--define(ROWS_PER_TABLE, 10).
+-define(ROWS_PER_TABLE, 1000).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
