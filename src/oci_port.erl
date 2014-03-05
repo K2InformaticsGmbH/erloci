@@ -469,32 +469,9 @@ signal_str(N)  -> {undefined,       ignore, N}.
 
 -include("oci_test.hrl").
 
-flush_table(OciSession) ->
-    ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
-    DropStmt = OciSession:prep_sql(?DROP),
-    ?assertMatch({?MODULE, statement, _, _, _}, DropStmt),
-    % If table doesn't exists the handle isn't valid
-    % Any error is ignored anyway
-    case DropStmt:exec_stmt() of
-        {error, _} -> ok; 
-        _ -> ?assertEqual(ok, DropStmt:close())
-    end,
-    ?ELog("creating table ~s", [?TESTTABLE]),
-    StmtCreate = OciSession:prep_sql(?CREATE),
-    ?assertMatch({?MODULE, statement, _, _, _}, StmtCreate),
-    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
-    ?assertEqual(ok, StmtCreate:close()).
-
-setup() ->
-    application:start(erloci),
-    OciPort = oci_port:start_link([{logging, true}]),
-    timer:sleep(1000),
-    OciPort.
-
-teardown(OciPort) ->
-    OciPort:close(),
-    application:stop(erloci).
-
+%%-----------------------------------------------------------------------------
+%% db_negative_test_
+%%-----------------------------------------------------------------------------
 db_negative_test_() ->
     {timeout, 60, {
         setup,
@@ -505,6 +482,16 @@ db_negative_test_() ->
             fun bad_password/1
         ]}
     }}.
+
+setup() ->
+    application:start(erloci),
+    OciPort = oci_port:start_link([{logging, true}]),
+    timer:sleep(1000),
+    OciPort.
+
+teardown(OciPort) ->
+    OciPort:close(),
+    application:stop(erloci).
 
 bad_password(OciPort) ->
     ?ELog("+----------------------------------------------------------------+"),
@@ -533,21 +520,55 @@ echo(OciPort) ->
     ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
     ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
 
+%%-----------------------------------------------------------------------------
+%% db_test_
+%%-----------------------------------------------------------------------------
 db_test_() ->
     {timeout, 60, {
         setup,
-        fun oci_test:setup/0,
-        fun oci_test:teardown/1,
+        fun setup_conn/0,
+        fun teardown_conn/1,
         {with, [
             fun drop_create/1
             , fun insert_select_update/1
-            %, fun auto_rollback_test/1
-            %, fun commit_rollback_test/1
-            %, fun asc_desc_test/1
-            %, fun describe_test/1
-            %, fun function_test/1
+            , fun auto_rollback_test/1
+            , fun commit_rollback_test/1
+            , fun asc_desc_test/1
+            , fun describe_test/1
+            , fun function_test/1
         ]}
     }}.
+
+setup_conn() ->
+    application:start(erloci),
+    OciPort = oci_port:start_link([{logging, true}]),
+    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    OciSession = OciPort:get_session(Tns, User, Pswd),
+    {OciPort, OciSession}.
+
+teardown_conn({OciPort, OciSession}) ->
+    DropStmt = OciSession:prep_sql(?DROP),
+    DropStmt:exec_stmt(),
+    DropStmt:close(),
+    OciSession:close(),
+    OciPort:close(),
+    application:stop(erloci).
+
+flush_table(OciSession) ->
+    ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
+    DropStmt = OciSession:prep_sql(?DROP),
+    ?assertMatch({?MODULE, statement, _, _, _}, DropStmt),
+    % If table doesn't exists the handle isn't valid
+    % Any error is ignored anyway
+    case DropStmt:exec_stmt() of
+        {error, _} -> ok; 
+        _ -> ?assertEqual(ok, DropStmt:close())
+    end,
+    ?ELog("creating table ~s", [?TESTTABLE]),
+    StmtCreate = OciSession:prep_sql(?CREATE),
+    ?assertMatch({?MODULE, statement, _, _, _}, StmtCreate),
+    ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
+    ?assertEqual(ok, StmtCreate:close()).
 
 drop_create({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
