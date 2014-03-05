@@ -13,7 +13,6 @@ ERLOCI_PATH = $(SRC_PATH_PREFIX)erloci_drv
 ERLOCI_LIB_PATH = $(SRC_PATH_PREFIX)erloci_lib
 OCI_INCLUDE_PATH = $(INSTANT_CLIENT_INCLUDE_PATH)
 OCI_LIB_PATH = $(INSTANT_CLIENT_LIB_PATH)
-ERL_INTERFACE_DIR = $(OTPROOT)/lib/erl_interface-3.7.11
 
 ERLOCI_LIB_HDRS = $(wildcard $(addprefix $(ERLOCI_LIB_PATH)/, *.h))
 ERLOCI_LIB_SRCS = $(wildcard $(addprefix $(ERLOCI_LIB_PATH)/, *.cpp))
