@@ -541,11 +541,11 @@ db_test_() ->
         {with, [
             fun drop_create/1
             , fun insert_select_update/1
-            , fun auto_rollback_test/1
-            , fun commit_rollback_test/1
-            , fun asc_desc_test/1
-            , fun describe_test/1
-            , fun function_test/1
+            %, fun auto_rollback_test/1
+            %, fun commit_rollback_test/1
+            %, fun asc_desc_test/1
+            %, fun describe_test/1
+            %, fun function_test/1
         ]}
     }}.
 
@@ -611,29 +611,34 @@ insert_select_update({_, OciSession}) ->
 
     Rows = Rows0 ++ Rows1 ++ Rows2,
 
-%    ?ELog("Got rows~n~p", [[begin
-%        [Rowid
-%        , Pkey
-%        , Publisher
-%        , Rank
-%        , Hero
-%        , Reality
-%        , Votes
-%        , Createdate
-%        , Chapters
-%        , Votes_first_rank] = lists:reverse(R),
-%        [Rowid
-%        , oci_util:oranumber_decode(Pkey)
-%        , Publisher
-%        , oci_util:oranumber_decode(Rank)
-%        , Hero
-%        , Reality
-%        , oci_util:oranumber_decode(Votes)
-%        , oci_util:oradate_to_str(Createdate)
-%        , oci_util:oranumber_decode(Chapters)
-%        , oci_util:oranumber_decode(Votes_first_rank)]
-%    end || R <- Rows]]),
+    %?ELog("Got rows~n~p", [
+    %    [
+    %        begin
+    %        [Rowid
+    %        , Pkey
+    %        , Publisher
+    %        , Rank
+    %        , Hero
+    %        , Reality
+    %        , Votes
+    %        , Createdate
+    %        , Chapters
+    %        , Votes_first_rank] = R,
+    %        [Rowid
+    %        , oci_util:oranumber_decode(Pkey)
+    %        , Publisher
+    %        , oci_util:oranumber_decode(Rank)
+    %        , Hero
+    %        , Reality
+    %        , oci_util:oranumber_decode(Votes)
+    %        , oci_util:oradate_to_str(Createdate)
+    %        , oci_util:oranumber_decode(Chapters)
+    %        , oci_util:oranumber_decode(Votes_first_rank)]
+    %        end
+    %    || R <- Rows]
+    %]),
     RowIDs = [R || [R|_] <- Rows],
+
     ?ELog("RowIds ~p", [RowIds]),
     ?ELog("~s", [binary_to_list(?UPDATE)]),
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
