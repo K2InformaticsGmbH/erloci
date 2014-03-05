@@ -31,7 +31,7 @@ For example:
 (x64 Fedora)
 INSTANT_CLIENT_LIB_PATH     = /usr/lib/oracle/12.1/client64/lib/
 INSTANT_CLIENT_INCLUDE_PATH = /usr/include/oracle/12.1/client64/
-ERL_INTERFACE_DIR           = /usr/local/lib/erlang/lib/erl_interface-3.7.11
+ERL_INTERFACE_DIR           = /usr/lib64/erlang/lib/erl_interface-3.7.15
 
 
 (x64 Windows 7)
