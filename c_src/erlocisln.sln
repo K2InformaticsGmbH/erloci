@@ -1,14 +1,11 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 10.00
-# Visual Studio 2008
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_con", "erloci_con\erloci_con.vcproj", "{B4DB9805-08A9-49EC-B526-AC42798E0420}"
-	ProjectSection(ProjectDependencies) = postProject
-		{7C2A067E-4DE0-41B3-98BA-05B971CCF708} = {7C2A067E-4DE0-41B3-98BA-05B971CCF708}
-	EndProjectSection
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_con", "erloci_con\erloci_con.vcxproj", "{B4DB9805-08A9-49EC-B526-AC42798E0420}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_lib", "erloci_lib\erloci_lib.vcproj", "{7C2A067E-4DE0-41B3-98BA-05B971CCF708}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_lib", "erloci_lib\erloci_lib.vcxproj", "{7C2A067E-4DE0-41B3-98BA-05B971CCF708}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_drv", "erloci_drv\erloci_drv.vcproj", "{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "erloci_drv", "erloci_drv\erloci_drv.vcxproj", "{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
