@@ -358,7 +358,7 @@ handle_call(close, _From, #state{port=Port} = State) ->
     end,
     {stop, normal, ok, State};
 handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger} = State) ->
-    Cmd = [From | Msg],
+    Cmd = [if From /= undefined -> term_to_binary(From); true -> From end | Msg],
     CmdTuple = list_to_tuple(Cmd),
     BTerm = term_to_binary(CmdTuple),
     %?Debug(_PortLogger, "TX (~p):~n---~n~p~n---~n~w~n---", [byte_size(BTerm), Cmd, BTerm]),
@@ -378,9 +378,9 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_b
         {undefined, Result} -> ?Info(L,"no reply for ~p", [Result]);
         {From, {error, Reason}} ->
             ?Error(L, "~p", [Reason]), % Just in case its ignored later
-            gen_server:reply(From, {error, Reason});
+            gen_server:reply(binary_to_term(From), {error, Reason});
         {From, Result} ->
-            gen_server:reply(From, Result) % regular reply
+            gen_server:reply(binary_to_term(From), Result) % regular reply
     end,
     {noreply, State#state{waiting_resp=false}};
 handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = Logger} = State) ->
@@ -513,6 +513,10 @@ echo(OciPort) ->
     ?assertEqual(node(), OciPort:echo(node())),
     Ref = make_ref(),
     ?assertEqual(Ref, OciPort:echo(Ref)),
+    % Load the ref cache to generate long ref
+    _Refs = [make_ref() || _I <- lists:seq(1,1000000)],    
+    Ref1 = make_ref(),
+    ?assertEqual(Ref1, OciPort:echo(Ref1)),
     %Fun = fun() -> ok end, % Not Supported
     %?assertEqual(Fun, OciPort:echo(Fun)),
     ?assertEqual("string", OciPort:echo("string")),

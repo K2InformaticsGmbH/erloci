@@ -17,6 +17,7 @@ c_src/lib/instantclient/lib*.*
 *.log
 *.obj
 c_src/Debug/
+c_src/*/Debug/
 c_src/Stub/Debug/
 *.ncb
 *.suo

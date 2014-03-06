@@ -135,6 +135,18 @@ void term::set(Type t, char *ns, int n, int s, int c)
 	}
 }
 
+void term::set(Type t, char *ns, unsigned int *n, int l, int c)
+{
+	type = t;
+	for (int _i = 0; _i < l; ++_i)
+		v.ppr.nr[_i] = n[_i];
+	v.ppr.c = c;
+	if (ns) {
+		str_len = strlen(ns) + 1;
+		str.assign(ns, ns + str_len);
+	}
+}
+
 void term::set(Type t, unsigned char * s, int strl)
 {
 	type = t;

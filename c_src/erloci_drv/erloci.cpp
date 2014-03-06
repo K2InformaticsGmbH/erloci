@@ -32,22 +32,13 @@ int main(int argc, char * argv[])
 
 	transcoder::instance();
 #if 0
-	{
 		// A = {{self(), make_ref()},1,<<"connstr">>,<<"user">>,<<"pwd">>}.
-		unsigned char b[] = {131,104,5,104,2,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,
-	  116,0,0,0,32,0,0,0,0,0,114,0,3,100,0,13,110,111,110,111,100,101,64,110,111,
-	  104,111,115,116,0,0,0,0,26,0,0,0,0,0,0,0,0,97,1,109,0,0,0,7,99,111,110,110,
-	  115,116,114,109,0,0,0,4,117,115,101,114,109,0,0,0,3,112,119,100};
+		unsigned char b[] = {131,114,0,3,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,
+  1,64,215,0,0,0,76,0,0,0,0};
 		vector<unsigned char> buf(b, b + sizeof(b) / sizeof(b[0]));
 		term t;
 		transcoder::instance().decode(buf, t);
-			{
-				term resp;
-				resp.tuple()
-						.add(t[0])
-						.add(1);
-			}
-	}
+		vector<unsigned char> buf1 = transcoder::instance().encode(t);
 #endif
 
     log_flag = false;

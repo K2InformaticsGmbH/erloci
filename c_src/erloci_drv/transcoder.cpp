@@ -106,7 +106,7 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 	else if(ERL_IS_FLOAT(et))				t.set(term::FLOAT,		ERL_FLOAT_VALUE(et));
 	else if(ERL_IS_PID(et))					t.set(term::PID,		ERL_PID_NODE_UTF8(et),	ERL_PID_NUMBER(et),		ERL_PID_SERIAL(et),		ERL_PID_CREATION(et));
 	else if(ERL_IS_PORT(et))				t.set(term::PORT,		ERL_PORT_NODE_UTF8(et),	ERL_PORT_NUMBER(et),	ERL_PORT_CREATION(et));
-	else if(ERL_IS_REF(et))					t.set(term::REF,		ERL_REF_NODE_UTF8(et),	ERL_REF_NUMBER(et),		ERL_REF_CREATION(et));
+	else if(ERL_IS_REF(et))					t.set(term::REF,		ERL_REF_NODE_UTF8(et),	ERL_REF_NUMBERS(et),	ERL_REF_LEN(et),		ERL_REF_CREATION(et));
 	else if(ERL_IS_BINARY(et))				t.set(term::BINARY,		ERL_BIN_PTR(et),		ERL_BIN_SIZE(et));
 	else if(ERL_IS_INTEGER(et))				t.set(term::INTEGER,	ERL_INT_VALUE(et));
 	else if(ERL_IS_UNSIGNED_INTEGER(et))	t.set(term::U_INTEGER,	ERL_INT_UVALUE(et));
@@ -155,7 +155,7 @@ ETERM * transcoder::stl_to_erlterm(term & t)
 			et = erl_mk_port(&t.str[0], t.v.ppr.n, t.v.ppr.c);
 			break;
 		case term::REF:
-			et = erl_mk_ref(&t.str[0], t.v.ppr.n, t.v.ppr.c);
+			et = erl_mk_long_ref(&t.str[0], t.v.ppr.nr[2], t.v.ppr.nr[1], t.v.ppr.nr[0], t.v.ppr.c);
 			break;
 		case term::BINARY:
 			et = erl_mk_binary(&t.str[0], (int)t.str_len);

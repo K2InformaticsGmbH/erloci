@@ -60,6 +60,7 @@ public:
 		unsigned long ul;
 		unsigned long long ull;
 		struct {
+			unsigned int nr[3];
 			int n;
 			int s;
 			int c;
@@ -93,6 +94,7 @@ public:
 	void set(Type, char *);
 	void set(Type, char *, int, int);
 	void set(Type, char *, int, int, int);
+	void set(Type, char *, unsigned int *, int, int);
 	void set(Type, unsigned char *, int);
 	void set(Type, double);
 	void set(Type, int);
