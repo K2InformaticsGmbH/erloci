@@ -39,6 +39,7 @@ private:
 public:
 	static vector<unsigned char> pop(void);
 	static void push(vector<unsigned char> &);
+	static inline size_t size() { return self.cmdsq.size(); };
 };
 
 #endif // CMD_QUEUE_H

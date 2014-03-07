@@ -72,6 +72,9 @@ int main(int argc, char * argv[])
 
 	while(prt.read_cmd(read_buf) > 0) {
 		cmd_queue::push(read_buf);
+#ifndef USING_THREAD_POOL
+		threads::start();
+#endif
     }
 	threads::run_threads = false;
 

@@ -1,6 +1,8 @@
 #ifndef _PLATFORM_H_
 #define _PLATFORM_H_
 
+#define USING_THREAD_POOL
+
 #ifdef __WIN32__
 	#include <io.h>
 	#include <fcntl.h>

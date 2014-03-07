@@ -45,6 +45,7 @@ threads::threads(void)
 		, append_coldef_to_list
 		, append_desc_to_list);
 
+#ifdef USING_THREAD_POOL
 #ifdef __WIN32__
     InitializeThreadpoolEnvironment(&CallBackEnviron);
 
@@ -80,12 +81,15 @@ main_cleanup:
         return;
 #endif
     exit(0);
+#else
+#endif
 }
 
 threads::~threads(void)
 {
     REMOTE_LOG(DBG, "Cleanup Thread pool...");
 
+#ifdef USING_THREAD_POOL
 #ifdef __WIN32__
     BOOL bRet = FALSE;
 
@@ -113,6 +117,8 @@ main_cleanup:
     if(pTp)
         threadpool_destroy(pTp, 0);
 #endif
+#else
+#endif
 }
 
 #include "cmd_queue.h"
@@ -122,12 +128,17 @@ main_cleanup:
 // This is the thread pool work callback function.
 //
 static
+#ifdef USING_THREAD_POOL
 #ifdef __WIN32__
-VOID CALLBACK
+	VOID CALLBACK
 #else
-void
+	void
 #endif
-ProcessCommandCb(
+#else
+	DWORD WINAPI
+#endif
+ProcessCommandCb (
+#ifdef USING_THREAD_POOL
 #ifdef __WIN32__
     PTP_CALLBACK_INSTANCE Instance,
     PVOID                 arg,
@@ -135,14 +146,21 @@ ProcessCommandCb(
 #else
     void *arg
 #endif
+#else
+	LPVOID arg
+#endif
 )
 {
     //REMOTE_LOG(DBG, "Port: WorkThread processing command...\n");
+#ifdef USING_THREAD_POOL
 #ifdef __WIN32__
     // Instance, Parameter, and Work not used in this example.
     UNREFERENCED_PARAMETER(Instance);
     UNREFERENCED_PARAMETER(arg);
     UNREFERENCED_PARAMETER(Work);
+#endif
+#else
+    UNREFERENCED_PARAMETER(arg);
 #endif
 
 	vector<unsigned char> rxpkt;
@@ -159,37 +177,63 @@ ProcessCommandCb(
 #endif
 	}
 	if(!threads::run_threads)
+#ifdef USING_THREAD_POOL
 		return;
+#else
+		return 0;
+#endif
+#ifdef USING_THREAD_POOL
 	threads::start();
+#endif
 
 	term t;
 	threads::tc.decode(rxpkt, t);
 	if(command::process(t))
 		exit(1);
 
+#ifdef USING_THREAD_POOL
 	return;
+#else
+    return 0;
+#endif
 }
 
 void threads::start(void)
 {
     //REMOTE_LOG(DBG, "Port: Delegating command processing to WorkThread...");
-#ifdef __WIN32__
-    PTP_WORK work = NULL;
-    work = CreateThreadpoolWork(ProcessCommandCb, NULL, &CallBackEnviron);
+#ifdef USING_THREAD_POOL
+	#ifdef __WIN32__
+		PTP_WORK work = NULL;
+		work = CreateThreadpoolWork(ProcessCommandCb, NULL, &CallBackEnviron);
 
-    if (NULL == work) {
-        REMOTE_LOG(CRT, "CreateThreadpoolWork failed. LastError: %u\n", GetLastError());
-        exit(0);
-    }
+		if (NULL == work) {
+			REMOTE_LOG(CRT, "CreateThreadpoolWork failed. LastError: %u\n", GetLastError());
+			exit(0);
+		}
 
-    rollback = 3;  // Creation of work succeeded
+		rollback = 3;  // Creation of work succeeded
 
-    //
-    // Submit the work to the pool. Because this was a pre-allocated
-    // work item (using CreateThreadpoolWork), it is guaranteed to execute.
-    //
-    SubmitThreadpoolWork(work);
+		//
+		// Submit the work to the pool. Because this was a pre-allocated
+		// work item (using CreateThreadpoolWork), it is guaranteed to execute.
+		//
+		SubmitThreadpoolWork(work);
+	#else
+		threadpool_add(pTp, &ProcessCommandCb, NULL, 0);
+	#endif
 #else
-    threadpool_add(pTp, &ProcessCommandCb, NULL, 0);
+	#ifdef __WIN32__
+	if (NULL == CreateThread( 
+            NULL,                   // default security attributes
+            0,                      // use default stack size  
+            ProcessCommandCb,       // thread function name
+            NULL,					// argument to thread function 
+            0,                      // use default creation flags 
+            NULL)) {
+		REMOTE_LOG(CRT, "CreateThreadpoolWork failed. LastError: %u\n", GetLastError());
+		exit(0);
+	}
+	#else
+	#endif
 #endif
 }
