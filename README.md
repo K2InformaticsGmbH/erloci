@@ -69,9 +69,18 @@ The Oracle connection information are taken from erloci.app.src. Please change i
   1. <code>rebar compile</code>
   2. <code>rebar eunit</code>
 
+
+### CHANGE LOG
+#### 0.0.2
+1. STL term class for wrapping erlang term
+2. Native process redesigned to OO
+2. Support Variable binding for Input
+3. Concurrent connection and statements
+4. Common test for load testing
+
 ### Work-In-Progess
-1. Support Variable binding for Input
+1. Testing and stabilization
+2. Wiki
 
 ### TODOs
-1. More test cases
-2. In/Out bind variables and arrays
+1. In/Out bind variables and arrays
