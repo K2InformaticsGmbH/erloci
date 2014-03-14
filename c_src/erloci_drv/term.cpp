@@ -150,9 +150,9 @@ void term::set(Type t, char *ns, unsigned int *n, int l, int c)
 void term::set(Type t, unsigned char * s, int strl)
 {
 	type = t;
-	if (s) {
-		str_len = strl;
-		str.resize(str_len+1);
+	str_len = strl;
+	str.resize(str_len+1);
+	if (s && str_len > 0) {
 		str.assign(s, s+str_len+1);
 		str.push_back('\0');
 	}

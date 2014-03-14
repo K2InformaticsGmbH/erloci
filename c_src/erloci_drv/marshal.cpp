@@ -174,7 +174,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	r.fn_ret = CONTINUE_WITH_ERROR;
 
 	void * tmp_arg = NULL;
-	sb2 ind = -1;
+	sb2 ind = -1; // set to NULL as default
 	size_t arg_len = 0;
 	
 	// remove any old bind from the vars
@@ -205,7 +205,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				throw r;
 			}
 			
-			ind = -1;
+			ind = -1; // assume the field to be deleted by setting NULL
+					  // set to zero when no trivial value for the field
+					  // is found
 			tmp_arg = NULL;
 			arg_len = 0;
 			switch(vars[i].dty) {
@@ -218,7 +220,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						tmp_arg = new double;
 						*(double*)tmp_arg = (double)(t2.is_any_int() ? t2.v.ll : t2.v.d);
 					} else {
-						REMOTE_LOG(ERR, "row %d: malformed float for %s (got %s expected ERL_INTEGER or ERL_FLOAT)\n", bind_count, vars[i].name, t2.type);
+						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed float parameter value");
@@ -233,7 +235,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						tmp_arg = new int;
 						*(int*)tmp_arg = t2.v.i;
 					} else {
-						REMOTE_LOG(ERR, "row %d: malformed integer for %s (got %s expected ERL_INTEGER)\n", bind_count, vars[i].name, t2.type);
+						REMOTE_LOG(ERR, "row %d: malformed integer for %s (expected INTEGER)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed integer parameter value");
@@ -246,8 +248,8 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, &t2.str[0], arg_len);
-					} else {
-						REMOTE_LOG(ERR, "row %d: malformed number for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
+					} else if (!t2.is_binary()) {
+						REMOTE_LOG(ERR, "row %d: malformed number for %s (expected BINARY)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed number parameter value");
@@ -261,8 +263,8 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, &t2.str[0], arg_len);
-					} else {
-						REMOTE_LOG(ERR, "row %d: malformed binary for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
+					} else if (!t2.is_binary()) {
+						REMOTE_LOG(ERR, "row %d: malformed binary for %s (expected BINARY)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed binary parameter value");
@@ -276,8 +278,8 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 						((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
-					} else {
-						REMOTE_LOG(ERR, "row %d: malformed date for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
+					} else if (!t2.is_binary()) {
+						REMOTE_LOG(ERR, "row %d: malformed date for %s (expected BINARY)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed date parameter value");
@@ -292,8 +294,8 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						arg_len = t2.str_len;
 						tmp_arg = new char[arg_len];
 						memcpy(tmp_arg, &t2.str[0], arg_len);
-					} else {
-						REMOTE_LOG(ERR, "row %d: malformed string for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
+					} else if (!t2.is_binary()) {
+						REMOTE_LOG(ERR, "row %d: malformed string for %s (expected BINARY)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed string parameter value");
@@ -308,8 +310,8 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 						((char*)tmp_arg)[arg_len] = '\0';
 						arg_len++;
-					} else {
-						REMOTE_LOG(ERR, "row %d: malformed string\\0 for %s (got %s expected ERL_BINARY)\n", bind_count, vars[i].name, t2.type);
+					} else if (!t2.is_binary()) {
+						REMOTE_LOG(ERR, "row %d: malformed string\\0 for %s (expected BINARY)\n", bind_count, vars[i].name);
 						//REMOTE_LOG_TERM(ERR, arg, "bad term\n");
 						//REMOTE_LOG_TERM(ERR, item, "within (%u)\n", i);
 						strcpy(r.gerrbuf, "Malformed string\\0 parameter value");

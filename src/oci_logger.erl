@@ -26,9 +26,10 @@
     terminate/2,
     code_change/3]).
 
--export([start_link/0, log/2,accept/3, bin2str/1]).
+-export([start_link/2, log/2, accept/1, bin2str/1]).
 
 -record(state, {
+          lsock,
           sock,
           logfun,
           buf = <<>>
@@ -47,34 +48,32 @@ split_list(List, Size, Acc) ->
        true -> lists:reverse([L2,L1|Acc])
     end.
 
-start_link() ->
-    case gen_server:start_link(?MODULE, [], []) of
+start_link(LSock, LogFun) when is_function(LogFun, 1) ->
+    case gen_server:start_link(?MODULE, [LSock, LogFun], []) of
         {ok, Pid} -> {?MODULE, Pid};
         Error -> throw({error, Error})
     end.
 
-accept(LSock, LogFun, {?MODULE, Pid}) when is_function(LogFun, 1) ->
-    gen_server:call(Pid, {accept, LSock, LogFun}, infinity).
+accept({?MODULE, Pid}) ->
+    gen_server:call(Pid, accept, infinity).
 
--ifdef(TEST).
-log({Lvl, _Tag, File, Func, Line, Msg}, Mod) ->
-    log(lists:flatten(io_lib:format(?T++"[~p] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])), Mod);
+log({Lvl, _Tag, File, Func, Line, Msg}, {?MODULE, Pid}) ->
+    gen_server:cast(Pid, {Lvl, File, Func, Line, Msg});
 log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
--else.
-log({Lvl, Tag, File, Func, Line, Msg}, Mod) ->
-    log(lists:flatten(io_lib:format(?T++"[~p] ["++Tag++"] {~s,~s,~p} ~s", [Lvl, File, Func, Line, Msg])), Mod);
-log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
--endif.
 
-init(_) ->
-    io:format(user, "---- ERLOCI PORT PROCESS LOGGER ----~n", []),
-    {ok, #state{}}.
+init([LSock, LogFun]) ->
+    try
+        LogFun({info, atom_to_list(?MODULE), "", ?LINE, "---- ERLOCI PORT PROCESS LOGGER ----"})
+    catch
+        _:Reason -> io:format(user, "-- ~p --~n", [Reason])
+    end,
+    {ok, #state{lsock = LSock, logfun = LogFun}}.
 
 handle_cast(Msg, #state{logfun = LogFun} = State) ->
     try
         LogFun(Msg)
     catch
-        _:_ -> io:format(user, Msg, [])
+        _:Reason -> io:format(user, "-- ~p -- ~p~n", [Reason,Msg])
     end,
     {noreply, State}.
 
@@ -107,7 +106,7 @@ handle_info(Msg, State) ->
     io:format(user, "~p unsupported handle_info ~p", [{?MODULE, ?LINE}, Msg]),
     {noreply, State}.
 
-handle_call({accept, LSock, LogFun}, _From, State) ->
+handle_call(accept, _From, #state{lsock = LSock} = State) ->
     {ok, {_,LPort}} = inet:sockname(LSock),
     io:format(user, ?T++"[debug] [_OCI_] Waiting for peer to connect on ~p~n", [LPort]),
     case gen_tcp:accept(LSock) of
@@ -115,8 +114,8 @@ handle_call({accept, LSock, LogFun}, _From, State) ->
             inet:setopts(Sock,[{active,once}]),
             {ok, {_,RemPort}} = inet:peername(Sock),
             {ok, {_,LclPort}} = inet:sockname(Sock),
-            io:format(user, ?T++" [debug] [_OCI_] Connection from ~p to ~p~n", [RemPort, LclPort]),
-            {reply, ok, State#state{sock = Sock, logfun = LogFun}};
+            io:format(user, ?T++"[debug] [_OCI_] Connection from ~p to ~p~n", [RemPort, LclPort]),
+            {reply, ok, State#state{sock = Sock}};
         {error, Error} ->
             {reply, {error, {accept_failed, Error}}, State}
     end;

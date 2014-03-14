@@ -31,10 +31,12 @@ int main(int argc, char * argv[])
 #endif
 
 	transcoder::instance();
-#if 0
-		// A = {{self(), make_ref()},1,<<"connstr">>,<<"user">>,<<"pwd">>}.
-		unsigned char b[] = {131,114,0,3,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,
-  1,64,215,0,0,0,76,0,0,0,0};
+#if 1
+		unsigned char b[] = {
+			// 131,106 // term_to_binary(""). term_to_binary([]).
+			// 131,104,0 //term_to_binary({}).
+			131,109,0,0,0,0 // term_to_binary(<<>>).
+		};
 		vector<unsigned char> buf(b, b + sizeof(b) / sizeof(b[0]));
 		term t;
 		transcoder::instance().decode(buf, t);

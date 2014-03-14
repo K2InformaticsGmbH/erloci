@@ -178,14 +178,11 @@
 -include("log.hrl").
 -define(LOG_TAG, "_OCI_").
 
--define(Debug(_Lgr,__M,__F,__A),    ?LOG(_Lgr,?LOG_TAG, dbg, __M, "{~p,~*B} "++__F, [?MODULE,4,?LINE]++__A)).
--define(Debug(_Lgr,__F,__A),        ?LOG(_Lgr,?LOG_TAG, dbg,  [], "{~p,~*B} "++__F, [?MODULE,4,?LINE]++__A)).
--define(Debug(_Lgr,__F),            ?LOG(_Lgr,?LOG_TAG, dbg,  [], "{~p,~*B} "++__F, [?MODULE,4,?LINE])).
+-define(Debug(_Lgr,__F,__A),        ?LOG(_Lgr,?LOG_TAG, 0, __F, __A)).
+-define(Debug(_Lgr,__F),            ?LOG(_Lgr,?LOG_TAG, 0, __F, [])).
 
--define(Info(_Lgr,__M,__F,__A),     ?LOG(_Lgr,?LOG_TAG, nfo, __M, "{~p,~*B} "++__F, [?MODULE,4,?LINE]++__A)).
--define(Info(_Lgr,__F,__A),         ?LOG(_Lgr,?LOG_TAG, nfo,  [], "{~p,~*B} "++__F, [?MODULE,4,?LINE]++__A)).
--define(Info(_Lgr,__F),             ?LOG(_Lgr,?LOG_TAG, nfo,  [], "{~p,~*B} "++__F, [?MODULE,4,?LINE])).
+-define(Info(_Lgr,__F,__A),         ?LOG(_Lgr,?LOG_TAG, 1, __F, __A)).
+-define(Info(_Lgr,__F),             ?LOG(_Lgr,?LOG_TAG, 1, __F, [])).
 
--define(Error(_Lgr,__M,__F,__A),    ?LOG(_Lgr,?LOG_TAG, err, __M, "{~p,~*B} "++__F, [?MODULE,4,?LINE]++__A)).
--define(Error(_Lgr,__F,__A),        ?LOG(_Lgr,?LOG_TAG, err,  [], "{~p,~*B} "++__F, [?MODULE,4,?LINE]++__A)).
--define(Error(_Lgr,__F),            ?LOG(_Lgr,?LOG_TAG, err,  [], "{~p,~*B} "++__F, [?MODULE,4,?LINE])).
+-define(Error(_Lgr,__F,__A),        ?LOG(_Lgr,?LOG_TAG, 3, __F, __A)).
+-define(Error(_Lgr,__F),            ?LOG(_Lgr,?LOG_TAG, 3, __F, [])).

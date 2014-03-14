@@ -116,10 +116,10 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 	else if(ERL_IS_CONS(et) || ERL_IS_LIST(et)) {
 		ETERM *erl_list = et;
 		unsigned long long list_idx = 0;
+		if (t.is_undef())
+			t.lst();
 		do {
 			ETERM *et1 = ERL_CONS_HEAD(erl_list);
-			if (t.is_undef())
-				t.lst();
 			term & t1 = t.insert();
 			erlterm_to_stl(et1, t1);
 			//t.set(term::LIST, t1, list_idx);
@@ -128,9 +128,9 @@ void transcoder::erlterm_to_stl(ETERM *et, term & t)
 		} while(erl_list && !ERL_IS_EMPTY_LIST(erl_list));
 	}
 	else if(ERL_IS_TUPLE(et)) {
+		if (t.is_undef())
+			t.tuple();
 		for(unsigned long long tuple_idx = 0; tuple_idx < (unsigned long long)ERL_TUPLE_SIZE(et); ++tuple_idx) {
-			if (t.is_undef())
-				t.tuple();
 			term & t1 = t.insert();
 			erlterm_to_stl(ERL_TUPLE_ELEMENT(et, tuple_idx), t1);
 			//t.set(term::TUPLE, t1, tuple_idx);

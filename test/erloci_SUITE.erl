@@ -9,9 +9,9 @@
 
 %10 10 100
 %select table_name from all_tables where table_name like 'ERL%';
--define(CONNECTIONS, 10).
--define(STATEMENTS, 10).
--define(ROWS_PER_TABLE, 5000).
+-define(CONNECTIONS, 100).
+-define(STATEMENTS, 100).
+-define(ROWS_PER_TABLE, 5).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).

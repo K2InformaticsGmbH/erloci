@@ -28,47 +28,6 @@ end)()).
 end)()).
 -endif.
 
--ifndef(NOLOGGING).
--define(LOG(__T,__L,__M,__F,__A),
-(fun() ->
-    case [A || {A,_,_} <- application:which_applications(), A =:= erloci] of
-        [erloci] -> ok;
-        _ -> application:load(erloci)
-    end,
-    case application:get_env(erloci, logging) of
-    {ok, debug} ->
-        case __L of
-        dbg -> lists:flatten(io_lib:format(?T++"[debug] ["++__T++"] " ++ __F ++ "~n", __A));
-        nfo -> lists:flatten(io_lib:format(?T++"[info]  ["++__T++"] " ++ __F ++ "~n", __A));
-        err -> lists:flatten(io_lib:format(?T++"[error] ["++__T++"] " ++ __F ++ "~n", __A));
-        _ -> ok
-        end;
-    {ok, info} ->
-        case __L of
-        nfo -> lists:flatten(io_lib:format(?T++"[info]  ["++__T++"] " ++ __F ++ "~n", __A));
-        err -> lists:flatten(io_lib:format(?T++"[error] ["++__T++"] " ++ __F ++ "~n", __A));
-        _ -> ok
-        end;
-    {ok, error} ->
-        case __L of
-        err -> lists:flatten(io_lib:format(?T++"[error] ["++__T++"] " ++ __F ++ "~n", __A));
-        _ -> ok
-        end;
-    _ -> ok
-    end
-end)()
-).
--define(LOG(__LMod,__T,__L,__M,__F,__A),
-(fun() ->
-    __S = ?LOG(__T,__L,__M,__F,__A),
-    __LMod:log(__S)
-end)()
-).
--else.
--define(LOG(__T,__L,__M,__F,__A), ok = ok).
--define(LOG(__LMod,__T,__L,__M,__F,__A), ok = ok).
--endif.
-
 -define(LLVL(__N), case __N of
                        0 -> debug;
                        1 -> info;
@@ -79,3 +38,9 @@ end)()
                        6 -> fatal;
                        _ -> unknown
                    end).
+
+-define(LOG(__LMod,__T,__L,__F,__A),
+(fun() ->
+    __LMod:log({?LLVL(__L), __T, atom_to_list(?MODULE), "", ?LINE, lists:flatten(io_lib:format(__F, __A))})
+end)()
+).
