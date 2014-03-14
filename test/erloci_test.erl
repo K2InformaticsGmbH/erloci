@@ -275,7 +275,7 @@ insert_select_update({_, OciSession}) ->
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                            , <<>> % deleting
                             , I+1
                             , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
