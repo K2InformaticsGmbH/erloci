@@ -66,7 +66,8 @@ typedef enum _ERL_CMD {
     CMT_SESSN	= 9,
     RBK_SESSN	= 10,
 	CMD_DSCRB	= 11,
-	CMD_ECHOT	= 12
+	GET_LOBDA	= 12,
+	CMD_ECHOT	= 13
 } ERL_CMD;
 
 /*
@@ -91,6 +92,7 @@ extern const erlcmdtable cmdtbl[];
     {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
+    {GET_LOBDA,	"GET_LOBDA",	4, "Get data from a LOB object"},\
     {CMD_ECHOT,	"CMD_ECHOT",	2, "Echo back erlang term"},\
 }
 
@@ -108,6 +110,11 @@ extern void log_args(int, void *, const char *);
 extern size_t calculate_resp_size(void * resp);
 extern void append_int_to_list(const int integer, void * list);
 extern void append_string_to_list(const char * string, size_t len, void * list);
+extern void append_tuple_to_list(unsigned long long ptr, unsigned long long len, void * list);
+extern void append_ext_tuple_to_list(unsigned long long ptr, unsigned long long len,
+	const char * dir, unsigned long long dlen,
+	const char * file, unsigned long long flen,
+	void * list);
 extern void append_coldef_to_list(const char * col_name, size_t len,
 								  const unsigned short data_type, const unsigned int max_len, const unsigned short precision,
 								  const signed char scale, void * list);

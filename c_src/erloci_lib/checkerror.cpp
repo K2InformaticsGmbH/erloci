@@ -20,12 +20,6 @@
 #include <oci.h>
 #include "lib_interface.h"
 
-#ifdef __WIN32__
-#define	SPRINT sprintf_s
-#else
-#define	SPRINT snprintf
-#endif
-
 unsigned long max_term_byte_size = MAX_RESP_SIZE;
 
 /*

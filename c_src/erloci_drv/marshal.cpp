@@ -92,6 +92,37 @@ void * child_list(void * list)
 	return &_t;
 }
 
+void append_tuple_to_list(unsigned long long ptr, unsigned long long len, void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().integer(ptr);
+	_t.insert().integer(len);
+}
+
+void append_ext_tuple_to_list(unsigned long long ptr, unsigned long long len,
+	const char * dir, unsigned long long dlen,
+	const char * file, unsigned long long flen,
+	void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().integer(ptr);
+	_t.insert().integer(len);
+	_t.insert().binary(dir,dlen);
+	_t.insert().binary(file,flen);
+}
+
 void append_string_to_list(const char * string, size_t len, void * list)
 {
 	ASSERT(list!=NULL);

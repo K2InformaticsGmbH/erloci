@@ -42,15 +42,19 @@ private:
 	static bool exec_stmt(term &, term &);
 	static bool close_stmt(term &, term &);
 	static bool bind_args(term &, term &);
+	static bool get_lob_data(term &, term &);
 	static bool echo(term &, term &);
 
 public:
 	static bool process(term &);
 	static void config(
-		void * (*)(void *),						// child_list
-		size_t (*)(void *),						// calculate_resp_size
-		void (*)(const int, void *),			// append_int_to_list
-		void (*)(const char *, size_t, void *),	// append_string_to_list
+		void * (*)(void *),											// child_list
+		size_t (*)(void *),											// calculate_resp_size
+		void (*)(const int, void *),								// append_int_to_list
+		void (*)(const char *, size_t, void *),						// append_string_to_list
+		void (*)(unsigned long long, unsigned long long, void *),	// append_tuple_to_list
+		// append_ext_tuple_to_list
+		void (*)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
 		// append_coldef_to_list
 		void (*)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
 		// append_desc_to_list

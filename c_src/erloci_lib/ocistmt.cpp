@@ -38,14 +38,18 @@ struct column {
 
 ocistmt::FNCDEFAPP ocistmt::coldef_append = NULL;
 ocistmt::FNSTRAPP ocistmt::string_append = NULL;
+ocistmt::FNTUPAPP ocistmt::tuple_append = NULL;
+ocistmt::FNTUPEAPP ocistmt::tuple_append_ext = NULL;
 ocistmt::FNSZAPP ocistmt::sizeof_resp = NULL;
 ocistmt::FNCHLDLST ocistmt::child_list = NULL;
 
-void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl)
+void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl)
 {
 	coldef_append = cda;
 	string_append = sa;
 	sizeof_resp = sr;
+	tuple_append = tup;
+	tuple_append_ext = tupe;
 	child_list = cl;
 }
 
@@ -121,7 +125,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 	checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(cur_clm.row_valp),									\
 									__desctype, 0, (dvoid **)0));											\
 	if(r.fn_ret != SUCCESS) {																				\
-		REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d("__dtypestr")\n", _stmthp, num_cols);		\
+		REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d("__dtypestr")\n", _stmthp, num_cols);	\
 		throw r;																							\
 	}																										\
 }
@@ -133,7 +137,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 								(sword) cur_clm.dlen + 1, __datatype, &(cur_clm.indp), (ub2 *)0,			\
                                 (ub2 *)0, OCI_DEFAULT));													\
 	if(r.fn_ret != SUCCESS) {																				\
-		REMOTE_LOG(ERR, "failed OCIDefineByPos for %p column %d("__dtypestr")\n", _stmthp, num_cols);			\
+		REMOTE_LOG(ERR, "failed OCIDefineByPos for %p column %d("__dtypestr")\n", _stmthp, num_cols);		\
 		throw r;																							\
 	}																										\
 }
@@ -330,14 +334,23 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
          */
         text *col_name;
         ub4 len = 0;
+		for (unsigned int i = 0; i < _columns.size(); ++i) {
+			if(_columns[i]->rtype == LCL_DTYPE_NONE)
+				delete (char*)(_columns[i]->row_valp);
+			else
+				(void) OCIDescriptorFree(_columns[i]->row_valp, _columns[i]->rtype);
+			delete _columns[i];
+		}
 		_columns.clear();
 
 		while (parm_status == OCI_SUCCESS) {
-			column cur_clm;
+			column *_clm = new column;
+			column & cur_clm = *_clm;
             cur_clm.dlen = 0;
             cur_clm.dtype = 0;
 			cur_clm.dprec = 0;
 			cur_clm.dscale = 0;
+			cur_clm.row_valp = NULL;
 
 			/* Retrieve the data size attribute */
             checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
@@ -399,7 +412,6 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_VNU, "SQLT_VNU");
 				break;
-            case SQLT_LNG:
             case SQLT_AVC:
             case SQLT_AFC:
             case SQLT_CHR:
@@ -443,7 +455,43 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
                 break;
+			case SQLT_CLOB: {
+				OCIALLOC(OCI_DTYPE_LOB, "SQLT_CLOB");
+				void * _t = cur_clm.row_valp;
+				ub4 _dlen = cur_clm.dlen;
+				cur_clm.dlen = -1;
+				cur_clm.row_valp = &(cur_clm.row_valp);
+				OCIDEF(SQLT_CLOB, "SQLT_CLOB");
+				cur_clm.row_valp = _t;
+				cur_clm.dlen = _dlen;
+                break;
+			}
+			case SQLT_BLOB: {
+				OCIALLOC(OCI_DTYPE_LOB, "SQLT_BLOB");
+				void * _t = cur_clm.row_valp;
+				ub4 _dlen = cur_clm.dlen;
+				cur_clm.dlen = -1;
+				cur_clm.row_valp = &(cur_clm.row_valp);
+				OCIDEF(SQLT_BLOB, "SQLT_BLOB");
+				cur_clm.row_valp = _t;
+				cur_clm.dlen = _dlen;
+                break;
+			}
+			case SQLT_BFILEE: {
+				OCIALLOC(OCI_DTYPE_FILE, "SQLT_BFILEE");
+				void * _t = cur_clm.row_valp;
+				ub4 _dlen = cur_clm.dlen;
+				cur_clm.dlen = -1;
+				cur_clm.row_valp = &(cur_clm.row_valp);
+				OCIDEF(SQLT_BFILEE, "SQLT_BFILEE");
+				cur_clm.row_valp = _t;
+				cur_clm.dlen = _dlen;
+                break;
+			}
             default:
+				r.fn_ret = FAILURE;
+				REMOTE_LOG(ERR, "Unsupported column type %d\n", cur_clm.dtype);
+				throw r;
                 break;
             }
 
@@ -475,7 +523,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
             parm_status = OCIParamGet(_stmthp, OCI_HTYPE_STMT, (OCIError*)_errhp, (dvoid **)&mypard,
                                       (ub4) num_cols);
 
-			_columns.push_back(cur_clm);
+			_columns.push_back(_clm);
         }
 
 		if(r.fn_ret != SUCCESS) {
@@ -538,10 +586,10 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 		if (res != OCI_NO_DATA) {
 	        row = (*child_list)(row_list);
 			for (unsigned int i = 0; i < _columns.size(); ++i)
-					switch (_columns[i].dtype) {
+					switch (_columns[i]->dtype) {
 					case SQLT_NUM:
-						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, row);
-						memset(_columns[i].row_valp, 0, sizeof(OCINumber));
+						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						memset(_columns[i]->row_valp, 0, sizeof(OCINumber));
 						break;
 					case SQLT_TIMESTAMP:
 					case SQLT_TIMESTAMP_TZ:
@@ -549,7 +597,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						r.handle = envhp;
 						ub1 *dtarry = NULL;
 						ub4 len;
-						checkerr(&r, OCIDateTimeToArray(envhp, (OCIError*)_errhp, (CONST OCIDateTime *)(_columns[i].row_valp),
+						checkerr(&r, OCIDateTimeToArray(envhp, (OCIError*)_errhp, (CONST OCIDateTime *)(_columns[i]->row_valp),
                                         (CONST OCIInterval *)NULL, dtarry, &len, (ub1)0xFF));
 						r.handle = _errhp; }
 						break;
@@ -557,10 +605,68 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 					case SQLT_INTERVAL_DS:
 						break;*/
 					case SQLT_DAT:
-						((OCIDate*)_columns[i].row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)_columns[i].row_valp)->OCIDateYYYY);
-						(*string_append)((char*)_columns[i].row_valp, _columns[i].dlen, row);
-						memset(_columns[i].row_valp, 0, sizeof(OCIDate));
+						((OCIDate*)_columns[i]->row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)(_columns[i]->row_valp))->OCIDateYYYY);
+						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						memset(_columns[i]->row_valp, 0, sizeof(OCIDate));
 						break;
+					case SQLT_BFILE:  {
+							OCILobLocator *_tlob;
+							unsigned long long loblen = 0;
+							ub1 lobtype = OCI_TEMP_BLOB;
+							res = OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen);
+							checkerr(&r, res);
+							if(r.fn_ret != SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCILobGetLength for %p row %d column %d reason %s (%s)\n", _stmthp, num_rows, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							r.handle = envhp;
+							checkerr(&r, OCIDescriptorAlloc(envhp, (dvoid **)&_tlob, (ub4)(_columns[i]->rtype), (size_t)0, (dvoid **)0));
+							if(r.fn_ret != SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							r.handle = _errhp;
+							checkerr(&r, OCILobLocatorAssign((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), &_tlob));
+							if(r.fn_ret != SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							text dir[31], file[256];
+							ub2 dlen, flen;
+							checkerr(&r, OCILobFileGetName(envhp, (OCIError*)_errhp, _tlob, dir, &dlen, file, &flen));
+							if(r.fn_ret != OCI_SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCILobFileGetName for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							(*tuple_append_ext)((unsigned long long)_tlob, loblen, (const char*)dir, dlen, (const char*)file, flen, row);
+						break;
+					}
+					case SQLT_CLOB:
+					case SQLT_BLOB: {
+							OCILobLocator *_tlob;
+							unsigned long long loblen = 0;
+							ub1 lobtype = OCI_TEMP_BLOB;
+							res = OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen);
+							checkerr(&r, res);
+							if(r.fn_ret != SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCILobGetLength for %p row %d column %d reason %s (%s)\n", _stmthp, num_rows, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							r.handle = envhp;
+							checkerr(&r, OCIDescriptorAlloc(envhp, (dvoid **)&_tlob, (ub4)(_columns[i]->rtype), (size_t)0, (dvoid **)0));
+							if(r.fn_ret != SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							r.handle = _errhp;
+							checkerr(&r, OCILobLocatorAssign((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), &_tlob));
+							if(r.fn_ret != SUCCESS) {
+								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								throw r;
+							}
+							(*tuple_append)((unsigned long long)_tlob, loblen, row);
+						break;
+					}
 					case SQLT_RID:
 					case SQLT_RDD:
 					case SQLT_AFC:
@@ -568,9 +674,9 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 					case SQLT_CHR:
 					default:
 						{
-							size_t str_len = strlen((char*)_columns[i].row_valp);
-							(*string_append)((char*)_columns[i].row_valp, str_len, row);
-							memset(_columns[i].row_valp, 0, str_len);
+							size_t str_len = strlen((char*)(_columns[i]->row_valp));
+							(*string_append)((char*)(_columns[i]->row_valp), str_len, row);
+							memset(_columns[i]->row_valp, 0, str_len);
 						}
 						break;
 					}
@@ -595,6 +701,79 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 	return r;
 }
 
+intf_ret ocistmt::lob(void * _lob, unsigned long long offset, unsigned long long length)
+{
+	intf_ret r;
+	ub1 csfrm;
+	OCIEnv *envhp = (OCIEnv *)ocisession::getenv();
+
+	OCILobLocator * lob = (OCILobLocator *)_lob;
+	r.handle = _errhp;
+	r.fn_ret = SUCCESS;
+
+	if (offset <= 0) {
+		r.fn_ret = FAILURE;
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] invalid lob offset %d\n", __FUNCTION__, __LINE__, offset);
+		REMOTE_LOG(ERR, "failed invalid lob offset %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+
+	if (length <= 0) {
+		r.fn_ret = FAILURE;
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] invalid lob length %d\n", __FUNCTION__, __LINE__, length);
+		REMOTE_LOG(ERR, "failed invalid lob lenght %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+
+	oraub8 loblen = 0;
+	checkerr(&r, OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob, &loblen));
+	if(r.fn_ret != OCI_SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCILobGetLength2 for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+
+	if (loblen < offset+length) {
+		r.fn_ret = FAILURE;
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] index %u out of bound (max %u)\n", __FUNCTION__, __LINE__, offset+length, loblen);
+		REMOTE_LOG(ERR, "failed lob index %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+
+	r.handle = envhp;
+	checkerr(&r, OCILobCharSetForm(envhp, (OCIError*)_errhp, lob, &csfrm));
+	if(r.fn_ret != OCI_SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCILobCharSetForm for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+	r.handle = _errhp;
+
+	checkerr(&r, OCILobOpen((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob, OCI_LOB_READONLY));
+	if(r.fn_ret != OCI_SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCILobOpen for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+
+	ub1 *buf = new ub1[loblen+1];
+	memset ((dvoid*)buf, '\0', loblen+1);
+	oraub8 loblenc = loblen;
+	checkerr(&r, OCILobRead2((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob, (oraub8*)&loblen, &loblenc, (oraub8)offset, (void*)buf, (ub4)loblen , OCI_ONE_PIECE, (dvoid*)0, (OCICallbackLobRead2)0, (ub2)0, csfrm));
+	if(r.fn_ret != OCI_SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCILobRead2 for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+	
+	checkerr(&r, OCILobClose((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob));
+	if(r.fn_ret != OCI_SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCILobClose for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+
+	//(*lob_tuple)(loblen, loblenc, buf);
+
+	delete buf;
+	return r;
+}
+
 void ocistmt::close()
 {
 	((ocisession *)_ocisess)->release_stmt(this);
@@ -607,10 +786,11 @@ ocistmt::~ocistmt(void)
 
     /* Release the bound variables memeory */
 	for (unsigned int i = 0; i < _columns.size(); ++i) {
-		if(_columns[i].rtype == LCL_DTYPE_NONE)
-			delete (char*)(_columns[i].row_valp);
+		if(_columns[i]->rtype == LCL_DTYPE_NONE)
+			delete (char*)(_columns[i]->row_valp);
 		else
-			(void) OCIDescriptorFree(_columns[i].row_valp, _columns[i].rtype);
+			(void) OCIDescriptorFree(_columns[i]->row_valp, _columns[i]->rtype);
+		delete _columns[i];
 	}
 	_columns.clear();
 

@@ -12,7 +12,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#include "stdafx.h"
+#if 0
 #include "ocisession.h"
 
 #include "string.h"
@@ -567,22 +567,6 @@ int insert_bind_select(const char *tns, const char *usr, const char *pwd)
 	}
 }
 
-int _tmain(int argc, _TCHAR* argv[])
-{
-	const char
-		*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=5437)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
-		*usr = "scott",
-		*pwd = "regit";
-
-	// tests for memory leak detection
-	int ret = 
-	//memory_leak_test(tns, usr, pwd);
-	//drop_create_insert_select(tns, usr, pwd, 0);
-	insert_bind_select(tns, usr, pwd);
-
-	return ret;
-}
-
 bool log_flag = true;
 void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
 {
@@ -592,4 +576,317 @@ void log_remote(const char * filename, const char * funcname, unsigned int linen
     vprintf(fmt, arguments);
 
     va_end(arguments);
+}
+#else
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <oci.h>
+
+void checkerr(OCIError * errhp, sword status, int line)
+{
+  text errbuf[512];
+  sb4 errcode = 0;
+
+  switch (status)
+  {
+  case OCI_SUCCESS:
+    break;
+  case OCI_SUCCESS_WITH_INFO:
+    (void) printf("[%d] Error - OCI_SUCCESS_WITH_INFO\n", line);
+    break;
+  case OCI_NEED_DATA:
+    (void) printf("[%d] Error - OCI_NEED_DATA\n", line);
+    break;
+  case OCI_NO_DATA:
+    (void) printf("[%d] Error - OCI_NODATA\n", line);
+    break;
+  case OCI_ERROR:
+    (void) OCIErrorGet((dvoid *)errhp, (ub4) 1, (text *) NULL, &errcode,
+                        errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);
+    (void) printf("[%d] Error - %.*s\n", line, 512, errbuf);
+    break;
+  case OCI_INVALID_HANDLE:
+    (void) printf("[%d] Error - OCI_INVALID_HANDLE\n", line);
+    break;
+  case OCI_STILL_EXECUTING:
+    (void) printf("[%d] Error - OCI_STILL_EXECUTE\n", line);
+    break;
+  case OCI_CONTINUE:
+    (void) printf("[%d] Error - OCI_CONTINUE\n", line);
+    break;
+  default:
+    break;
+  }
+}
+#endif
+
+const char
+	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+	*usr = "scott",
+	*pwd = "tiger";
+
+OCIEnv		*envhp = NULL;
+OCIError	*errhp = NULL;
+OCIAuthInfo *authp = NULL;
+OCISvcCtx   *svchp = NULL;
+OCIStmt		*stmthp = NULL;
+
+OCILobLocator *clobd = NULL;
+OCILobLocator *blobd = NULL;
+OCILobLocator *nclobd = NULL;
+OCILobLocator *bfiled = NULL;
+OCILobLocator *longd = NULL;
+
+OCIDefine   *defnp = NULL;
+void **lobptr = NULL;
+
+sword err;
+
+bool setup_env()
+{
+	err = OCIEnvCreate(&envhp,OCI_THREADED, NULL, NULL, NULL, NULL, (size_t) 0, (void**) NULL);
+	if(err != OCI_SUCCESS) return true;
+
+	err = OCIHandleAlloc(envhp, (void **) &errhp, OCI_HTYPE_ERROR, (size_t) 0, (void **) NULL);
+	if(err != OCI_SUCCESS) return true;
+
+	err = OCIHandleAlloc(envhp,(void**)&authp, OCI_HTYPE_AUTHINFO,(size_t)0, (void **) NULL);
+	if(err != OCI_SUCCESS) return true;
+	err = OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,(void*) usr, (ub4)strlen(usr),OCI_ATTR_USERNAME, (OCIError *)errhp);
+	if(err != OCI_SUCCESS) return true;
+	err = OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,(void*) pwd, (ub4)strlen(pwd),OCI_ATTR_PASSWORD, (OCIError *)errhp);
+	if(err != OCI_SUCCESS) return true;
+
+	err = OCISessionGet(envhp, errhp, &svchp, authp, (OraText*) tns, (ub4)strlen(tns), NULL, 0, NULL, NULL, NULL, OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+	return false;
+}
+
+bool statement(const char *stmt)
+{
+	err = OCIHandleAlloc(envhp, (void **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (void **) NULL);
+	if(err != OCI_SUCCESS) return true;
+
+	err = OCIStmtPrepare2(svchp, &stmthp, errhp, (OraText*) stmt, (ub4)strlen(stmt), NULL, 0, OCI_NTV_SYNTAX, OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	err = OCIStmtExecute(svchp, stmthp, errhp, (ub4) 0, (ub4) 0, (CONST OCISnapshot*) 0, (OCISnapshot*) 0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	return false;
+}
+
+bool binds()
+{
+	lobptr = (void **)new char**;
+	err = OCIDescriptorAlloc((void*)envhp, lobptr, (ub4) OCI_DTYPE_LOB, (size_t) 0, (void**) 0);
+	if(err != OCI_SUCCESS) exit(0);
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)1, lobptr, (sb4)0, (ub2) SQLT_CLOB, (void*)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+	clobd = (OCILobLocator*)*lobptr;
+	lobptr = (void **)new char**;
+	err = OCIDescriptorAlloc((void*)envhp, lobptr, (ub4) OCI_DTYPE_LOB, (size_t) 0, (void**) 0);
+	if(err != OCI_SUCCESS) exit(0);
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)2, lobptr, (sb4)0, (ub2) SQLT_BLOB, (void*)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+	blobd = (OCILobLocator*)*lobptr;
+	lobptr = (void **)new char**;
+	err = OCIDescriptorAlloc((void*)envhp, lobptr, (ub4) OCI_DTYPE_LOB, (size_t) 0, (void**) 0);
+	if(err != OCI_SUCCESS) exit(0);
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)3, lobptr, (sb4)0, (ub2) SQLT_CLOB, (void *)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+	nclobd = (OCILobLocator*)*lobptr;
+	lobptr = (void **)new char**;
+	err = OCIDescriptorAlloc((void*)envhp, lobptr, (ub4) OCI_DTYPE_FILE, (size_t) 0, (void**) 0);
+	if(err != OCI_SUCCESS) exit(0);
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)4, lobptr, (sb4)0, (ub2) SQLT_BFILE, (void *)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+	bfiled = (OCILobLocator*)*lobptr;
+	lobptr = (void **)new char**;
+	err = OCIDescriptorAlloc((void*)envhp, lobptr, (ub4) OCI_DTYPE_LOB, (size_t) 0, (void**) 0);
+	if(err != OCI_SUCCESS) exit(0);
+	longd = (OCILobLocator*)*lobptr;
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)5, lobptr, (sb4)4000, (ub2) SQLT_LNG, (void *)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	return false;
+}
+
+
+bool unbind()
+{
+	err = OCIDescriptorFree((void *)clobd, (ub4) OCI_DTYPE_LOB);
+	if(err != OCI_SUCCESS) return true;
+	err = OCIDescriptorFree((void *)blobd, (ub4) OCI_DTYPE_LOB);
+	if(err != OCI_SUCCESS) return true;
+	err = OCIDescriptorFree((void *)nclobd, (ub4) OCI_DTYPE_LOB);
+	if(err != OCI_SUCCESS) return true;
+	err = OCIDescriptorFree((void *)bfiled, (ub4) OCI_DTYPE_FILE);
+	if(err != OCI_SUCCESS) return true;
+	err = OCIDescriptorFree((void *)longd, (ub4) OCI_DTYPE_FILE);
+	if(err != OCI_SUCCESS) return true;
+
+	return false;
+}
+
+bool get_lob(const char * field, OCILobLocator *lob)
+{
+	OCILobLocator *_tlob;
+	ub1 csfrm;
+	ub1 *buf = NULL;
+	oraub8 loblen = 0;
+	ub4 offset;
+
+	err = OCILobGetLength2(svchp, errhp, lob, &loblen);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	err = OCIDescriptorAlloc(envhp,(dvoid **)&_tlob, (ub4)OCI_DTYPE_LOB, (size_t)0, (dvoid **)0);
+	if(err != OCI_SUCCESS) return true;
+	err = OCILobAssign(envhp, errhp, lob, &_tlob);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		 return true;
+	}
+
+	err = OCILobCharSetForm(envhp, errhp, _tlob, &csfrm);
+	if(err != OCI_SUCCESS) return true;
+
+	err = OCILobOpen(svchp, errhp, _tlob, OCI_LOB_READONLY);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	buf = new ub1[loblen+1];
+	memset ((dvoid*)buf, '\0', loblen+1);
+	offset=1;
+	oraub8 loblenc = loblen;
+	err = OCILobRead2(svchp, errhp, _tlob, (oraub8*)&loblen, (oraub8*)&loblenc, offset, (dvoid *) buf, (ub4)loblen , OCI_ONE_PIECE, (dvoid *) 0, (OCICallbackLobRead2) 0, (ub2) 0, csfrm);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	text dir[31], file[256];
+	ub2 dlen, flen;
+	err = OCILobFileGetName(envhp,errhp,_tlob,dir,&dlen,file,&flen);
+	if(err != OCI_SUCCESS) {
+		buf[loblen] = '\0';
+		printf("%s %s(%d)\n", field, buf, loblen);
+	} else {
+		printf("%s (%d) - %.*s %.*s\n", field, loblen, dlen, dir, flen, file);
+		for(ub4 i=0; i < loblen; ++i) {
+			printf("%02x", buf[i]);
+			if(i > 0 && (i+1) % 16 == 0)
+				printf("\n");
+			else
+				printf(" ");
+		}
+		printf("\n%s (%d)\n", field, loblen);
+	}
+	delete buf;
+
+	err = OCILobClose(svchp, errhp, _tlob);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	err = OCIDescriptorFree(_tlob, (ub4)OCI_DTYPE_LOB);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	return false;
+}
+
+int main(int argc, char* argv[])
+{
+	if(setup_env())
+		goto error_return;
+
+	if(statement("select clobd, blobd, nclobd, bfiled, longd from datatypes"))
+		goto error_return;
+
+	if(binds())
+		goto error_return;
+	
+	err = OCIStmtFetch(stmthp, errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto error_return;
+	}
+
+	if(get_lob("clob", clobd))
+		goto error_return;
+
+	if(get_lob("bclob", blobd))
+		goto error_return;
+	
+	if(get_lob("nclob", nclobd))
+		goto error_return;
+
+	if(get_lob("bfile", bfiled))
+		goto error_return;
+
+	ub1 csfrm;
+	ub1 *buf = NULL;
+	ub4 loblen = 0;
+	ub4 offset;
+
+	err = OCILobGetLength(svchp, errhp, longd, &loblen);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto error_return;
+	}
+
+	err = OCILobCharSetForm (envhp, errhp, bfiled, &csfrm);
+	if(err != OCI_SUCCESS) exit(0);
+	buf = new ub1[loblen+1];
+	memset ((dvoid*)buf, '\0', loblen+1);
+	offset=1;
+	err = OCILobRead(svchp, errhp, longd, &loblen, offset, (dvoid *) buf, (ub4)8000 , (dvoid *) 0, (OCICallbackLobRead) 0, (ub2) 0, csfrm);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto error_return;
+	}
+	buf[loblen] = '\0';
+	printf("longd %s(%d)\n", buf, loblen);
+	delete buf;
+
+	if(unbind()) {
+		printf("[%d] UnBind failure\n", __LINE__);
+	}
+
+error_return:
+	return 0;
 }

@@ -94,4 +94,10 @@ extern void log_remote(const char *, const char *, unsigned int, unsigned int, v
 #define checkenv(envhp, status) checkerr0((envhp), OCI_HTYPE_ENV, (status), __FUNCTION__, __LINE__)
 extern void checkerr0(intf_ret *, unsigned int, int, const char *, int);
 
+#ifdef __WIN32__
+#define	SPRINT sprintf_s
+#else
+#define	SPRINT snprintf
+#endif
+
 #endif // OCI_LIB_INTF

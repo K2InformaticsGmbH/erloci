@@ -141,6 +141,7 @@ db_test_() ->
             , fun asc_desc_test/1
             , fun describe_test/1
             , fun function_test/1
+            , fun lob_test/1
         ]}
     }}.
 
@@ -159,6 +160,8 @@ teardown_conn({OciPort, OciSession}) ->
     OciPort:close(),
     application:stop(erloci).
 
+
+
 flush_table(OciSession) ->
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     DropStmt = OciSession:prep_sql(?DROP),
@@ -174,6 +177,53 @@ flush_table(OciSession) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtCreate),
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()).
+
+lob_test({_, OciSession}) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                              lob_test                          |"),
+    ?ELog("+----------------------------------------------------------------+"),
+
+    RowCount = 5,
+    
+    StmtCreate = OciSession:prep_sql(<<"create table lobs(clobd clob, blobd blob, nclobd nclob)">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtCreate),
+    case StmtCreate:exec_stmt() of
+        {executed, 0} ->
+            ?ELog("creating table lobs", []),
+            ?assertEqual(ok, StmtCreate:close());
+        _ ->
+            StmtTruncate = OciSession:prep_sql(<<"truncate table lobs">>),
+            ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtTruncate),
+            ?assertEqual({executed, 0}, StmtTruncate:exec_stmt()),
+            ?ELog("truncated table lobs", []),
+            ?assertEqual(ok, StmtTruncate:close())
+    end,
+
+    [begin
+        StmtInsert = OciSession:prep_sql(list_to_binary(["insert into lobs values("
+            "to_clob('clobd0'),"
+            "hextoraw('453d7a30'),"
+            "to_nclob('nclobd0'))"])),
+        ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
+        ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
+        ?assertEqual(ok, StmtInsert:close())
+     end
+     || _R <- lists:seq(1,RowCount)],
+    ?ELog("inserted ~p rows into lobs", [RowCount]),
+
+    StmtSelect = OciSession:prep_sql(<<"select * from lobs">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtSelect),
+    ?assertMatch({cols, _}, StmtSelect:exec_stmt()),
+    {{rows, Rows}, true} = StmtSelect:fetch_rows(RowCount+1),
+    ?assertEqual(RowCount, length(Rows)),
+    ?ELog("rows from lobs ~p", [Rows]),
+
+    ?assertEqual(ok, StmtSelect:close()),
+
+    StmtDrop = OciSession:prep_sql(<<"drop table lobs">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
+    ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),
+    ?assertEqual(ok, StmtDrop:close()).
 
 drop_create({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),

@@ -28,10 +28,13 @@ extern void map_schema_to_bind_args(term &, vector<var> &);
 extern size_t map_value_to_bind_args(term &, vector<var> &);
 
 void command::config(
-		void * (*child_list)(void *),								// child_list
-		size_t (*calculate_resp_size)(void *),						// calculate_resp_size
-		void (*append_int_to_list)(const int, void *),				// append_int_to_list
-		void (*append_string_to_list)(const char *, size_t, void *),// append_string_to_list
+		void * (*child_list)(void *),													// child_list
+		size_t (*calculate_resp_size)(void *),											// calculate_resp_size
+		void (*append_int_to_list)(const int, void *),									// append_int_to_list
+		void (*append_string_to_list)(const char *, size_t, void *),					// append_string_to_list
+		void (*append_tuple_to_list)(unsigned long long, unsigned long long, void *),	// append_tuple_to_list
+		// append_ext_tuple_to_list
+		void (*append_ext_tuple_to_list)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
 		// append_coldef_to_list
 		void (*append_coldef_to_list)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
 		// append_desc_to_list
@@ -41,6 +44,8 @@ void command::config(
 	ocisession::config((ocisession::FNAD2L)append_desc_to_list);
 	ocistmt::config((ocistmt::FNCDEFAPP)append_coldef_to_list,
 					(ocistmt::FNSTRAPP)append_string_to_list,
+					(ocistmt::FNTUPAPP)append_tuple_to_list,
+					(ocistmt::FNTUPEAPP)append_ext_tuple_to_list,
 					(ocistmt::FNSZAPP)calculate_resp_size,
 					(ocistmt::FNCHLDLST)child_list);
 }
@@ -682,6 +687,31 @@ bool command::close_stmt(term & t, term & resp)
     return ret;
 }
 
+bool command::get_lob_data(term & t, term & resp)
+{
+	bool ret = false;
+
+	// {{pid, ref}, GET_LOBDA, Statement Handle, OCILobLocator Handle, Offset, Length}
+	term & statement = t[2];
+	term & loblocator = t[3];
+	term & offset = t[4];
+	term & length = t[5];
+	if(statement.is_any_int() && loblocator.is_any_int() && offset.is_any_int() && length.is_any_int()) {
+		ocistmt * statement_handle = (ocistmt*)(statement.v.ll);
+		void * loblocator_handle = (void *)(loblocator.v.ll);
+		statement_handle->lob(loblocator_handle, offset.v.ull, length.v.ull);
+	} else {
+//		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
+        ret = true;
+
+    return ret;
+}
+
 bool command::echo(term & t, term & resp)
 {
 	bool ret = false;
@@ -765,6 +795,7 @@ bool command::process(term & t)
             case EXEC_STMT:	ret = exec_stmt(t, resp);		break;
             case FTCH_ROWS:	ret = fetch_rows(t, resp);		break;
             case CLSE_STMT:	ret = close_stmt(t, resp);		break;
+            case GET_LOBDA:	ret = get_lob_data(t, resp);	break;
             case CMD_ECHOT:	ret = echo(t, resp);			break;
             default:
 		    	ret = true;

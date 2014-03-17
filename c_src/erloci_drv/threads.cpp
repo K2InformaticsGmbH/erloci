@@ -42,6 +42,8 @@ threads::threads(void)
 		, calculate_resp_size
 		, append_int_to_list
 		, append_string_to_list
+		, append_tuple_to_list
+		, append_ext_tuple_to_list
 		, append_coldef_to_list
 		, append_desc_to_list);
 

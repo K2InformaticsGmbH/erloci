@@ -122,6 +122,4 @@ void logger::log(const char * filename, const char * funcname, unsigned int line
 		send(self.log_sock, (char*) &log[0], (int)log.size(), 0);
 		self.unlock();
     }
-
-//	SLEEP(2);
 }

@@ -1,3 +1,4 @@
+*.opensdf
 .eunit/
 ipch/
 *.sdf
