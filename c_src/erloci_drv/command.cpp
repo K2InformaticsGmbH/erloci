@@ -712,9 +712,8 @@ bool command::get_lob_data(term & t, term & resp)
 				intf_ret r = statement_handle->lob(&lob, loblocator_handle, offset.v.ull, length.v.ull);
 				if(r.fn_ret == SUCCESS) {
 					term & _t = resp.insert().tuple();
-					term & _t1 = _t.insert().tuple();
-					_t1.insert().atom("lob");
-					_t1.add(lob);
+					_t.insert().atom("lob");
+					_t.add(lob);
 				}
 			}
 		} catch (intf_ret r) {

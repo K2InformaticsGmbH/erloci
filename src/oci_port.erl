@@ -411,7 +411,14 @@ handle_info(Info, State) ->
     {noreply, State}.
 
 terminate(Reason, #state{port=Port, logger=L, lastcmd=LastCmd}) ->
-    ?Error(L, "Terminating ~p: last ~p", [Reason, LastCmd]),
+    Cmd = lists:flatten(if
+        LastCmd /= undefined -> io_lib:format(" with Command on flight ~p", LastCmd);
+        true -> ""
+    end),
+    case Reason of        
+        normal ->   ?Info(L, "Normal termination of ~p~s", [Port, Cmd]);
+        _ ->        ?Error(L, "Abnormal termination of ~p~s", [Reason, Cmd])
+    end,
     catch port_close(Port),
     ok.
 

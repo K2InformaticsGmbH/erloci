@@ -134,14 +134,14 @@ db_test_() ->
         fun setup_conn/0,
         fun teardown_conn/1,
         {with, [
-            %fun drop_create/1
-            %, fun insert_select_update/1
-            %, fun auto_rollback_test/1
-            %, fun commit_rollback_test/1
-            %, fun asc_desc_test/1
-            %, fun describe_test/1
-            %, fun function_test/1
-             fun lob_test/1
+            fun drop_create/1
+            , fun insert_select_update/1
+            , fun auto_rollback_test/1
+            , fun commit_rollback_test/1
+            , fun asc_desc_test/1
+            , fun describe_test/1
+            , fun function_test/1
+            , fun lob_test/1
         ]}
     }}.
 
@@ -193,7 +193,6 @@ lob_test({_, OciSession}) ->
         {filename:dirname(filename:absname(Filename)), Filename}
      end
      || I <- lists:seq(1,RowCount)],
-    io:format(user, "Files ~p~n", [Files]),
     Dir = element(1,lists:nth(1,Files)),
     StmtDirCreate = OciSession:prep_sql(list_to_binary(["create directory \"",Dir,"\" as '",Dir,"'"])),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirCreate),
@@ -240,16 +239,25 @@ lob_test({_, OciSession}) ->
     ?assertMatch({cols, _}, StmtSelect:exec_stmt()),
     {{rows, Rows}, true} = StmtSelect:fetch_rows(RowCount+1),
     ?assertEqual(RowCount, length(Rows)),
-    ?ELog("rows from lobs ~p", [Rows]),
+
     RowsWithContent = [begin
-         [case C of
-              {Lid,S} -> StmtSelect:lob(Lid, 1, S);
-              {Lid,S,D,F} -> {StmtSelect:lob(Lid, 1, S), D, F}
-          end
-         || C <- R]
+        {LidClobd, ClobdLen} = lists:nth(1, R),
+        {lob, ClobDVal} = StmtSelect:lob(LidClobd, 1, ClobdLen),
+        ?assertEqual(<<"clobd0">>, ClobDVal),
+        {LidBlobd, BlobdLen} = lists:nth(2, R),
+        {lob, BlobDVal} = StmtSelect:lob(LidBlobd, 1, BlobdLen),
+        ?assertEqual(<<16#45, 16#3d, 16#7a, 16#30>>, BlobDVal),
+        {LidNclobd, NclobdLen} = lists:nth(3, R),
+        {lob, NClobDVal} = StmtSelect:lob(LidNclobd, 1, NclobdLen),
+        ?assertEqual(<<"nclobd0">>, NClobDVal),
+        {LidBfiled, BfiledLen, DirBin, File} = lists:nth(4, R),
+        ?assertEqual(DirBin, list_to_binary(Dir)),
+        {ok, FileContent} = file:read_file(File),
+        ?assertEqual({lob, FileContent}, StmtSelect:lob(LidBfiled, 1, BfiledLen)),
+        [ClobDVal, BlobDVal, NClobDVal, {DirBin, File, byte_size(FileContent)}]
      end
      || R <- Rows],
-    ?ELog("Content from lobs rows ~p", [RowsWithContent]),
+    ?ELog("Content from lobs rows~n~p", [RowsWithContent]),
 
     ?assertEqual(ok, StmtSelect:close()),
 
@@ -260,7 +268,11 @@ lob_test({_, OciSession}) ->
     StmtDrop = OciSession:prep_sql(<<"drop table lobs">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
     ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),
-    ?assertEqual(ok, StmtDrop:close()).
+    ?assertEqual(ok, StmtDrop:close()),
+    StmtDirDrop = OciSession:prep_sql(list_to_binary(["drop directory \"",Dir,"\""])),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirDrop),
+    ?assertEqual({executed, 0}, StmtDirDrop:exec_stmt()),
+    ?assertEqual(ok, StmtDirDrop:close()).
 
 drop_create({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
