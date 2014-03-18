@@ -92,7 +92,7 @@ extern const erlcmdtable cmdtbl[];
     {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
-    {GET_LOBDA,	"GET_LOBDA",	4, "Get data from a LOB object"},\
+    {GET_LOBDA,	"GET_LOBDA",	6, "Get data from a LOB object"},\
     {CMD_ECHOT,	"CMD_ECHOT",	2, "Echo back erlang term"},\
 }
 
@@ -115,6 +115,7 @@ extern void append_ext_tuple_to_list(unsigned long long ptr, unsigned long long 
 	const char * dir, unsigned long long dlen,
 	const char * file, unsigned long long flen,
 	void * list);
+extern void binary_data(const unsigned char * val, unsigned long long len, void * data);
 extern void append_coldef_to_list(const char * col_name, size_t len,
 								  const unsigned short data_type, const unsigned int max_len, const unsigned short precision,
 								  const signed char scale, void * list);

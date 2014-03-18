@@ -48,17 +48,19 @@ private:
 public:
 	static bool process(term &);
 	static void config(
-		void * (*)(void *),											// child_list
-		size_t (*)(void *),											// calculate_resp_size
-		void (*)(const int, void *),								// append_int_to_list
-		void (*)(const char *, size_t, void *),						// append_string_to_list
-		void (*)(unsigned long long, unsigned long long, void *),	// append_tuple_to_list
+		void * (*)(void*),											// child_list
+		size_t (*)(void*),											// calculate_resp_size
+		void (*)(const int, void*),									// append_int_to_list
+		void (*)(const char*, size_t, void*),						// append_string_to_list
+		void (*)(unsigned long long, unsigned long long, void*),	// append_tuple_to_list
 		// append_ext_tuple_to_list
-		void (*)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
+		void (*)(unsigned long long, unsigned long long, const char*, unsigned long long, const char*, unsigned long long, void*),
 		// append_coldef_to_list
-		void (*)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
+		void (*)(const char*, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void*),
 		// append_desc_to_list
-		void (*)(const char *, size_t, const unsigned short, const unsigned int, void *)
+		void (*)(const char*, size_t, const unsigned short, const unsigned int, void*),
+		// binary_data
+		void (*)(const unsigned char*, unsigned long long, void*)
 		);
 };
 

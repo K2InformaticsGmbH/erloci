@@ -28,17 +28,15 @@ extern void map_schema_to_bind_args(term &, vector<var> &);
 extern size_t map_value_to_bind_args(term &, vector<var> &);
 
 void command::config(
-		void * (*child_list)(void *),													// child_list
-		size_t (*calculate_resp_size)(void *),											// calculate_resp_size
-		void (*append_int_to_list)(const int, void *),									// append_int_to_list
-		void (*append_string_to_list)(const char *, size_t, void *),					// append_string_to_list
-		void (*append_tuple_to_list)(unsigned long long, unsigned long long, void *),	// append_tuple_to_list
-		// append_ext_tuple_to_list
+		void * (*child_list)(void *),
+		size_t (*calculate_resp_size)(void *),
+		void (*append_int_to_list)(const int, void *),
+		void (*append_string_to_list)(const char *, size_t, void *),
+		void (*append_tuple_to_list)(unsigned long long, unsigned long long, void *),
 		void (*append_ext_tuple_to_list)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
-		// append_coldef_to_list
 		void (*append_coldef_to_list)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
-		// append_desc_to_list
-		void (*append_desc_to_list)(const char *, size_t, const unsigned short, const unsigned int, void *)
+		void (*append_desc_to_list)(const char *, size_t, const unsigned short, const unsigned int, void *),
+		void (*binary_data)(const unsigned char *, unsigned long long, void *)
 		)
 {
 	ocisession::config((ocisession::FNAD2L)append_desc_to_list);
@@ -47,7 +45,8 @@ void command::config(
 					(ocistmt::FNTUPAPP)append_tuple_to_list,
 					(ocistmt::FNTUPEAPP)append_ext_tuple_to_list,
 					(ocistmt::FNSZAPP)calculate_resp_size,
-					(ocistmt::FNCHLDLST)child_list);
+					(ocistmt::FNCHLDLST)child_list,
+					(ocistmt::FNLOBDATA)binary_data);
 }
 
 bool command::change_log_flag(term & t, term & resp)
@@ -690,16 +689,64 @@ bool command::close_stmt(term & t, term & resp)
 bool command::get_lob_data(term & t, term & resp)
 {
 	bool ret = false;
+	term lob;
 
-	// {{pid, ref}, GET_LOBDA, Statement Handle, OCILobLocator Handle, Offset, Length}
-	term & statement = t[2];
-	term & loblocator = t[3];
-	term & offset = t[4];
-	term & length = t[5];
-	if(statement.is_any_int() && loblocator.is_any_int() && offset.is_any_int() && length.is_any_int()) {
+	// {{pid, ref}, GET_LOBDA, Connectin Handle, Statement Handle, OCILobLocator Handle, Offset, Length}
+	term & conection = t[2];
+	term & statement = t[3];
+	term & loblocator = t[4];
+	term & offset = t[5];
+	term & length = t[6];
+	if(conection.is_any_int() && statement.is_any_int() && loblocator.is_any_int() && offset.is_any_int() && length.is_any_int()) {
+		ocisession * conn_handle = (ocisession *)(conection.v.ll);
 		ocistmt * statement_handle = (ocistmt*)(statement.v.ll);
 		void * loblocator_handle = (void *)(loblocator.v.ll);
-		statement_handle->lob(loblocator_handle, offset.v.ull, length.v.ull);
+		try {
+			if (!conn_handle->has_statement(statement_handle)) {
+				term & _t = resp.insert().tuple();
+				_t.insert().atom("error");
+				_t.insert().integer(0);
+				_t.insert().strng("invalid statement handle");
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
+			} else {
+				intf_ret r = statement_handle->lob(&lob, loblocator_handle, offset.v.ull, length.v.ull);
+				if(r.fn_ret == SUCCESS) {
+					term & _t = resp.insert().tuple();
+					term & _t1 = _t.insert().tuple();
+					_t1.insert().atom("lob");
+					_t1.add(lob);
+				}
+			}
+		} catch (intf_ret r) {
+			term & _t = resp.insert().tuple();
+			_t.insert().atom("error");
+			term & _t1 = _t.insert().tuple();
+			_t1.insert().integer(r.gerrcode);
+			_t1.insert().strng(r.gerrbuf);
+			if (r.fn_ret == CONTINUE_WITH_ERROR) {
+				if(resp.is_undef())
+					REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
+			} else {
+				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+				ret = true;
+			}
+		} catch (string str) {
+			term & _t = resp.insert().tuple();
+			_t.insert().atom("error");
+			term & _t1 = _t.insert().tuple();
+			_t1.insert().integer(0);
+			_t1.insert().strng(str.c_str());
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			term & _t = resp.insert().tuple();
+			_t.insert().atom("error");
+			term & _t1 = _t.insert().tuple();
+			_t1.insert().integer(0);
+			_t1.insert().atom("unknwon");
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
 	} else {
 //		REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
 	}

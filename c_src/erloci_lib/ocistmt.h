@@ -33,6 +33,7 @@ class ocistmt
 {
 public:
 	typedef void (*FNCDEFAPP)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *);
+	typedef void (*FNLOBDATA)(const unsigned char *, unsigned long long, void *); // binary_append
 	typedef void (*FNSTRAPP)(const char *, size_t, void *);						// string_append
 	typedef void (*FNTUPAPP)(unsigned long long, unsigned long long, void *);	// tuple_append
 	typedef void (*FNTUPEAPP)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *);	// tuple_append_ext
@@ -46,10 +47,10 @@ public:
 	inline vector<var> & get_in_bind_args() { return _argsin; };
 	inline vector<var> & get_out_bind_args() { return _argsout; };
 	intf_ret rows(void * row_list, unsigned int maxrowcount);
-	intf_ret lob(void *, unsigned long long offset, unsigned long long length);
+	intf_ret lob(void * data, void * lob, unsigned long long offset, unsigned long long length);
 	void close(void);
 
-	static void config(FNCDEFAPP, FNSTRAPP, FNTUPAPP, FNTUPEAPP, FNSZAPP, FNCHLDLST);
+	static void config(FNCDEFAPP, FNSTRAPP, FNTUPAPP, FNTUPEAPP, FNSZAPP, FNCHLDLST, FNLOBDATA);
 
 private:
 	static FNCDEFAPP	coldef_append;
@@ -58,6 +59,7 @@ private:
 	static FNTUPEAPP	tuple_append_ext;
 	static FNSZAPP		sizeof_resp;
 	static FNCHLDLST	child_list;
+	static FNLOBDATA	lob_data;
 
 	char *_stmtstr;
 	void *_svchp;

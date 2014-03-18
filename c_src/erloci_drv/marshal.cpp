@@ -123,6 +123,14 @@ void append_ext_tuple_to_list(unsigned long long ptr, unsigned long long len,
 	_t.insert().binary(file,flen);
 }
 
+void binary_data(const unsigned char * val, unsigned long long len, void * data)
+{
+	ASSERT(data!=NULL);
+
+	term *container = (term *)data;
+	container->binary((const char*)val, len);
+}
+
 void append_string_to_list(const char * string, size_t len, void * list)
 {
 	ASSERT(list!=NULL);

@@ -36,14 +36,16 @@ struct column {
 	void * row_valp;
 };
 
-ocistmt::FNCDEFAPP ocistmt::coldef_append = NULL;
-ocistmt::FNSTRAPP ocistmt::string_append = NULL;
-ocistmt::FNTUPAPP ocistmt::tuple_append = NULL;
-ocistmt::FNTUPEAPP ocistmt::tuple_append_ext = NULL;
-ocistmt::FNSZAPP ocistmt::sizeof_resp = NULL;
-ocistmt::FNCHLDLST ocistmt::child_list = NULL;
+ocistmt::FNCDEFAPP ocistmt::coldef_append		= NULL;
+ocistmt::FNSTRAPP ocistmt::string_append		= NULL;
+ocistmt::FNTUPAPP ocistmt::tuple_append			= NULL;
+ocistmt::FNTUPEAPP ocistmt::tuple_append_ext	= NULL;
+ocistmt::FNSZAPP ocistmt::sizeof_resp			= NULL;
+ocistmt::FNCHLDLST ocistmt::child_list			= NULL;
+ocistmt::FNLOBDATA ocistmt::lob_data			= NULL;
 
-void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl)
+void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe,
+	ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl, ocistmt::FNLOBDATA lobf)
 {
 	coldef_append = cda;
 	string_append = sa;
@@ -51,6 +53,7 @@ void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNTU
 	tuple_append = tup;
 	tuple_append_ext = tupe;
 	child_list = cl;
+	lob_data = lobf;
 }
 
 ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
@@ -701,7 +704,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 	return r;
 }
 
-intf_ret ocistmt::lob(void * _lob, unsigned long long offset, unsigned long long length)
+intf_ret ocistmt::lob(void * data, void * _lob, unsigned long long offset, unsigned long long length)
 {
 	intf_ret r;
 	ub1 csfrm;
@@ -732,7 +735,7 @@ intf_ret ocistmt::lob(void * _lob, unsigned long long offset, unsigned long long
 		throw r;
 	}
 
-	if (loblen < offset+length) {
+	if (loblen < offset+length-1) {
 		r.fn_ret = FAILURE;
 		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] index %u out of bound (max %u)\n", __FUNCTION__, __LINE__, offset+length, loblen);
 		REMOTE_LOG(ERR, "failed lob index %s (%s)\n", lob, r.gerrbuf, _stmtstr);
@@ -753,10 +756,10 @@ intf_ret ocistmt::lob(void * _lob, unsigned long long offset, unsigned long long
 		throw r;
 	}
 
-	ub1 *buf = new ub1[loblen+1];
-	memset ((dvoid*)buf, '\0', loblen+1);
+	ub1 *buf = new ub1[length+1];
+	memset ((dvoid*)buf, '\0', length+1);
 	oraub8 loblenc = loblen;
-	checkerr(&r, OCILobRead2((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob, (oraub8*)&loblen, &loblenc, (oraub8)offset, (void*)buf, (ub4)loblen , OCI_ONE_PIECE, (dvoid*)0, (OCICallbackLobRead2)0, (ub2)0, csfrm));
+	checkerr(&r, OCILobRead2((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob, (oraub8*)&loblen, &loblenc, (oraub8)offset, (void*)buf, (ub4)length , OCI_ONE_PIECE, (dvoid*)0, (OCICallbackLobRead2)0, (ub2)0, csfrm));
 	if(r.fn_ret != OCI_SUCCESS) {
 		REMOTE_LOG(ERR, "failed OCILobRead2 for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
 		throw r;
@@ -768,7 +771,7 @@ intf_ret ocistmt::lob(void * _lob, unsigned long long offset, unsigned long long
 		throw r;
 	}
 
-	//(*lob_tuple)(loblen, loblenc, buf);
+	(*lob_data)(buf, loblenc, data);
 
 	delete buf;
 	return r;

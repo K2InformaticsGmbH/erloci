@@ -134,14 +134,14 @@ db_test_() ->
         fun setup_conn/0,
         fun teardown_conn/1,
         {with, [
-            fun drop_create/1
-            , fun insert_select_update/1
-            , fun auto_rollback_test/1
-            , fun commit_rollback_test/1
-            , fun asc_desc_test/1
-            , fun describe_test/1
-            , fun function_test/1
-            , fun lob_test/1
+            %fun drop_create/1
+            %, fun insert_select_update/1
+            %, fun auto_rollback_test/1
+            %, fun commit_rollback_test/1
+            %, fun asc_desc_test/1
+            %, fun describe_test/1
+            %, fun function_test/1
+             fun lob_test/1
         ]}
     }}.
 
@@ -184,8 +184,30 @@ lob_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
 
     RowCount = 5,
-    
-    StmtCreate = OciSession:prep_sql(<<"create table lobs(clobd clob, blobd blob, nclobd nclob)">>),
+
+    Files = [begin
+        ContentSize = random:uniform(1024),
+        Content = list_to_binary([random:uniform(255) || _I <- lists:seq(1,ContentSize)]),
+        Filename = "test"++integer_to_list(I)++".bin",
+        ok = file:write_file(Filename, [Content]),
+        {filename:dirname(filename:absname(Filename)), Filename}
+     end
+     || I <- lists:seq(1,RowCount)],
+    io:format(user, "Files ~p~n", [Files]),
+    Dir = element(1,lists:nth(1,Files)),
+    StmtDirCreate = OciSession:prep_sql(list_to_binary(["create directory \"",Dir,"\" as '",Dir,"'"])),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirCreate),
+    case StmtDirCreate:exec_stmt() of
+        {executed, 0} ->
+            ?ELog("created Directory alias ~s", [Dir]),
+            ?assertEqual(ok, StmtDirCreate:close());
+        {error, {955, _}} ->
+            ?ELog("Dir alias ~s exists", [Dir]);
+        {error, {N,Error}} ->
+            ?ELog("Dir alias ~s creation failed ~p:~s", [Dir, N,Error]),
+            ?assertEqual("Directory Created", "Directory creation failed")
+    end,
+    StmtCreate = OciSession:prep_sql(<<"create table lobs(clobd clob, blobd blob, nclobd nclob, bfiled bfile)">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtCreate),
     case StmtCreate:exec_stmt() of
         {executed, 0} ->
@@ -203,12 +225,14 @@ lob_test({_, OciSession}) ->
         StmtInsert = OciSession:prep_sql(list_to_binary(["insert into lobs values("
             "to_clob('clobd0'),"
             "hextoraw('453d7a30'),"
-            "to_nclob('nclobd0'))"])),
+            "to_nclob('nclobd0'),"
+            "bfilename('",Dir,"', 'test",integer_to_list(I),".bin')"
+            ")"])),
         ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
         ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
         ?assertEqual(ok, StmtInsert:close())
      end
-     || _R <- lists:seq(1,RowCount)],
+     || I <- lists:seq(1,RowCount)],
     ?ELog("inserted ~p rows into lobs", [RowCount]),
 
     StmtSelect = OciSession:prep_sql(<<"select * from lobs">>),
@@ -217,9 +241,22 @@ lob_test({_, OciSession}) ->
     {{rows, Rows}, true} = StmtSelect:fetch_rows(RowCount+1),
     ?assertEqual(RowCount, length(Rows)),
     ?ELog("rows from lobs ~p", [Rows]),
+    RowsWithContent = [begin
+         [case C of
+              {Lid,S} -> StmtSelect:lob(Lid, 1, S);
+              {Lid,S,D,F} -> {StmtSelect:lob(Lid, 1, S), D, F}
+          end
+         || C <- R]
+     end
+     || R <- Rows],
+    ?ELog("Content from lobs rows ~p", [RowsWithContent]),
 
     ?assertEqual(ok, StmtSelect:close()),
 
+    [begin
+         ok = file:delete(File)
+     end
+     || {_, File} <- Files],
     StmtDrop = OciSession:prep_sql(<<"drop table lobs">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
     ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),

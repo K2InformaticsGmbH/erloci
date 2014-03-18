@@ -32,6 +32,7 @@
     commit/1,
     rollback/1,
     bind_vars/2,
+    lob/4,
     exec_stmt/1,
     exec_stmt/2,
     exec_stmt/3,
@@ -160,6 +161,17 @@ close(_, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT);
 close(_, {?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT).
+
+lob(LobHandle, Offset, Length, {?MODULE, statement, PortPid, SessionId, StmtId})
+  when is_integer(LobHandle)
+       andalso (Length > 0)
+       andalso (Offset > 0) ->
+    R = gen_server:call(PortPid, {port_call, [?GET_LOBDA, SessionId, StmtId, LobHandle, Offset, Length]}, ?PORT_TIMEOUT),
+    ?DriverSleep,
+    case R of
+        ok -> ok;
+        R -> R
+    end.
 
 bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
     TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
