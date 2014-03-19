@@ -622,8 +622,8 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						break;
 					case SQLT_BFILE: {
 							OCILobLocator *_tlob;
-							unsigned long long loblen = 0;
-							checkerr(&r, OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen));
+							oraub8 loblen = 0;
+							checkerr(&r, OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), &loblen));
 							if(r.fn_ret != SUCCESS) {
 								REMOTE_LOG(ERR, "failed OCILobGetLength for %p row %d column %d reason %s (%s)\n", _stmthp, num_rows, i, r.gerrbuf, _stmtstr);
 								throw r;
@@ -631,23 +631,23 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 							r.handle = envhp;
 							checkerr(&r, OCIDescriptorAlloc(envhp, (dvoid **)&_tlob, (ub4)(_columns[i]->rtype), (size_t)0, (dvoid **)0));
 							if(r.fn_ret != SUCCESS) {
-								REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
 							r.handle = _errhp;
 							checkerr(&r, OCILobLocatorAssign((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), &_tlob));
 							if(r.fn_ret != SUCCESS) {
-								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
 							text dir[31], file[256];
-							ub2 dlen = 0, flen = 0;
+							ub2 dlen = sizeof(dir)/sizeof(dir[0]), flen = sizeof(file)/sizeof(file[0]);
 							checkerr(&r, OCILobFileGetName(envhp, (OCIError*)_errhp, _tlob, dir, &dlen, file, &flen));
 							if(r.fn_ret != OCI_SUCCESS) {
-								REMOTE_LOG(ERR, "failed OCILobFileGetName for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								REMOTE_LOG(ERR, "failed OCILobFileGetName for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
-							(*tuple_append_ext)((unsigned long long)_tlob, loblen, (const char*)dir, dlen, (const char*)file, flen, row);
+							(*tuple_append_ext)((unsigned long long)_tlob, (unsigned long long)loblen, (const char*)dir, dlen, (const char*)file, flen, row);
 							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
@@ -663,13 +663,13 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 							r.handle = envhp;
 							checkerr(&r, OCIDescriptorAlloc(envhp, (dvoid **)&_tlob, (ub4)(_columns[i]->rtype), (size_t)0, (dvoid **)0));
 							if(r.fn_ret != SUCCESS) {
-								REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
 							r.handle = _errhp;
 							checkerr(&r, OCILobLocatorAssign((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), &_tlob));
 							if(r.fn_ret != SUCCESS) {
-								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
 							(*tuple_append)((unsigned long long)_tlob, loblen, row);
