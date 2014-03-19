@@ -34,6 +34,7 @@ struct column {
 	sb2  indp;
 	ub4  rtype;
 	void * row_valp;
+	vector<OCILobLocator*> loblps;
 };
 
 ocistmt::FNCDEFAPP ocistmt::coldef_append		= NULL;
@@ -340,8 +341,15 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 		for (unsigned int i = 0; i < _columns.size(); ++i) {
 			if(_columns[i]->rtype == LCL_DTYPE_NONE)
 				delete (char*)(_columns[i]->row_valp);
-			else
-				(void) OCIDescriptorFree(_columns[i]->row_valp, _columns[i]->rtype);
+			else {
+				ub4 trtype = _columns[i]->rtype;
+				vector<OCILobLocator *> & tlobps = _columns[i]->loblps;
+				(void) OCIDescriptorFree(_columns[i]->row_valp, trtype);
+				for(size_t j = 0; j < tlobps.size(); ++j) {
+					(void) OCIDescriptorFree(tlobps[j], trtype);
+				}
+				tlobps.clear();
+			}
 			delete _columns[i];
 		}
 		_columns.clear();
@@ -642,6 +650,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 								throw r;
 							}
 							(*tuple_append_ext)((unsigned long long)_tlob, loblen, (const char*)dir, dlen, (const char*)file, flen, row);
+							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
 					case SQLT_CLOB:
@@ -668,6 +677,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 								throw r;
 							}
 							(*tuple_append)((unsigned long long)_tlob, loblen, row);
+							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
 					case SQLT_RID:
@@ -787,12 +797,19 @@ ocistmt::~ocistmt(void)
 {
 	intf_ret r;
 
-    /* Release the bound variables memeory */
+	/* Release the bound variables memeory */
 	for (unsigned int i = 0; i < _columns.size(); ++i) {
 		if(_columns[i]->rtype == LCL_DTYPE_NONE)
 			delete (char*)(_columns[i]->row_valp);
-		else
-			(void) OCIDescriptorFree(_columns[i]->row_valp, _columns[i]->rtype);
+		else {
+			ub4 trtype = _columns[i]->rtype;
+			vector<OCILobLocator *> & tlobps = _columns[i]->loblps;
+			(void) OCIDescriptorFree(_columns[i]->row_valp, trtype);
+			for(size_t j = 0; j < tlobps.size(); ++j) {
+				(void) OCIDescriptorFree(tlobps[j], trtype);
+			}
+			tlobps.clear();
+		}
 		delete _columns[i];
 	}
 	_columns.clear();

@@ -31,7 +31,7 @@ int main(int argc, char * argv[])
 #endif
 
 	transcoder::instance();
-#if 1
+#if 0
 		unsigned char b[] = {
 			// 131,106 // term_to_binary(""). term_to_binary([]).
 			// 131,104,0 //term_to_binary({}).
@@ -41,6 +41,9 @@ int main(int argc, char * argv[])
 		term t;
 		transcoder::instance().decode(buf, t);
 		vector<unsigned char> buf1 = transcoder::instance().encode(t);
+		term t1;
+		t1.integer((unsigned long long)0xFFFFFFFFFFFFFFFF);
+		vector<unsigned char> buf2 = transcoder::instance().encode(t1);
 #endif
 
     log_flag = false;

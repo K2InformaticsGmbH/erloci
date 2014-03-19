@@ -108,11 +108,11 @@ public:
 	inline term & tuple(void)						{ lt.clear();	type = TUPLE;		return *this;	};
 	inline term & lst(void)							{ lt.clear();	type = LIST;		return *this;	};
 	inline term & integer(int i)					{ v.i = i;		type = INTEGER;		return *this;	};
-	inline term & integer(long l)					{ v.l = l;		type = INTEGER;		return *this;	};
+	inline term & integer(long l)					{ v.l = l;		type = (sizeof(long)>sizeof(int)?LONGLONG:INTEGER);							return *this;	};
 	inline term & integer(long long ll)				{ v.ll = ll;	type = LONGLONG;	return *this;	};
-	inline term & integer(unsigned int ui)			{ v.ui = ui;	type = INTEGER;		return *this;	};
-	inline term & integer(unsigned long ul)			{ v.ul = ul;	type = INTEGER;		return *this;	};
-	inline term & integer(unsigned long long ull)	{ v.ull = ull;	type = LONGLONG;	return *this;	};
+	inline term & integer(unsigned int ui)			{ v.ui = ui;	type = U_INTEGER;	return *this;	};
+	inline term & integer(unsigned long ul)			{ v.ul = ul;	type = (sizeof(unsigned long)>sizeof(unsigned int)?U_LONGLONG:U_INTEGER);	return *this;	};
+	inline term & integer(unsigned long long ull)	{ v.ull = ull;	type = U_LONGLONG;	return *this;	};
 	inline term & dbl(float f)						{ v.d = f;		type = FLOAT;		return *this;	};
 	inline term & dbl(double d)						{ v.d = d;		type = FLOAT;		return *this;	};
 
