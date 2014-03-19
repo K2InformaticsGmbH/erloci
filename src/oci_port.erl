@@ -412,7 +412,7 @@ handle_info(Info, State) ->
 
 terminate(Reason, #state{port=Port, logger=L, lastcmd=LastCmd}) ->
     Cmd = lists:flatten(if
-        LastCmd /= undefined -> io_lib:format(" with Command on flight ~p", LastCmd);
+        LastCmd /= undefined -> io_lib:format(" with Command on flight ~p", [LastCmd]);
         true -> ""
     end),
     case Reason of        
