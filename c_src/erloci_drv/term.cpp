@@ -167,13 +167,13 @@ void term::set(Type t, double dbl)
 void term::set(Type t, int i)
 {
 	type = t;
-	v.i = i;
+	v.ll = (long long)i;
 }
 
 void term::set(Type t, unsigned int ui)
 {
 	type = t;
-	v.ui = ui;
+	v.ull = (unsigned long long)ui;
 }
 
 void term::set(Type t, long long ll)

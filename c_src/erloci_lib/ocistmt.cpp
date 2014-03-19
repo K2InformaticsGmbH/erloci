@@ -620,12 +620,10 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
 						memset(_columns[i]->row_valp, 0, sizeof(OCIDate));
 						break;
-					case SQLT_BFILE:  {
+					case SQLT_BFILE: {
 							OCILobLocator *_tlob;
 							unsigned long long loblen = 0;
-							ub1 lobtype = OCI_TEMP_BLOB;
-							res = OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen);
-							checkerr(&r, res);
+							checkerr(&r, OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen));
 							if(r.fn_ret != SUCCESS) {
 								REMOTE_LOG(ERR, "failed OCILobGetLength for %p row %d column %d reason %s (%s)\n", _stmthp, num_rows, i, r.gerrbuf, _stmtstr);
 								throw r;
@@ -643,7 +641,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 								throw r;
 							}
 							text dir[31], file[256];
-							ub2 dlen, flen;
+							ub2 dlen = 0, flen = 0;
 							checkerr(&r, OCILobFileGetName(envhp, (OCIError*)_errhp, _tlob, dir, &dlen, file, &flen));
 							if(r.fn_ret != OCI_SUCCESS) {
 								REMOTE_LOG(ERR, "failed OCILobFileGetName for %p column %d(temporary LOB) reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
@@ -657,9 +655,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 					case SQLT_BLOB: {
 							OCILobLocator *_tlob;
 							unsigned long long loblen = 0;
-							ub1 lobtype = OCI_TEMP_BLOB;
-							res = OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen);
-							checkerr(&r, res);
+							checkerr(&r, OCILobGetLength2((OCISvcCtx*)_svchp, (OCIError*)_errhp, (OCILobLocator*)(_columns[i]->row_valp), (oraub8*)&loblen));
 							if(r.fn_ret != SUCCESS) {
 								REMOTE_LOG(ERR, "failed OCILobGetLength for %p row %d column %d reason %s (%s)\n", _stmthp, num_rows, i, r.gerrbuf, _stmtstr);
 								throw r;
@@ -726,14 +722,14 @@ intf_ret ocistmt::lob(void * data, void * _lob, unsigned long long offset, unsig
 
 	if (offset <= 0) {
 		r.fn_ret = FAILURE;
-		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] invalid lob offset %d\n", __FUNCTION__, __LINE__, offset);
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] invalid lob (%p) offset %llu\n", __FUNCTION__, __LINE__, lob, offset);
 		REMOTE_LOG(ERR, "failed invalid lob offset %s (%s)\n", lob, r.gerrbuf, _stmtstr);
 		throw r;
 	}
 
 	if (length <= 0) {
 		r.fn_ret = FAILURE;
-		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] invalid lob length %d\n", __FUNCTION__, __LINE__, length);
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] invalid lob (%p) length %llu\n", __FUNCTION__, __LINE__, lob, length);
 		REMOTE_LOG(ERR, "failed invalid lob lenght %s (%s)\n", lob, r.gerrbuf, _stmtstr);
 		throw r;
 	}
@@ -747,7 +743,7 @@ intf_ret ocistmt::lob(void * data, void * _lob, unsigned long long offset, unsig
 
 	if (loblen < offset+length-1) {
 		r.fn_ret = FAILURE;
-		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] index %u out of bound (max %u)\n", __FUNCTION__, __LINE__, offset+length, loblen);
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] lob (%p) index %llu out of bound (max %llu)\n", __FUNCTION__, __LINE__, lob, offset+length, (unsigned long long int)loblen);
 		REMOTE_LOG(ERR, "failed lob index %s (%s)\n", lob, r.gerrbuf, _stmtstr);
 		throw r;
 	}

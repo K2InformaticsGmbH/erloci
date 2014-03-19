@@ -698,9 +698,9 @@ bool command::get_lob_data(term & t, term & resp)
 	term & offset = t[5];
 	term & length = t[6];
 	if(conection.is_any_int() && statement.is_any_int() && loblocator.is_any_int() && offset.is_any_int() && length.is_any_int()) {
-		ocisession * conn_handle = (ocisession *)(conection.v.ll);
-		ocistmt * statement_handle = (ocistmt*)(statement.v.ll);
-		void * loblocator_handle = (void *)(loblocator.v.ll);
+		ocisession * conn_handle = (ocisession *)(conection.v.ull);
+		ocistmt * statement_handle = (ocistmt*)(statement.v.ull);
+		void * loblocator_handle = (void *)(loblocator.v.ull);
 		try {
 			if (!conn_handle->has_statement(statement_handle)) {
 				term & _t = resp.insert().tuple();
