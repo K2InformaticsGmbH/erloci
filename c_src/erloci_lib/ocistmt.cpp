@@ -682,17 +682,24 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
+					case SQLT_CHR:
+						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						break;
 					case SQLT_RID:
 					case SQLT_RDD:
 					case SQLT_AFC:
 					case SQLT_STR:
-					case SQLT_CHR:
-					default:
 						{
 							size_t str_len = strlen((char*)(_columns[i]->row_valp));
 							(*string_append)((char*)(_columns[i]->row_valp), str_len, row);
 							memset(_columns[i]->row_valp, 0, str_len);
 						}
+						break;
+					default:
+						r.fn_ret = FAILURE;
+						SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] unsupporetd type %u\n", __FUNCTION__, __LINE__, _columns[i]->dtype);
+						REMOTE_LOG(ERR, "%s at row %d column %d (%s)\n", r.gerrbuf, num_rows, i, _stmtstr);
+						throw r;
 						break;
 					}
 			total_est_row_size += (*sizeof_resp)(row);
