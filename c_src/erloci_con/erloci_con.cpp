@@ -834,10 +834,31 @@ int main(int argc, char* argv[])
 	if(setup_env())
 		goto error_return;
 
-	if(statement("select clobd, blobd, nclobd, bfiled, longd from datatypes"))
+	if(statement("select longd from rawlong"))
 		goto error_return;
 
-	if(binds())
+	OCIParam *mypard = NULL;
+    err = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,(ub4) 1);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto error_return;
+	}
+	ub4	dlen = 0;
+	ub4	sizep = 0;
+	ub2 dtype = 0;
+	err = OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM, (dvoid*) &(dtype), (ub4 *)0, (ub4)OCI_ATTR_DATA_TYPE, errhp);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto error_return;
+	}
+
+	err = OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM, (dvoid*) &dlen, (ub4 *)&sizep, (ub4)OCI_ATTR_DATA_SIZE, errhp);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto error_return;
+	}
+
+	/*if(binds())
 		goto error_return;
 	
 	err = OCIStmtFetch(stmthp, errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
@@ -885,7 +906,7 @@ int main(int argc, char* argv[])
 
 	if(unbind()) {
 		printf("[%d] UnBind failure\n", __LINE__);
-	}
+	}*/
 
 error_return:
 	return 0;

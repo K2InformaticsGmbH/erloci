@@ -18,7 +18,7 @@ end)(__Fmt,__Args)).
                   "publisher varchar2(30),"
                   "rank float,"
                   "hero varchar2(30),"
-                  "reality varchar2(30),"
+                  "reality raw(10),"
                   "votes number(1,-10),"
                   "createdate date default sysdate,"
                   "chapters int,"
@@ -40,7 +40,7 @@ end)(__Fmt,__Args)).
                    , {<<":publisher">>, 'SQLT_CHR'}
                    , {<<":rank">>, 'SQLT_FLT'}
                    , {<<":hero">>, 'SQLT_CHR'}
-                   , {<<":reality">>, 'SQLT_CHR'}
+                   , {<<":reality">>, 'SQLT_BIN'}
                    , {<<":votes">>, 'SQLT_INT'}
                    , {<<":createdate">>, 'SQLT_DAT'}
                    , {<<":votes_first_rank">>, 'SQLT_INT'}
@@ -59,7 +59,7 @@ end)(__Fmt,__Args)).
                           , {<<":publisher">>, 'SQLT_CHR'}
                           , {<<":rank">>, 'SQLT_FLT'}
                           , {<<":hero">>, 'SQLT_CHR'}
-                          , {<<":reality">>, 'SQLT_CHR'}
+                          , {<<":reality">>, 'SQLT_BIN'}
                           , {<<":votes">>, 'SQLT_STR'}
                           , {<<":createdate">>, 'SQLT_DAT'}
                           , {<<":votes_first_rank">>, 'SQLT_INT'}
@@ -315,7 +315,7 @@ insert_select_update({_, OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])
          , I+I/2
          , list_to_binary(["_hero_",integer_to_list(I),"_"])
-         , list_to_binary(["_reality_",integer_to_list(I),"_"])
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
          , I
          , oci_util:edatetime_to_ora(erlang:now())
          , I
@@ -400,7 +400,7 @@ auto_rollback_test({_, OciSession}) ->
             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
             , I+I/2
             , list_to_binary(["_hero_",integer_to_list(I),"_"])
-            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
             , I
             , oci_util:edatetime_to_ora(erlang:now())
             , I
@@ -426,7 +426,7 @@ auto_rollback_test({_, OciSession}) ->
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
                             , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end
                             , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
@@ -458,7 +458,7 @@ commit_rollback_test({_, OciSession}) ->
                             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
                             , I+I/2
                             , list_to_binary(["_hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
                             , I
                             , oci_util:edatetime_to_ora(erlang:now())
                             , I
@@ -486,7 +486,7 @@ commit_rollback_test({_, OciSession}) ->
                             , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
                             , I+I/3
                             , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_Reality_",integer_to_list(I),"_"])
+                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
                             , integer_to_binary(I+1)
                             , oci_util:edatetime_to_ora(erlang:now())
                             , I+1
@@ -521,7 +521,7 @@ asc_desc_test({_, OciSession}) ->
                             , list_to_binary(["_publisher_",integer_to_list(I),"_"])
                             , I+I/2
                             , list_to_binary(["_hero_",integer_to_list(I),"_"])
-                            , list_to_binary(["_reality_",integer_to_list(I),"_"])
+                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
                             , I
                             , oci_util:edatetime_to_ora(erlang:now())
                             , I

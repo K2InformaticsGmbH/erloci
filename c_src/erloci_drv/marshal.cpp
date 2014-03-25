@@ -318,6 +318,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 				case SQLT_AFC:
 				case SQLT_CHR:
 				case SQLT_LNG:
+				case SQLT_BIN:
 					if(t2.is_binary() && t2.str_len > 0) {
 						ind = 0;
 						arg_len = t2.str_len;

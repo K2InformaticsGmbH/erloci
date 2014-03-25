@@ -439,6 +439,12 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_ODT, "SQLT_ODT");
                 break;
+			case SQLT_BIN: // RAW
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen + 1];
+				memset(cur_clm.row_valp, 0, (cur_clm.dlen + 1)*sizeof(unsigned char));
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_BIN, "SQLT_BIN");
+				break;
             case SQLT_TIMESTAMP:
 				OCIALLOC(OCI_DTYPE_TIMESTAMP, "SQLT_TIMESTAMP");
 				OCIDEF(SQLT_TIMESTAMP, "SQLT_TIMESTAMP");
