@@ -682,8 +682,13 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
-					case SQLT_CHR:
-						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+					case SQLT_CHR: {
+						size_t str_len = _columns[i]->dlen;
+						if(str_len > 0) // Handling for non NULL column
+							str_len = strlen((char*)(_columns[i]->row_valp));
+						(*string_append)((char*)(_columns[i]->row_valp), str_len, row);
+						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
+						}
 						break;
 					case SQLT_RID:
 					case SQLT_RDD:
