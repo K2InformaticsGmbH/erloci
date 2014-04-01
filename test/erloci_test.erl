@@ -1,3 +1,4 @@
+%% -*- coding: utf-8 -*-
 -module(erloci_test).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -82,7 +83,7 @@ db_negative_test_() ->
 
 setup() ->
     application:start(erloci),
-    OciPort = oci_port:start_link([{logging, true}]),
+    OciPort = oci_port:start_link([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
     timer:sleep(1000),
     OciPort.
 
@@ -147,7 +148,7 @@ db_test_() ->
 
 setup_conn() ->
     application:start(erloci),
-    OciPort = oci_port:start_link([{logging, true}]),
+    OciPort = oci_port:start_link([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
     {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
     OciSession = OciPort:get_session(Tns, User, Pswd),
     {OciPort, OciSession}.
@@ -312,9 +313,9 @@ insert_select_update({_, OciSession}) ->
     ?assertMatch(ok, BoundInsStmtRes),
     {rowids, RowIds} = BoundInsStmt:exec_stmt(
         [{ I
-         , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])
          , I+I/2
-         , list_to_binary(["_hero_",integer_to_list(I),"_"])
+         , unicode:characters_to_binary(["_herö_",integer_to_list(I),"_"])
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
          , I
          , oci_util:edatetime_to_ora(erlang:now())
@@ -334,8 +335,7 @@ insert_select_update({_, OciSession}) ->
     {{rows, Rows2}, true} = SelStmt:fetch_rows(2),
     ?assertEqual(ok, SelStmt:close()),
 
-    Rows = Rows0 ++ Rows1 ++ Rows2,
-
+    Rows = lists:merge([Rows0, Rows1, Rows2]),
     %?ELog("Got rows~n~p", [
     %    [
     %        begin
@@ -362,6 +362,12 @@ insert_select_update({_, OciSession}) ->
     %        end
     %    || R <- Rows]
     %]),
+    %RowIDs = [R || [R|_] <- Rows],
+    [begin
+        ?assertEqual(<< "_püèr_"/utf8 >>, binary:part(Publisher, 0, byte_size(<< "_püèr_"/utf8 >>))),
+        ?assertEqual(<< "_herö_"/utf8 >>, binary:part(Hero, 0, byte_size(<< "_herö_"/utf8 >>)))
+    end
+    || [_, _, Publisher, _, Hero, _, _, _, _, _] <- Rows],
     RowIDs = [R || [R|_] <- Rows],
 
     ?ELog("RowIds ~p", [RowIds]),
@@ -371,9 +377,9 @@ insert_select_update({_, OciSession}) ->
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(lists:keyreplace(<<":votes">>, 1, ?UPDATE_BIND_LIST, {<<":votes">>, 'SQLT_INT'})),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt([{ I
-                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
+                            , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"])
                             , I+I/3
-                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
+                            , unicode:characters_to_binary(["_Herö_",integer_to_list(I),"_"])
                             , <<>> % deleting
                             , I+1
                             , oci_util:edatetime_to_ora(erlang:now())
