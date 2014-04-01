@@ -781,9 +781,26 @@ intf_ret ocistmt::lob(void * data, void * _lob, unsigned long long offset, unsig
 		throw r;
 	}
 
+	r.handle = envhp;
+	ub2 csid = -1;
+	checkerr(&r, OCILobCharSetId(envhp, (OCIError*)_errhp, lob, &csid));
+	if(r.fn_ret != OCI_SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCILobCharSetForm for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
+		throw r;
+	}
+	r.handle = _errhp;
+
+	// for CLOB or NCLOB allocating extra space
+	// to accomodate character set encoding
+	// since for CLOB and BLOB OCILobGetLength2
+	// always returns number of characters
+	if (csid != 0) {
+		loblen *= 32;
+		length = loblen;
+	}
 	ub1 *buf = new ub1[length+1];
 	memset ((dvoid*)buf, '\0', length+1);
-	oraub8 loblenc = loblen;
+	oraub8 loblenc = 0;
 	checkerr(&r, OCILobRead2((OCISvcCtx*)_svchp, (OCIError*)_errhp, lob, (oraub8*)&loblen, &loblenc, (oraub8)offset, (void*)buf, (oraub8)length , OCI_ONE_PIECE, (dvoid*)0, (OCICallbackLobRead2)0, (ub2)0, csfrm));
 	if(r.fn_ret != OCI_SUCCESS) {
 		REMOTE_LOG(ERR, "failed OCILobRead2 for %p reason %s (%s)\n", lob, r.gerrbuf, _stmtstr);
@@ -796,7 +813,7 @@ intf_ret ocistmt::lob(void * data, void * _lob, unsigned long long offset, unsig
 		throw r;
 	}
 
-	(*lob_data)(buf, length, data);
+	(*lob_data)(buf, loblen, data);
 
 	delete buf;
 	return r;
