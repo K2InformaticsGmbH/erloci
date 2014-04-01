@@ -690,6 +690,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
 						}
 						break;
+					case SQLT_BIN:
 					case SQLT_RID:
 					case SQLT_RDD:
 					case SQLT_AFC:
