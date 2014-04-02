@@ -164,7 +164,7 @@ public:
 		type = LIST;
 		for(size_t idx = 0; idx < strlen(_str); ++idx) {
 			term & t = this->insert();
-			t.integer((int)_str[idx]);
+			t.integer((int)(unsigned char)_str[idx]);
 		}
 		str_len = 0;
 		return *this;
