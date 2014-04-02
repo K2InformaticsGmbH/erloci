@@ -116,7 +116,7 @@ start(Type,Options,LogFun) ->
             gen_server:Type(?MODULE, [false, ListenPort, LSock, LogFun], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            gen_server:Type(?MODULE, [Logging, ListenPort, LSock, LogFun], [])
+            gen_server:Type(?MODULE, [Logging, ListenPort, LSock, LogFun, Options], [])
     end,
     case StartRes of
         {ok, Pid} -> {?MODULE, Pid};
@@ -265,7 +265,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     end.
 
 %% Callbacks
-init([Logging, ListenPort, LSock, LogFun]) ->
+init([Logging, ListenPort, LSock, LogFun, Options]) ->
     PortLogger = oci_logger:start_link(LSock, LogFun),
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
@@ -276,17 +276,17 @@ init([Logging, ListenPort, LSock, LogFun]) ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
                 false -> {stop, bad_executable};
                 Executable ->
-                    Ret = start_exe(Executable, Logging, ListenPort, PortLogger),
+                    Ret = start_exe(Executable, Logging, ListenPort, PortLogger, Options),
                     PortLogger:accept(),
                     Ret
             end;
         Executable ->
-            Ret = start_exe(Executable, Logging, ListenPort, PortLogger),
+            Ret = start_exe(Executable, Logging, ListenPort, PortLogger, Options),
             PortLogger:accept(),
             Ret
     end.
 
-start_exe(Executable, Logging, ListenPort, PortLogger) ->
+start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
     OciLibs = case os:type() of
 	    {unix,darwin}   -> ["libocci.dylib"];
         {win32,nt}      -> ["oci.dll"];
@@ -319,6 +319,8 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
 
     LibPathVal = lists:last(re:split(re:replace(NewLibPath, "~", "~~", [global, {return, list}]), "["++PathSepStr++"]", [{return, list}])),
     ?Info(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
+    Envs = proplists:get_value(env, Options, []),
+    ?Info(PortLogger, "Extra Env :~p", [Envs]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status
@@ -326,7 +328,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger) ->
                   , {args, [ integer_to_list(?MAX_REQ_SIZE)
                            , "true"
                            , integer_to_list(ListenPort)]}
-                  , {env, [{LibPath, NewLibPath}]}
+                  , {env, [{LibPath, NewLibPath}|Envs]}
                   ],
     ?Info(PortLogger, "Executable ~p", [Executable]),
     ?Info(PortLogger, "Options :~p", [PortOptions]),
