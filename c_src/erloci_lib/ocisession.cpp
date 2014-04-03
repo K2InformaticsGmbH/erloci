@@ -13,6 +13,8 @@
  * limitations under the License.
  */ 
 #include "ocisession.h"
+#include "ocilock.h"
+
 #include <algorithm>
 
 #include "lib_interface.h"
@@ -265,73 +267,35 @@ error_exit:
 
 ocistmt* ocisession::prepare_stmt(OraText *stmt, size_t stmt_len)
 {
-	intf_ret r;
-
-	r.handle = envhp;
-	checkenv(&r, OCIThreadMutexAcquire((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
-	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCIThreadMutexAcquire %s\n", r.gerrbuf);
-        throw r;
-	}
+	ocilock scopelock(envhp,_errhp,stmt_lock);
 
 	ocistmt * statement = new ocistmt(this, stmt, stmt_len);
 	_statements.push_back(statement);
-
-	checkenv(&r, OCIThreadMutexRelease((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
-	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCIThreadMutexRelease %s\n", r.gerrbuf);
-        throw r;
-	}
 
 	return statement;
 }
 
 void ocisession::release_stmt(ocistmt *stmt)
 {
-	intf_ret r;
-
-	r.handle = envhp;
-	checkenv(&r, OCIThreadMutexAcquire((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
-	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCIThreadMutexAcquire %s\n", r.gerrbuf);
-        throw r;
-	}
+	ocilock scopelock(envhp,_errhp,stmt_lock);
 
 	list<ocistmt*>::iterator it = std::find(_statements.begin(), _statements.end(), stmt);
 	if (it != _statements.end()) {
 		_statements.remove(*it);
-	}
-
-	checkenv(&r, OCIThreadMutexRelease((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
-	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCIThreadMutexRelease %s\n", r.gerrbuf);
-        throw r;
 	}
 }
 
 bool ocisession::has_statement(ocistmt *stmt)
 {
 	bool found = false;
-	intf_ret r;
 
-	r.handle = envhp;
-	checkenv(&r, OCIThreadMutexAcquire((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
-	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCIThreadMutexAcquire %s\n", r.gerrbuf);
-        throw r;
-	}
+	ocilock scopelock(envhp,_errhp,stmt_lock);
 
 	for (list<ocistmt*>::iterator it = _statements.begin(); it != _statements.end(); ++it) {
 		if(*it == stmt) {
 			found = true;
 			break;
 		}
-	}
-
-	checkenv(&r, OCIThreadMutexRelease((OCIEnv*)envhp, (OCIError *)_errhp, (OCIThreadMutex*)stmt_lock));
-	if(r.fn_ret != SUCCESS) {
-   		REMOTE_LOG(ERR, "failed OCIThreadMutexRelease %s\n", r.gerrbuf);
-        throw r;
 	}
 
 	return found;

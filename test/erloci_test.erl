@@ -136,6 +136,7 @@ db_test_() ->
         fun teardown_conn/1,
         {with, [
             fun drop_create/1
+            , fun bad_sql_connection_reuse/1
             , fun insert_select_update/1
             , fun auto_rollback_test/1
             , fun commit_rollback_test/1
@@ -297,6 +298,20 @@ drop_create({_, OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmt),
     ?assertEqual({executed,0}, DropStmt:exec_stmt()),
     ?assertEqual(ok, DropStmt:close()).
+
+bad_sql_connection_reuse({_, OciSession}) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                    bad_sql_connection_reuse                    |"),
+    ?ELog("+----------------------------------------------------------------+"),
+    BadSelect = <<"select 'abc from dual">>,
+    ?assertMatch({error, {1756, _}}, OciSession:prep_sql(BadSelect)),
+    GoodSelect = <<"select 'abc' from dual">>,
+    SelStmt = OciSession:prep_sql(GoodSelect),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelStmt),
+    ?assertEqual({cols, [{<<"'ABC'">>,'SQLT_AFC',3,0,0}]}, SelStmt:exec_stmt()),
+    ?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
+    ?assertEqual(ok, SelStmt:close()).
+
 
 insert_select_update({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),

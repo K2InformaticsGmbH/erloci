@@ -127,6 +127,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib_interface.h" />
+    <ClInclude Include="ocilock.h" />
     <ClInclude Include="ocisession.h" />
     <ClInclude Include="ocistmt.h" />
   </ItemGroup>
