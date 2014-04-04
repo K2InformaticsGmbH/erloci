@@ -17,7 +17,7 @@
 #include "term.h"
 #include "transcoder.h"
 
-#define MAX_FORMATTED_STR_LEN 1024
+#define MAX_FORMATTED_STR_LEN 10000
 void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
 {
     char log_str[MAX_FORMATTED_STR_LEN];
