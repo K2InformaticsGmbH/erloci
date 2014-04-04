@@ -2,6 +2,7 @@
 #define _PLATFORM_H_
 
 #define USING_THREAD_POOL
+#define VSPRINTF vsnprintf
 
 #ifdef __WIN32__
 	#include <io.h>
@@ -23,7 +24,6 @@
 	#define LOCK(_Lock)			(WAIT_OBJECT_0 == WaitForSingleObject(_Lock,INFINITE))
 	#define UNLOCK(_Lock)		ReleaseMutex(_Lock);
 	#define SLEEP(_S)			Sleep(_S)
-	#define VSPRINTF			vsprintf_s
 	#define ASSERT				_ASSERTE
 #else
 	#include <stdlib.h>
@@ -48,7 +48,6 @@
 	#define LOCK(_Lock)			(0 == pthread_mutex_lock(&(_Lock)))
     #define UNLOCK(_Lock)		pthread_mutex_unlock(&(_Lock))
 	#define SLEEP(_S)			usleep(1000 * (_S))
-	#define VSPRINTF			vsnprintf
 	#define ASSERT				assert
 #endif
 
