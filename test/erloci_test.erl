@@ -253,7 +253,7 @@ lob_test({_, OciSession}) ->
         {lob, NClobDVal} = StmtSelect:lob(LidNclobd, 1, NclobdLen),
         ?assertEqual(<<"nclobd0">>, NClobDVal),
         {LidBfiled, BfiledLen, DirBin, File} = lists:nth(4, R),
-        ?assertEqual(DirBin, list_to_binary(Dir)),
+        ?assertEqual(DirBin, <<"TestDir">>),
         {ok, FileContent} = file:read_file(File),
         ?assertEqual({lob, FileContent}, StmtSelect:lob(LidBfiled, 1, BfiledLen)),
         [ClobDVal, BlobDVal, NClobDVal, {DirBin, File, byte_size(FileContent)}]
@@ -271,7 +271,7 @@ lob_test({_, OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
     ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),
     ?assertEqual(ok, StmtDrop:close()),
-    StmtDirDrop = OciSession:prep_sql(list_to_binary(["drop directory \"",Dir,"\""])),
+    StmtDirDrop = OciSession:prep_sql(list_to_binary(["drop directory \"TestDir\""])),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirDrop),
     ?assertEqual({executed, 0}, StmtDirDrop:exec_stmt()),
     ?assertEqual(ok, StmtDirDrop:close()).
