@@ -196,7 +196,7 @@ lob_test({_, OciSession}) ->
      end
      || I <- lists:seq(1,RowCount)],
     Dir = element(1,lists:nth(1,Files)),
-    StmtDirCreate = OciSession:prep_sql(list_to_binary(["create directory \"",Dir,"\" as '",Dir,"'"])),
+    StmtDirCreate = OciSession:prep_sql(list_to_binary(["create directory \"TestDir\" as '",Dir,"'"])),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirCreate),
     case StmtDirCreate:exec_stmt() of
         {executed, 0} ->
