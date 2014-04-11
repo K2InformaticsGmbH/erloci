@@ -227,7 +227,7 @@ lob_test({_, OciSession}) ->
             "to_clob('clobd0'),"
             "hextoraw('453d7a30'),"
             "to_nclob('nclobd0'),"
-            "bfilename('",Dir,"', 'test",integer_to_list(I),".bin')"
+            "bfilename('TestDir', 'test",integer_to_list(I),".bin')"
             ")"])),
         ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
         ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
