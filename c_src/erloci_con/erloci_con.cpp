@@ -604,7 +604,7 @@ void checkerr(OCIError * errhp, sword status, int line)
   case OCI_ERROR:
     (void) OCIErrorGet((dvoid *)errhp, (ub4) 1, (text *) NULL, &errcode,
                         errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);
-    (void) printf("[%d] Error - %.*s\n", line, 512, errbuf);
+    (void) printf("[%d] Error - %.*ls\n", line, 512, errbuf);
     break;
   case OCI_INVALID_HANDLE:
     (void) printf("[%d] Error - OCI_INVALID_HANDLE\n", line);
@@ -622,9 +622,12 @@ void checkerr(OCIError * errhp, sword status, int line)
 #endif
 
 const char
-	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+	//*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 	*usr = "scott",
 	*pwd = "tiger";
+
+const char
+	tns[] = {0,40,0,68,0,69,0,83,0,67,0,82,0,73,0,80,0,84,0,73,0,79,0,78,0,61,0,40,0,65,0,68,0,68,0,82,0,69,0,83,0,83,0,95,0,76,0,73,0,83,0,84,0,61,0,40,0,65,0,68,0,68,0,82,0,69,0,83,0,83,0,61,0,40,0,80,0,82,0,79,0,84,0,79,0,67,0,79,0,76,0,61,0,116,0,99,0,112,0,41,0,40,0,72,0,79,0,83,0,84,0,61,0,49,0,50,0,55,0,46,0,48,0,46,0,48,0,46,0,49,0,41,0,40,0,80,0,79,0,82,0,84,0,61,0,49,0,53,0,50,0,49,0,41,0,41,0,41,0,40,0,67,0,79,0,78,0,78,0,69,0,67,0,84,0,95,0,68,0,65,0,84,0,65,0,61,0,40,0,83,0,69,0,82,0,86,0,73,0,67,0,69,0,95,0,78,0,65,0,77,0,69,0,61,0,88,0,69,0,41,0,41,0,41,0,0};
 
 OCIEnv		*envhp = NULL;
 OCIError	*errhp = NULL;
@@ -645,7 +648,7 @@ sword err;
 
 bool setup_env()
 {
-	err = OCIEnvCreate(&envhp,OCI_THREADED, NULL, NULL, NULL, NULL, (size_t) 0, (void**) NULL);
+	err = OCIEnvNlsCreate(&envhp,OCI_THREADED, NULL, NULL, NULL, NULL, (size_t) 0, (void**) NULL, OCI_UTF16ID, OCI_UTF16ID);
 	if(err != OCI_SUCCESS) return true;
 
 	err = OCIHandleAlloc(envhp, (void **) &errhp, OCI_HTYPE_ERROR, (size_t) 0, (void **) NULL);
@@ -658,7 +661,7 @@ bool setup_env()
 	err = OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,(void*) pwd, (ub4)strlen(pwd),OCI_ATTR_PASSWORD, (OCIError *)errhp);
 	if(err != OCI_SUCCESS) return true;
 
-	err = OCISessionGet(envhp, errhp, &svchp, authp, (OraText*) tns, (ub4)strlen(tns), NULL, 0, NULL, NULL, NULL, OCI_DEFAULT);
+	err = OCISessionGet(envhp, errhp, &svchp, authp, (OraText*) tns, (ub4)sizeof(tns), NULL, 0, NULL, NULL, NULL, OCI_DEFAULT);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
 		return true;

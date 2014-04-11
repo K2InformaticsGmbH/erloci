@@ -17,17 +17,27 @@
 #include "term.h"
 #include "transcoder.h"
 
-#define MAX_FORMATTED_STR_LEN 10000
 void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
 {
-    char log_str[MAX_FORMATTED_STR_LEN];
+	unsigned int nBytes;
+    char *log_str = NULL; //[MAX_FORMATTED_STR_LEN];
     va_list arguments;
-    va_start(arguments, fmt);
 
-	VSPRINTF(log_str, MAX_FORMATTED_STR_LEN, fmt, arguments);
+	va_start(arguments, fmt);
+    nBytes = vsnprintf(0, 0, fmt, arguments);
+    va_end(arguments);
+
+    log_str = new char[nBytes+1];
+	log_str[nBytes] = '\0';
+
+	va_start(arguments, fmt);
+	vsnprintf(log_str, nBytes, fmt, arguments);
     va_end(arguments);
 
 	logger::log(filename, funcname, linenumber, level, term, log_str);
+
+	if(log_str)
+		delete log_str;
 }
 
 logger logger::self;

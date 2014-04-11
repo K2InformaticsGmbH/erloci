@@ -2,7 +2,6 @@
 #define _PLATFORM_H_
 
 #define USING_THREAD_POOL
-#define VSPRINTF vsnprintf
 
 #ifdef __WIN32__
 	#include <io.h>
@@ -14,7 +13,6 @@
 	#include <crtdbg.h>
 
 	#pragma comment(lib, "Ws2_32.lib")
-	//#pragma comment(lib, "wsock32.lib")
 
 	typedef u_long ul4;
 	typedef HANDLE mutex_type;
@@ -33,14 +31,14 @@
 	#include <unistd.h>
 	#include <arpa/inet.h>
     #include <pthread.h>
-	#include<assert.h>
+	#include <assert.h>
 	#include <sys/time.h>
 	#include <event.h>
 	#include <stdlib.h>
 	#include <unistd.h>
 	#include "threadpool.h"
 
-	typedef  pthread_mutex_t mutex_type;
+	typedef pthread_mutex_t mutex_type;
 	typedef uint32_t ul4;
 	typedef int sock;
 
