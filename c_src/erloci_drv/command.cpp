@@ -31,6 +31,8 @@ void command::config(
 		void * (*child_list)(void *),
 		size_t (*calculate_resp_size)(void *),
 		void (*append_int_to_list)(const int, void *),
+		void (*append_float_to_list)(const unsigned char[4], void *),
+		void (*append_double_to_list)(const unsigned char[8], void *),
 		void (*append_string_to_list)(const char *, size_t, void *),
 		void (*append_tuple_to_list)(unsigned long long, unsigned long long, void *),
 		void (*append_ext_tuple_to_list)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
@@ -41,6 +43,8 @@ void command::config(
 {
 	ocisession::config((ocisession::FNAD2L)append_desc_to_list);
 	ocistmt::config((ocistmt::FNCDEFAPP)append_coldef_to_list,
+					(ocistmt::FNFLTAPP)append_float_to_list,
+					(ocistmt::FNDBLAPP)append_double_to_list,
 					(ocistmt::FNSTRAPP)append_string_to_list,
 					(ocistmt::FNTUPAPP)append_tuple_to_list,
 					(ocistmt::FNTUPEAPP)append_ext_tuple_to_list,

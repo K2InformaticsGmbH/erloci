@@ -11,6 +11,7 @@
 	#include <Windows.h>
 	#include <WinSock2.h>
 	#include <crtdbg.h>
+	#include "wstdint.h"
 
 	#pragma comment(lib, "Ws2_32.lib")
 
@@ -35,7 +36,6 @@
 	#include <sys/time.h>
 	#include <event.h>
 	#include <stdlib.h>
-	#include <unistd.h>
 	#include "threadpool.h"
 
 	typedef pthread_mutex_t mutex_type;

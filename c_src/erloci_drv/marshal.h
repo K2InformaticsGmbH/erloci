@@ -108,7 +108,9 @@ extern void log_args(int, void *, const char *);
 
 // ThreadPool and IdleTimer
 extern size_t calculate_resp_size(void * resp);
-extern void append_int_to_list(const int integer, void * list);
+extern void append_int_to_list(const int, void *);
+extern void append_float_to_list(const unsigned char[4], void *);
+extern void append_double_to_list(const unsigned char[8], void *);
 extern void append_string_to_list(const char * string, size_t len, void * list);
 extern void append_tuple_to_list(unsigned long long ptr, unsigned long long len, void * list);
 extern void append_ext_tuple_to_list(unsigned long long ptr, unsigned long long len,

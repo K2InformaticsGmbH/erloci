@@ -51,6 +51,8 @@ public:
 		void * (*)(void*),											// child_list
 		size_t (*)(void*),											// calculate_resp_size
 		void (*)(const int, void*),									// append_int_to_list
+		void (*)(const unsigned char[4], void*),					// append_float_to_list
+		void (*)(const unsigned char[8], void*),					// append_double_to_list
 		void (*)(const char*, size_t, void*),						// append_string_to_list
 		void (*)(unsigned long long, unsigned long long, void*),	// append_tuple_to_list
 		// append_ext_tuple_to_list

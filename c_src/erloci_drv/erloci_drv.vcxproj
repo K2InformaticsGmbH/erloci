@@ -161,6 +161,7 @@
     <ClInclude Include="term.h" />
     <ClInclude Include="threads.h" />
     <ClInclude Include="transcoder.h" />
+    <ClInclude Include="wstdint.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ReadMe.txt" />

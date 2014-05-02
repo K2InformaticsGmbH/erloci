@@ -18,14 +18,14 @@ end)(__Fmt,__Args)).
 -define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
                   "publisher varchar2(30),"
                   "rank float,"
-                  "hero varchar2(30),"
+                  "hero binary_double,"
                   "reality raw(10),"
                   "votes number(1,-10),"
                   "createdate date default sysdate,"
-                  "chapters int,"
+                  "chapters binary_float,"
                   "votes_first_rank number)">>).
 -define(INSERT, <<"insert into "?TESTTABLE
-                  " (pkey,publisher,rank,hero,reality,votes,createdate,votes_first_rank) values ("
+                  " (pkey,publisher,rank,hero,reality,votes,createdate,chapters,votes_first_rank) values ("
                   ":pkey"
                   ", :publisher"
                   ", :rank"
@@ -33,6 +33,7 @@ end)(__Fmt,__Args)).
                   ", :reality"
                   ", :votes"
                   ", :createdate"
+                  ", :chapters"
                   ", :votes_first_rank)">>).
 -define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE".* from "?TESTTABLE>>).
 -define(SELECT_ROWID_ASC, <<"select rowid from ", ?TESTTABLE, " order by pkey">>).
@@ -40,10 +41,11 @@ end)(__Fmt,__Args)).
 -define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
                    , {<<":publisher">>, 'SQLT_CHR'}
                    , {<<":rank">>, 'SQLT_FLT'}
-                   , {<<":hero">>, 'SQLT_CHR'}
+                   , {<<":hero">>, 'SQLT_IBDOUBLE'}
                    , {<<":reality">>, 'SQLT_BIN'}
                    , {<<":votes">>, 'SQLT_INT'}
                    , {<<":createdate">>, 'SQLT_DAT'}
+                   , {<<":chapters">>, 'SQLT_IBFLOAT'}
                    , {<<":votes_first_rank">>, 'SQLT_INT'}
                    ]).
 -define(UPDATE, <<"update "?TESTTABLE" set "
@@ -54,15 +56,17 @@ end)(__Fmt,__Args)).
                   ", reality = :reality"
                   ", votes = :votes"
                   ", createdate = :createdate"
+                  ", chapters = :chapters"
                   ", votes_first_rank = :votes_first_rank"
                   " where "?TESTTABLE".rowid = :pri_rowid1">>).
 -define(UPDATE_BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
                           , {<<":publisher">>, 'SQLT_CHR'}
                           , {<<":rank">>, 'SQLT_FLT'}
-                          , {<<":hero">>, 'SQLT_CHR'}
+                          , {<<":hero">>, 'SQLT_IBDOUBLE'}
                           , {<<":reality">>, 'SQLT_BIN'}
                           , {<<":votes">>, 'SQLT_STR'}
                           , {<<":createdate">>, 'SQLT_DAT'}
+                          , {<<":chapters">>, 'SQLT_IBFLOAT'}
                           , {<<":votes_first_rank">>, 'SQLT_INT'}
                           , {<<":pri_rowid1">>, 'SQLT_STR'}
                           ]).
@@ -326,16 +330,19 @@ insert_select_update({_, OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
+    %pkey,publisher,rank,hero,reality,votes,createdate,chapters,votes_first_rank
     {rowids, RowIds} = BoundInsStmt:exec_stmt(
-        [{ I
-         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])
-         , I+I/2
-         , unicode:characters_to_binary(["_herö_",integer_to_list(I),"_"])
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
-         , I
-         , oci_util:edatetime_to_ora(erlang:now())
-         , I
-         } || I <- lists:seq(1, RowCount)]),
+        [{ I                                                                                % pkey
+         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                  % publisher
+         , I+I/2                                                                            % rank
+         , 1.0e-307                                                                         % hero
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , I                                                                                % votes
+         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , 9.999999350456404e-39                                                            % chapters
+         , I                                                                                % votes_first_rank
+         } || I <- lists:seq(1, RowCount)]
+    ),
     ?assertMatch(RowCount, length(RowIds)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
@@ -379,10 +386,11 @@ insert_select_update({_, OciSession}) ->
     %]),
     %RowIDs = [R || [R|_] <- Rows],
     [begin
-        ?assertEqual(<< "_püèr_"/utf8 >>, binary:part(Publisher, 0, byte_size(<< "_püèr_"/utf8 >>))),
-        ?assertEqual(<< "_herö_"/utf8 >>, binary:part(Hero, 0, byte_size(<< "_herö_"/utf8 >>)))
+        ?assertEqual(1.0e-307, Hero),
+        ?assertEqual(9.999999350456404e-39, Chapters),
+        ?assertEqual(<< "_püèr_"/utf8 >>, binary:part(Publisher, 0, byte_size(<< "_püèr_"/utf8 >>)))
     end
-    || [_, _, Publisher, _, Hero, _, _, _, _, _] <- Rows],
+    || [_, _, Publisher, _, Hero, _, _, _, Chapters, _] <- Rows],
     RowIDs = [R || [R|_] <- Rows],
 
     ?ELog("RowIds ~p", [RowIds]),
@@ -391,16 +399,19 @@ insert_select_update({_, OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(lists:keyreplace(<<":votes">>, 1, ?UPDATE_BIND_LIST, {<<":votes">>, 'SQLT_INT'})),
     ?assertMatch(ok, BoundUpdStmtRes),
-    ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt([{ I
-                            , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"])
-                            , I+I/3
-                            , unicode:characters_to_binary(["_Herö_",integer_to_list(I),"_"])
-                            , <<>> % deleting
-                            , I+1
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I+1
-                            , Key
-                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))])),
+    ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt(
+        [{ I                                                                 % pkey 
+         , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"])   % publisher
+         , I+I/3                                                             % rank
+         , I+I/50                                                            % hero
+         , <<>> % deleting                                                   % reality
+         , I+1                                                               % votes
+         , oci_util:edatetime_to_ora(erlang:now())                           % createdate
+         , I*2+I/1000                                                        % chapters
+         , I+1                                                               % votes_first_rank
+         , Key
+         } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))]
+    )),
     ?assertEqual(ok, BoundUpdStmt:close()).
 
 auto_rollback_test({_, OciSession}) ->
@@ -417,15 +428,19 @@ auto_rollback_test({_, OciSession}) ->
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
-    BoundInsStmt:exec_stmt([{ I
-            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
-            , I+I/2
-            , list_to_binary(["_hero_",integer_to_list(I),"_"])
-            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
-            , I
-            , oci_util:edatetime_to_ora(erlang:now())
-            , I
-            } || I <- lists:seq(1, RowCount)], 1)),
+    BoundInsStmt:exec_stmt(
+        [{ I                                                                                % pkey 
+         , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
+         , I+I/2                                                                            % rank
+         , I+I/3                                                                            % hero
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , I                                                                                % votes
+         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , I                                                                                % chapters
+         , I                                                                                % votes_first_rank
+         } || I <- lists:seq(1, RowCount)]
+        , 1
+    )),
     ?assertEqual(ok, BoundInsStmt:close()),
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),
@@ -442,17 +457,22 @@ auto_rollback_test({_, OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundUpdStmt),
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(?UPDATE_BIND_LIST),
     ?assertMatch(ok, BoundUpdStmtRes),
+
     % Expected Invalid number Error (1722)
-    ?assertMatch({error,{1722,_}}, BoundUpdStmt:exec_stmt([{ I
-                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
-                            , I+I/3
-                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
-                            , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I+1
-                            , Key
-                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], 1)),
+    ?assertMatch({error,{1722,_}}, BoundUpdStmt:exec_stmt(
+        [{ I                                                                                % pkey 
+         , list_to_binary(["_Publisher_",integer_to_list(I),"_"])                           % publisher
+         , I+I/3                                                                            % rank
+         , I+I/2                                                                            % hero
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end           % votes
+         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , I+2                                                                              % chapters
+         , I+1                                                                              % votes_first_rank
+         , Key
+         } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))]
+        , 1
+    )),
 
     ?ELog("testing rollback table ~s", [?TESTTABLE]),
     SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
@@ -475,15 +495,19 @@ commit_rollback_test({_, OciSession}) ->
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
-    BoundInsStmt:exec_stmt([{ I
-                            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
-                            , I+I/2
-                            , list_to_binary(["_hero_",integer_to_list(I),"_"])
-                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
-                            , I
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I
-                            } || I <- lists:seq(1, RowCount)], 1)),
+        BoundInsStmt:exec_stmt(
+          [{ I                                                                                  % pkey 
+           , list_to_binary(["_publisher_",integer_to_list(I),"_"])                             % publisher
+           , I+I/2                                                                              % rank
+           , I+I/3                                                                              % hero
+           , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
+           , I                                                                                  % votes
+           , oci_util:edatetime_to_ora(erlang:now())                                            % createdate
+           , I*2+I/1000                                                                         % chapters
+           , I                                                                                  % votes_first_rank
+           } || I <- lists:seq(1, RowCount)]
+          , 1
+    )),
     ?assertEqual(ok, BoundInsStmt:close()),
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),
@@ -503,16 +527,20 @@ commit_rollback_test({_, OciSession}) ->
     BoundUpdStmtRes = BoundUpdStmt:bind_vars(?UPDATE_BIND_LIST),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _},
-    BoundUpdStmt:exec_stmt([{ I
-                            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])
-                            , I+I/3
-                            , list_to_binary(["_Hero_",integer_to_list(I),"_"])
-                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
-                            , integer_to_binary(I+1)
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I+1
-                            , Key
-                            } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))], -1)),
+        BoundUpdStmt:exec_stmt(
+          [{ I                                                                                  % pkey 
+           , list_to_binary(["_Publisher_",integer_to_list(I),"_"])                             % publisher
+           , I+I/3                                                                              % rank
+           , I+I/2                                                                              % hero
+           , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
+           , integer_to_binary(I+1)                                                             % votes
+           , oci_util:edatetime_to_ora(erlang:now())                                            % createdate
+           , I+2                                                                                % chapters
+           , I+1                                                                                % votes_first_rank
+           , Key
+           } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))]
+          , -1
+    )),
 
     ?assertMatch(ok, BoundUpdStmt:close()),
 
@@ -537,16 +565,19 @@ asc_desc_test({_, OciSession}) ->
     BoundInsStmt = OciSession:prep_sql(?INSERT),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
     ?assertMatch(ok, BoundInsStmt:bind_vars(?BIND_LIST)),
-    ?assertMatch({rowids, _},
-    BoundInsStmt:exec_stmt([{ I
-                            , list_to_binary(["_publisher_",integer_to_list(I),"_"])
-                            , I+I/2
-                            , list_to_binary(["_hero_",integer_to_list(I),"_"])
-                            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])
-                            , I
-                            , oci_util:edatetime_to_ora(erlang:now())
-                            , I
-                            } || I <- lists:seq(1, RowCount)], 1)),
+    ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt(
+        [{ I                                                                                % pkey 
+         , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
+         , I+I/2                                                                            % rank
+         , I+I/3                                                                            % hero
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , I                                                                                % votes
+         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , I*2+I/1000                                                                       % chapters
+         , I                                                                                % votes_first_rank
+         } || I <- lists:seq(1, RowCount)]
+        , 1
+    )),
     ?assertEqual(ok, BoundInsStmt:close()),
 
     ?ELog("selecting from table ~s", [?TESTTABLE]),

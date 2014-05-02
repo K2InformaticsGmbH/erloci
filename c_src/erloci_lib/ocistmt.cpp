@@ -38,6 +38,8 @@ struct column {
 };
 
 ocistmt::FNCDEFAPP ocistmt::coldef_append		= NULL;
+ocistmt::FNFLTAPP ocistmt::float_append			= NULL;
+ocistmt::FNDBLAPP ocistmt::double_append		= NULL;
 ocistmt::FNSTRAPP ocistmt::string_append		= NULL;
 ocistmt::FNTUPAPP ocistmt::tuple_append			= NULL;
 ocistmt::FNTUPEAPP ocistmt::tuple_append_ext	= NULL;
@@ -45,10 +47,13 @@ ocistmt::FNSZAPP ocistmt::sizeof_resp			= NULL;
 ocistmt::FNCHLDLST ocistmt::child_list			= NULL;
 ocistmt::FNLOBDATA ocistmt::lob_data			= NULL;
 
-void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNSTRAPP sa, ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe,
-	ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl, ocistmt::FNLOBDATA lobf)
+void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNFLTAPP fa, ocistmt::FNDBLAPP da, ocistmt::FNSTRAPP sa,
+	ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl,
+	ocistmt::FNLOBDATA lobf)
 {
 	coldef_append = cda;
+	float_append = fa;
+	double_append = da;
 	string_append = sa;
 	sizeof_resp = sr;
 	tuple_append = tup;
@@ -169,9 +174,13 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 			//unsigned short * alenarr = &_argsin[i].alen[0];
 			void ** valueparr = &_argsin[i].valuep[0];
 			switch(_argsin[i].dty) {
+				case SQLT_IBFLOAT:
 				case SQLT_BFLOAT:
-				case SQLT_BDOUBLE:
 				case SQLT_FLT:
+					dat_len = sizeof(float);
+					break;
+				case SQLT_IBDOUBLE:
+				case SQLT_BDOUBLE:
 					dat_len = sizeof(double);
 					break;
 				case SQLT_INT:
@@ -188,6 +197,10 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 			memcpy((char*)_argsin[i].datap + _argsin[i].datap_len, valueparr[j], _argsin[i].alen[j]);
 			_argsin[i].datap_len += (unsigned long)(dat_len);
 		}
+		if(_argsin[i].dty == SQLT_BFLOAT || _argsin[i].dty == SQLT_IBFLOAT)
+			_argsin[i].dty = SQLT_FLT;
+		else if(_argsin[i].dty == SQLT_BDOUBLE || _argsin[i].dty == SQLT_IBDOUBLE)
+			_argsin[i].dty = SQLT_BDOUBLE;
 	}
 
 	if(_argsin.size() > 0)
@@ -410,10 +423,22 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 			}
 
 			switch (cur_clm.dtype) {
-            case SQLT_FLT:
             case SQLT_BFLOAT:
+			case SQLT_IBFLOAT:
+				cur_clm.row_valp = new unsigned char[4];
+				memset(cur_clm.row_valp, 0, sizeof(float));
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_IBFLOAT, "SQLT_IBFLOAT");
+				break;
             case SQLT_BDOUBLE:
-            case SQLT_INT:
+			case SQLT_IBDOUBLE:
+				cur_clm.row_valp = new unsigned char[8];
+				memset(cur_clm.row_valp, 0, sizeof(double));
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_IBDOUBLE, "SQLT_IBDOUBLE");
+				break;
+            case SQLT_FLT:
+			case SQLT_INT:
             case SQLT_UIN:
             case SQLT_VNU:
             case SQLT_NUM:
@@ -507,6 +532,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 			}
             default:
 				r.fn_ret = FAILURE;
+				SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] unsupporetd type %u\n", __FUNCTION__, __LINE__, cur_clm.dtype);
 				REMOTE_LOG(ERR, "Unsupported column type %d\n", cur_clm.dtype);
 				throw r;
                 break;
@@ -604,6 +630,20 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 	        row = (*child_list)(row_list);
 			for (unsigned int i = 0; i < _columns.size(); ++i)
 					switch (_columns[i]->dtype) {
+					case SQLT_FLT:
+					case SQLT_BFLOAT:
+					case SQLT_IBFLOAT:
+						(*float_append)((const unsigned char*)(_columns[i]->row_valp), row);
+						memset(_columns[i]->row_valp, 0, sizeof(float));
+						break;
+					case SQLT_BDOUBLE:
+					case SQLT_IBDOUBLE:
+						(*double_append)((const unsigned char*)(_columns[i]->row_valp), row);
+						memset(_columns[i]->row_valp, 0, sizeof(double));
+						break;
+					case SQLT_INT:
+					case SQLT_UIN:
+					case SQLT_VNU:
 					case SQLT_NUM:
 						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
 						memset(_columns[i]->row_valp, 0, sizeof(OCINumber));

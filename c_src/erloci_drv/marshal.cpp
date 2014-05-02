@@ -80,6 +80,72 @@ void append_int_to_list(const int integer, void * list)
 	container_list->add(integer);
 }
 
+float ntohf(const unsigned char flt[4])
+{
+	union {
+		uint32_t a;
+		int32_t sa;
+		unsigned char flt[4];
+		float f;
+	} flip;
+	memcpy(&flip.flt, flt, 4);
+	flip.a = ((flip.a & 0x000000FF) << 24) |
+		     ((flip.a & 0x0000FF00) <<  8) |
+			 ((flip.a & 0x00FF0000) >>  8) |
+			 ((flip.a & 0xFF000000) >> 24);
+	if ((flip.a & 0x80000000) > 0)
+		flip.a &= 0x7FFFFFFF;
+	else
+		flip.sa = -(flip.sa+1);
+
+	return flip.f;
+}
+
+void append_float_to_list(const unsigned char flt[4], void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	container_list->add(ntohf(flt));
+}
+
+double ntohd(const unsigned char dbl[8])
+{
+	union {
+		int64_t sa;
+		uint64_t a;
+		unsigned char dbl[8];
+		double d;
+	} flip;
+	memcpy(flip.dbl, dbl, 8);
+	flip.a = ((flip.a & 0x00000000000000FFULL) << 56) | 
+			 ((flip.a & 0x000000000000FF00ULL) << 40) | 
+			 ((flip.a & 0x0000000000FF0000ULL) << 24) | 
+			 ((flip.a & 0x00000000FF000000ULL) <<  8) | 
+			 ((flip.a & 0x000000FF00000000ULL) >>  8) | 
+			 ((flip.a & 0x0000FF0000000000ULL) >> 24) | 
+			 ((flip.a & 0x00FF000000000000ULL) >> 40) | 
+			 ((flip.a & 0xFF00000000000000ULL) >> 56);
+	if ((flip.a & 0x8000000000000000ULL) > 0)
+		flip.a &= 0x7FFFFFFFFFFFFFFFULL;
+	else
+		flip.sa = -(flip.sa+1);
+
+	return flip.d;
+}
+
+void append_double_to_list(const unsigned char dbl[8], void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	container_list->add(ntohd(dbl));
+}
+
 void * child_list(void * list)
 {
 	ASSERT(list!=NULL);
@@ -250,16 +316,29 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 			tmp_arg = NULL;
 			arg_len = 0;
 			switch(vars[i].dty) {
-				case SQLT_BFLOAT:
-				case SQLT_BDOUBLE:
 				case SQLT_FLT:
+				case SQLT_BFLOAT:
+				case SQLT_IBFLOAT:
+					if(t2.is_any_int() || t2.is_float()) {
+						ind = 0;
+						arg_len = sizeof(float);
+						tmp_arg = new float;
+						*(float*)tmp_arg = (float)(t2.is_any_int() ? t2.v.ll : t2.v.d);
+					} else {
+						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT got %d)\n", bind_count, vars[i].name, (int)t2.type);
+						strcpy(r.gerrbuf, "Malformed float parameter value");
+						throw r;
+					}
+					break;
+				case SQLT_IBDOUBLE:
+				case SQLT_BDOUBLE:
 					if(t2.is_any_int() || t2.is_float()) {
 						ind = 0;
 						arg_len = sizeof(double);
 						tmp_arg = new double;
 						*(double*)tmp_arg = (double)(t2.is_any_int() ? t2.v.ll : t2.v.d);
 					} else {
-						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT)\n", bind_count, vars[i].name);
+						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT got %d)\n", bind_count, vars[i].name, (int)t2.type);
 						strcpy(r.gerrbuf, "Malformed float parameter value");
 						throw r;
 					}

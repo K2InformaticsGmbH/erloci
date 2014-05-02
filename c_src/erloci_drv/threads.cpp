@@ -41,6 +41,8 @@ threads::threads(void)
 	command::config(child_list
 		, calculate_resp_size
 		, append_int_to_list
+		, append_float_to_list
+		, append_double_to_list
 		, append_string_to_list
 		, append_tuple_to_list
 		, append_ext_tuple_to_list
