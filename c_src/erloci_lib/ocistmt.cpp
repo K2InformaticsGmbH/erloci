@@ -632,13 +632,19 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 					switch (_columns[i]->dtype) {
 					case SQLT_FLT:
 					case SQLT_BFLOAT:
-					case SQLT_IBFLOAT:
-						(*float_append)((const unsigned char*)(_columns[i]->row_valp), row);
+					case SQLT_IBFLOAT: // NULL is empty binary
+						if(_columns[i]->indp < 0)
+							(*string_append)("", 0, row);
+						else
+							(*float_append)((const unsigned char*)(_columns[i]->row_valp), row);
 						memset(_columns[i]->row_valp, 0, sizeof(float));
 						break;
 					case SQLT_BDOUBLE:
-					case SQLT_IBDOUBLE:
-						(*double_append)((const unsigned char*)(_columns[i]->row_valp), row);
+					case SQLT_IBDOUBLE: // NULL is empty binary
+						if(_columns[i]->indp < 0)
+							(*string_append)("", 0, row);
+						else
+							(*double_append)((const unsigned char*)(_columns[i]->row_valp), row);
 						memset(_columns[i]->row_valp, 0, sizeof(double));
 						break;
 					case SQLT_INT:
