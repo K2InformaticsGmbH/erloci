@@ -324,7 +324,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						arg_len = sizeof(float);
 						tmp_arg = new float;
 						*(float*)tmp_arg = (float)(t2.is_any_int() ? t2.v.ll : t2.v.d);
-					} else {
+					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT got %d)\n", bind_count, vars[i].name, (int)t2.type);
 						strcpy(r.gerrbuf, "Malformed float parameter value");
 						throw r;
@@ -337,7 +337,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						arg_len = sizeof(double);
 						tmp_arg = new double;
 						*(double*)tmp_arg = (double)(t2.is_any_int() ? t2.v.ll : t2.v.d);
-					} else {
+					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT got %d)\n", bind_count, vars[i].name, (int)t2.type);
 						strcpy(r.gerrbuf, "Malformed float parameter value");
 						throw r;
@@ -350,7 +350,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						arg_len = sizeof(int);
 						tmp_arg = new int;
 						*(int*)tmp_arg = t2.v.i;
-					} else {
+					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed integer for %s (expected INTEGER)\n", bind_count, vars[i].name);
 						strcpy(r.gerrbuf, "Malformed integer parameter value");
 						throw r;
