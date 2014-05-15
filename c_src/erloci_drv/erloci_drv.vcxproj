@@ -65,6 +65,7 @@
     <LinkIncremental Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</LinkIncremental>
     <IncludePath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">C:\Oracle\instantclient\instantclient_12_1\sdk\include;C:\Program Files\erlang\erl5.10.4\usr\include;$(IncludePath)</IncludePath>
     <SourcePath Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(SourcePath)</SourcePath>
+    <IncludePath Condition="'$(Configuration)|$(Platform)'=='Release|x64'">C:\Oracle\instantclient\instantclient_12_1\sdk\include;C:\Program Files\erlang\erl5.10.4\usr\include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PreBuildEvent>
@@ -112,8 +113,8 @@
       <AdditionalOptions>/D__WIN32__ /DWIN32 /D_CONSOLE /D_UNICODE /DUNICODE /W3 /nologo /TP %(AdditionalOptions)</AdditionalOptions>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\include;$(SolutionDir)erloci_lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>OCCI;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>%ERL_INTERFACE_DIR%\include;%INSTANT_CLIENT_LIB_PATH%\sdk\include;$(ProjectDir)..\erloci_lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_WIN32;__WIN32__;WIN32;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -122,9 +123,9 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>ei_md.lib;erl_interface_md.lib;wsock32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(ProjectDir)..\..\priv\erloci.exe</OutputFile>
-      <AdditionalLibraryDirectories>D:\Programs\erlang\erl5.10.1\lib\erl_interface-3.7.11\lib;$(ProjectDir)..\..\priv;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ei_mdd.lib;erl_interface_mdd.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(ProjectName).exe</OutputFile>
+      <AdditionalLibraryDirectories>%ERL_INTERFACE_DIR%\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Console</SubSystem>
@@ -132,6 +133,16 @@
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
+    <PreBuildEvent>
+      <Command>del """$(SolutionDir)..\priv\ocierl.exe"""</Command>
+      <Message>del """$(SolutionDir)..\priv\ocierl.exe"""</Message>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ProjectReference Include="..\erloci_lib\erloci_lib.vcxproj">

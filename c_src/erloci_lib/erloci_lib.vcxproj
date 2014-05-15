@@ -93,8 +93,7 @@
     </Lib>
     <PostBuildEvent>
       <Message>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
-      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""
-</Command>
+      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -104,8 +103,8 @@
     <ClCompile>
       <Optimization>MaxSpeed</Optimization>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\lib\instantclient\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;__WIN32__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>%INSTANT_CLIENT_LIB_PATH%\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_LIB;__WIN32__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>
@@ -114,11 +113,23 @@
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Lib>
-      <AdditionalDependencies>wsock32.lib;oci.lib;oraocci11.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <OutputFile>$(ProjectDir)..\..\priv\$(ProjectName).lib</OutputFile>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\lib\instantclient;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>oci.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <OutputFile>$(OutDir)$(ProjectName).lib</OutputFile>
+      <AdditionalLibraryDirectories>%INSTANT_CLIENT_LIB_PATH%\sdk\lib\msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Lib>
+    <PreBuildEvent>
+      <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
+    </PreBuildEvent>
+    <PreBuildEvent>
+      <Message>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
+    </PreBuildEvent>
+    <PostBuildEvent>
+      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
+    </PostBuildEvent>
+    <PostBuildEvent>
+      <Message>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="checkerror.cpp" />
