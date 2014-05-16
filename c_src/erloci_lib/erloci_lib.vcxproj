@@ -107,8 +107,7 @@
       <PreprocessorDefinitions>WIN32;_LIB;__WIN32__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
@@ -117,6 +116,7 @@
       <OutputFile>$(OutDir)$(ProjectName).lib</OutputFile>
       <AdditionalLibraryDirectories>%INSTANT_CLIENT_LIB_PATH%\sdk\lib\msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
+      <Verbose>false</Verbose>
     </Lib>
     <PreBuildEvent>
       <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
