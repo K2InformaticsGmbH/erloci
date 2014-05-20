@@ -69,7 +69,6 @@ The Oracle connection information are taken from erloci.app.src. Please change i
   1. <code>rebar compile</code>
   2. <code>rebar eunit</code>
 
-
 ### CHANGE LOG
 #### 0.0.2
 1. STL term class for wrapping erlang term
