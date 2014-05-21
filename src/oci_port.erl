@@ -391,7 +391,6 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_b
     case handle_result(State#state.logging, Resp, L) of
         {undefined, Result} -> ?Info(L,"no reply for ~p", [Result]);
         {From, {error, Reason}} ->
-            ?Error(L, "~p", [Reason]), % Just in case its ignored later
             gen_server:reply(binary_to_term(From), {error, Reason});
         {From, Result} ->
             gen_server:reply(binary_to_term(From), Result) % regular reply
