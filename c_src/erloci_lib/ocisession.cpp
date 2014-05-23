@@ -37,11 +37,11 @@ void ocisession::config(FNAD2L _append_desc_to_list)
 
 	if(envhp == NULL) {
 		sword ret = 0;
-		ret = OCIEnvCreate((OCIEnv**)&envhp,		/* returned env handle */
-						   OCI_THREADED,			/* initilization modes */
-						   NULL, NULL, NULL, NULL,	/* callbacks, context */
-						   (size_t) 0,				/* optional extra memory size: optional */
-						   (void**) NULL);			/* returned extra memeory */
+		ret = OCIEnvCreate((OCIEnv**)&envhp,			/* returned env handle */
+						   OCI_THREADED | OCI_OBJECT,	/* initilization modes */
+						   NULL, NULL, NULL, NULL,		/* callbacks, context */
+						   (size_t) 0,					/* optional extra memory size: optional */
+						   (void**) NULL);				/* returned extra memeory */
 
 		r.handle = envhp;
 		checkenv(&r, ret);
@@ -152,15 +152,9 @@ void ocisession::describe_object(void *objptr, size_t objptr_len, ub1 objtyp,
 {
 	intf_ret r;
 
-	ub4 col_name_len;
-	ub2 numcols = 0, col_width = 0, coltyp = 0;
-	ub1 char_semantics = 0;
-	text *col_name = NULL;
-
 	OCIDescribe *dschp = (OCIDescribe *) 0;		/* describe handle */
-	OCIParam *parmh = (OCIParam *) 0;			/* parameter handle */
-	OCIParam *collsthd = (OCIParam *) 0;		/* handle to list of columns */
-	OCIParam *colhd = (OCIParam *) 0;			/* column handle */
+	OCIParam *parmh = (OCIParam *) 0;			/* parameter handle */	
+	ub1 parameter_type = 0;						/* type of the described parameter handle */
 
 	r.handle = envhp;
 	checkenv(&r, OCIHandleAlloc((OCIEnv*)envhp, (dvoid **)&dschp,
@@ -183,85 +177,113 @@ void ocisession::describe_object(void *objptr, size_t objptr_len, ub1 objtyp,
 		goto error_exit;
 	}
 
-	/* get the number of columns in the table */
-	checkerr(&r, OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&numcols, (ub4 *)0,
-					OCI_ATTR_NUM_COLS, (OCIError*)_errhp));
-    if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NUM_COLS) %s\n", r.gerrbuf);
+	checkerr(&r, OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid*)&parameter_type, (ub4*)0, OCI_ATTR_PTYPE, (OCIError*)_errhp));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_PTYPE) %s\n", r.gerrbuf);
 		goto error_exit;
 	}
 
-	/* get the handle to the column list of the table */
-	checkerr(&r, OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&collsthd, (ub4 *)0,
-					OCI_ATTR_LIST_COLUMNS, (OCIError*)_errhp));
-	if(r.fn_ret == OCI_NO_DATA) {
-		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) -> OCI_NO_DATA %s\n", r.gerrbuf);
-		goto error_exit;
-	} else if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) %s\n", r.gerrbuf);
-		goto error_exit;
-	} 
+	switch(parameter_type) {
+	case OCI_PTYPE_TABLE:
+		{
+			OCIParam *collsthd = (OCIParam *) 0;		/* handle to list of columns */
+			OCIParam *colhd = (OCIParam *) 0;			/* column handle */
 
-	for (int i = 1; i <= numcols; i++)
-	{
-		/* get parameter for column i */
-		checkerr(&r, OCIParamGet((dvoid *)collsthd, OCI_DTYPE_PARAM, (OCIError*)_errhp, (dvoid **)&colhd, (ub4)i));
-		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG(ERR, "failed OCIParamGet(OCI_DTYPE_PARAM) %s\n", r.gerrbuf);
-			goto error_exit;
-		}
+			ub4 col_name_len;
+			ub2 numcols = 0, col_width = 0, coltyp = 0;
+			ub1 char_semantics = 0;
+			text *col_name = NULL;
 
-		/* for example, get datatype for ith column */
-		coltyp = 0;
-		checkerr(&r, OCIAttrGet((dvoid *)colhd, OCI_DTYPE_PARAM, (dvoid *)&coltyp, (ub4 *)0, OCI_ATTR_DATA_TYPE, (OCIError*)_errhp));
-		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_TYPE) %s\n", r.gerrbuf);
-			goto error_exit;
-		}
-
-		/* Retrieve the length semantics for the column */
-		char_semantics = 0;
-		checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &char_semantics, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_USED, (OCIError*)_errhp));
-		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_USED) %s\n", r.gerrbuf);
-			goto error_exit;
-		}
-
-		col_width = 0;
-		if (char_semantics) {
-			/* Retrieve the column width in characters */
-			checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_SIZE, (OCIError*)_errhp));
+			/* get the number of columns in the table */
+			checkerr(&r, OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&numcols, (ub4 *)0,
+							OCI_ATTR_NUM_COLS, (OCIError*)_errhp));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_SIZE) %s\n", r.gerrbuf);
+				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NUM_COLS) %s\n", r.gerrbuf);
 				goto error_exit;
 			}
-		} else {
-			/* Retrieve the column width in bytes */
-			checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width,(ub4 *) 0, (ub4) OCI_ATTR_DATA_SIZE,
-					 (OCIError*)_errhp));
-			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_SIZE) %s\n", r.gerrbuf);
+
+			/* get the handle to the column list of the table */
+			checkerr(&r, OCIAttrGet((dvoid *)parmh, OCI_DTYPE_PARAM, (dvoid *)&collsthd, (ub4 *)0,
+							OCI_ATTR_LIST_COLUMNS, (OCIError*)_errhp));
+			if(r.fn_ret == OCI_NO_DATA) {
+				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) -> OCI_NO_DATA %s\n", r.gerrbuf);
 				goto error_exit;
+			} else if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_LIST_COLUMNS) %s\n", r.gerrbuf);
+				goto error_exit;
+			} 
+
+			for (int i = 1; i <= numcols; i++)
+			{
+				/* get parameter for column i */
+				checkerr(&r, OCIParamGet((dvoid *)collsthd, OCI_DTYPE_PARAM, (OCIError*)_errhp, (dvoid **)&colhd, (ub4)i));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIParamGet(OCI_DTYPE_PARAM) %s\n", r.gerrbuf);
+					goto error_exit;
+				}
+
+				/* get datatype for ith column */
+				coltyp = 0;
+				checkerr(&r, OCIAttrGet((dvoid *)colhd, OCI_DTYPE_PARAM, (dvoid *)&coltyp, (ub4 *)0, OCI_ATTR_DATA_TYPE, (OCIError*)_errhp));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_TYPE) %s\n", r.gerrbuf);
+					goto error_exit;
+				}
+
+				/* Retrieve the length semantics for the column */
+				char_semantics = 0;
+				checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &char_semantics, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_USED, (OCIError*)_errhp));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_USED) %s\n", r.gerrbuf);
+					goto error_exit;
+				}
+
+				col_width = 0;
+				if (char_semantics) {
+					/* Retrieve the column width in characters */
+					checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width, (ub4 *) 0, (ub4) OCI_ATTR_CHAR_SIZE, (OCIError*)_errhp));
+					if(r.fn_ret != SUCCESS) {
+						REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_CHAR_SIZE) %s\n", r.gerrbuf);
+						goto error_exit;
+					}
+				} else {
+					/* Retrieve the column width in bytes */
+					checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM, (dvoid*) &col_width,(ub4 *) 0, (ub4) OCI_ATTR_DATA_SIZE,
+							 (OCIError*)_errhp));
+					if(r.fn_ret != SUCCESS) {
+						REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_DATA_SIZE) %s\n", r.gerrbuf);
+						goto error_exit;
+					}
+				}
+
+				/* Retrieve the column name */
+				col_name_len = 0;
+				checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM,
+										(dvoid**) &col_name, (ub4 *) &col_name_len, (ub4) OCI_ATTR_NAME,
+										(OCIError*)_errhp));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NAME) error %s\n", r.gerrbuf);
+					goto error_exit;
+				}
+
+				(*append_desc_to_list)((char*)col_name, col_name_len, coltyp, col_width, desc_list);
 			}
 		}
-
-		/* Retrieve the column name */
-        col_name_len = 0;
-        checkerr(&r, OCIAttrGet((dvoid*) colhd, (ub4) OCI_DTYPE_PARAM,
-                                (dvoid**) &col_name, (ub4 *) &col_name_len, (ub4) OCI_ATTR_NAME,
-                                (OCIError*)_errhp));
-		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_DTYPE_PARAM, OCI_ATTR_NAME) error %s\n", r.gerrbuf);
-			goto error_exit;
-		}
-
-		(*append_desc_to_list)((char*)col_name, col_name_len, coltyp, col_width, desc_list);
+		break;
+	default:
+		r.fn_ret = FAILURE;
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] Unsupported describe parameter type '%d'\n", __FUNCTION__, __LINE__, parameter_type);
+		REMOTE_LOG(ERR, "Unsupported describe parameter type '%d'\n", parameter_type);
+		goto error_exit;
+		break;
 	}
-	return;
+	if (dschp)
+		OCIHandleFree((dvoid*)dschp, OCI_HTYPE_DESCRIBE);
+	return; // return success
 
 error_exit:
 	if (dschp)
-		OCIHandleFree((dvoid *) dschp, OCI_HTYPE_DESCRIBE);
+		OCIHandleFree((dvoid*)dschp, OCI_HTYPE_DESCRIBE);
 	throw r;
 }
 
