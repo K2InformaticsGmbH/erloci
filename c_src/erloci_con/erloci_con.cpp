@@ -588,6 +588,7 @@ void checkerr(OCIError * errhp, sword status, int line)
   text errbuf[512];
   sb4 errcode = 0;
 
+  memset(errbuf, 0, sizeof(errbuf));
   switch (status)
   {
   case OCI_SUCCESS:
@@ -604,7 +605,7 @@ void checkerr(OCIError * errhp, sword status, int line)
   case OCI_ERROR:
     (void) OCIErrorGet((dvoid *)errhp, (ub4) 1, (text *) NULL, &errcode,
                         errbuf, (ub4) sizeof(errbuf), OCI_HTYPE_ERROR);
-    (void) printf("[%d] Error - %.*ls\n", line, 512, errbuf);
+    (void) printf("[%d] Error - %s\n", line, errbuf);
     break;
   case OCI_INVALID_HANDLE:
     (void) printf("[%d] Error - OCI_INVALID_HANDLE\n", line);
@@ -870,7 +871,7 @@ int main(int argc, char* argv[])
 	if(setup_env())
 		goto error_return;
 
-	char *objptr = "person_typ";
+	char *objptr = "sys.aq$_jms_map_message";
 	OCIDescribe *dschp = NULL;
 	OCIParam *parmh = NULL;
 
@@ -1035,7 +1036,7 @@ int main(int argc, char* argv[])
 			TYP_PROP_M(OCI_ATTR_IS_OVERRIDING_METHOD);
 
 			OCIParam *mthdarglsthd = NULL;
-			OCIParam *mthdarglst = NULL;
+			OCIParam *mthdarg = NULL;
 			err = OCIAttrGet((dvoid*)mthdhd, OCI_DTYPE_PARAM, (dvoid*)&mthdarglsthd, (ub4 *)0, OCI_ATTR_LIST_ARGUMENTS, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
@@ -1051,6 +1052,24 @@ int main(int argc, char* argv[])
 
 			if (nummthdargs > 0) {
 				printf("\thas %d arguments\n", nummthdargs);
+				OraText *anm = NULL;
+				ub4 anl = 0;
+				for (ub4 j = 1; j <= nummthdargs; j++)
+				{
+					err = OCIParamGet((dvoid *)mthdarglsthd, OCI_DTYPE_PARAM, errhp, (dvoid**)&mthdarg, j);
+					if(err != OCI_SUCCESS) {
+						checkerr(errhp, err, __LINE__);
+						goto error_return;
+					}
+					anm = NULL;
+					anl = 0;
+					err = OCIAttrGet((dvoid*)mthdarg, OCI_DTYPE_PARAM, (dvoid*)&anm, (ub4 *)&anl, OCI_ATTR_NAME, errhp);
+					if(err != OCI_SUCCESS) {
+						checkerr(errhp, err, __LINE__);
+						goto error_return;
+					}
+					printf("\t\targ %.*s\n", anl, anm);
+				}
 			}
 		}
 	}
