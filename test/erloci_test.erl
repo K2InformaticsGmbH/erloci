@@ -14,6 +14,7 @@ end)(__Fmt,__Args)).
 
 -define(TESTTABLE, "erloci_test_1").
 -define(TESTFUNCTION, "ERLOCI_TEST_FUNCTION").
+-define(TESTPROCEDURE, "ERLOCI_TEST_PROCEDURE").
 -define(DROP,   <<"drop table "?TESTTABLE>>).
 -define(CREATE, <<"create table "?TESTTABLE" (pkey integer,"
                   "publisher varchar2(30),"
@@ -145,9 +146,10 @@ db_test_() ->
             , fun auto_rollback_test/1
             , fun commit_rollback_test/1
             , fun asc_desc_test/1
+            , fun lob_test/1
             , fun describe_test/1
             , fun function_test/1
-            , fun lob_test/1
+            , fun procedure_test/1
         ]}
     }}.
 
@@ -165,8 +167,6 @@ teardown_conn({OciPort, OciSession}) ->
     OciSession:close(),
     OciPort:close(),
     application:stop(erloci).
-
-
 
 flush_table(OciSession) ->
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
@@ -657,3 +657,60 @@ function_test({_, OciSession}) ->
     DropFunStmt = OciSession:prep_sql(<<"drop function "?TESTFUNCTION>>),
     ?assertEqual({executed, 0}, DropFunStmt:exec_stmt()),
     ?assertEqual(ok, DropFunStmt:close()).
+
+procedure_test({_, OciSession}) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                       procedure_test                           |"),
+    ?ELog("+----------------------------------------------------------------+"),
+
+    CreateProcedure = OciSession:prep_sql(<<"
+        create or replace procedure "
+        ?TESTPROCEDURE
+        "(p_first in number, p_second in out varchar2, p_result out number)
+        is
+        begin
+            p_result := p_first + to_number(p_second);
+            p_second := 'The sum is ' || to_char(p_result);
+        end;
+        ">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateProcedure),
+    ?assertEqual({executed, 0}, CreateProcedure:exec_stmt()),
+    ?assertEqual(ok, CreateProcedure:close()),
+
+    ExecStmt = OciSession:prep_sql(<<"begin "?TESTPROCEDURE"(:p_first,:p_second,:p_result); end;">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt),
+    ?assertMatch(ok, ExecStmt:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
+                                        , {<<":p_second">>, inout, 'SQLT_CHR'}
+                                        , {<<":p_result">>, out, 'SQLT_INT'}])),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 52 ">>}
+                               ,{<<":p_result">>,52}]}, ExecStmt:exec_stmt([{50, <<"2             ">>, 3}], 1)),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 7  ">>}
+                               ,{<<":p_result">>,7}]}, ExecStmt:exec_stmt([{5, <<"2             ">>, 3}], 1)),
+    ?assertEqual(ok, ExecStmt:close()),
+
+    ExecStmt1 = OciSession:prep_sql(<<"call myproc(:p_first,:p_second,:p_result)">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt1),
+    ?assertMatch(ok, ExecStmt1:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
+                                        , {<<":p_second">>, inout, 'SQLT_CHR'}
+                                        , {<<":p_result">>, out, 'SQLT_INT'}])),
+    ?assertEqual({executed, 0, [{<<":p_second">>,<<"The sum is 52 ">>}
+                               ,{<<":p_result">>,52}]}, ExecStmt1:exec_stmt([{50, <<"2             ">>, 3}], 1)),
+    ?assertEqual({executed, 0, [{<<":p_second">>,<<"The sum is 7  ">>}
+                               ,{<<":p_result">>,7}]}, ExecStmt1:exec_stmt([{5, <<"2             ">>, 3}], 1)),
+    ?assertEqual(ok, ExecStmt1:close()),
+
+    ExecStmt2 = OciSession:prep_sql(<<"declare begin myproc(:p_first,:p_second,:p_result); end;">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt2),
+    ?assertMatch(ok, ExecStmt2:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
+                                        , {<<":p_second">>, inout, 'SQLT_CHR'}
+                                        , {<<":p_result">>, out, 'SQLT_INT'}])),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 52 ">>}
+                               ,{<<":p_result">>,52}]}, ExecStmt2:exec_stmt([{50, <<"2             ">>, 3}], 1)),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 7  ">>}
+                               ,{<<":p_result">>,7}]}, ExecStmt2:exec_stmt([{5, <<"2             ">>, 3}], 1)),
+    ?assertEqual(ok, ExecStmt2:close()),
+
+    % Drop procedure
+    DropProcStmt = OciSession:prep_sql(<<"drop procedure "?TESTPROCEDURE>>),
+    ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
+    ?assertEqual(ok, DropProcStmt:close()).

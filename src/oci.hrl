@@ -166,6 +166,13 @@
 -define(ARG_DIR_OUT,		1).
 -define(ARG_DIR_INOUT,		2).
 
+-define(AD(__C),
+case __C of
+    in    -> ?ARG_DIR_IN;
+    out   -> ?ARG_DIR_OUT;
+    inout -> ?ARG_DIR_INOUT
+end).
+
 -define(APP_START_TIME, 	1000).
 
 % Debug flags

@@ -174,7 +174,10 @@ lob(LobHandle, Offset, Length, {?MODULE, statement, PortPid, SessionId, StmtId})
     end.
 
 bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
-    TranslatedBindVars = [{K, ?CT(V)} || {K,V} <- BindVars],
+    TranslatedBindVars = [case BV of
+                              {K,V}     -> {K, ?AD(in), ?CT(V)};
+                              {K,D,V}   -> {K, ?AD(D),  ?CT(V)}
+                          end || BV <- BindVars],
     R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, SessionId, StmtId, TranslatedBindVars]}, ?PORT_TIMEOUT),
     ?DriverSleep,
     case R of
@@ -238,6 +241,8 @@ collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, Stm
         {error, Error}  -> {error, Error};
         {cols, Clms}    -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
                                                        , [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
+        {executed, _}       -> R;
+        {executed, _, _}    -> R;
         R               -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
     end.
 

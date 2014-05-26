@@ -840,9 +840,9 @@ bool get_lob(const char * field, OCILobLocator *lob)
 	err = OCIAttrGet((dvoid*)__parmh, OCI_DTYPE_PARAM, (dvoid*)&has, (ub4*)0, __attrtype, errhp);\
 	if(err != OCI_SUCCESS) {\
 		checkerr(errhp, err, __LINE__);\
-		goto error_return;\
+		goto err_ret;\
 	}\
-	(void) printf("[%d] "__attrtypestr" - %s\n", __LINE__, has == 0 ? "no" : "yes");\
+	(void) printf("\t[%d] "__attrtypestr" - %s\n", __LINE__, has == 0 ? "no" : "yes");\
 	has;\
 }
 
@@ -850,9 +850,9 @@ bool get_lob(const char * field, OCILobLocator *lob)
 	err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid*)&num, (ub4*)0, __attrtype, errhp);\
 	if(err != OCI_SUCCESS) {\
 		checkerr(errhp, err, __LINE__);\
-		goto error_return;\
+		goto err_ret;\
 	}\
-	(void) printf("[%d] "#__attrtype" - %d\n", __LINE__, num);\
+	(void) printf("\t[%d] "#__attrtype" - %d\n", __LINE__, num);\
 }
 
 #define STRING_PROP(__attrtype) {\
@@ -861,48 +861,55 @@ bool get_lob(const char * field, OCILobLocator *lob)
 	err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid*)&name, (ub4*)&name_len, __attrtype, errhp);\
 	if(err != OCI_SUCCESS) {\
 		checkerr(errhp, err, __LINE__);\
-		goto error_return;\
+		goto err_ret;\
 	}\
-	(void) printf("[%d] "#__attrtype" - %.*s\n", __LINE__, name_len, name);\
+	(void) printf("\t[%d] "#__attrtype" - %.*s\n", __LINE__, name_len, name);\
 }
 
-int main(int argc, char* argv[])
+// sqlplus sbs0/sbs0sbs0_4dev@192.168.1.69/SBS0.k2informatics.ch
+// SELECT queue, user_data  FROM aq$sisnot_aq_table
+bool describe(const char objptr[])
 {
-	if(setup_env())
-		goto error_return;
-
-	char *objptr = "sys.aq$_jms_map_message";
+	//char *objptr = "sys.aq$_jms_map_message";
 	OCIDescribe *dschp = NULL;
 	OCIParam *parmh = NULL;
 
 	err = OCIHandleAlloc(envhp, (void**)&dschp, OCI_HTYPE_DESCRIBE, (size_t)0, (void**) NULL);
 	if(err != OCI_SUCCESS)
-		goto error_return;
+		return true;
 
-	err = OCIDescribeAny(svchp, errhp, objptr, (ub4)strlen(objptr), OCI_OTYPE_NAME, OCI_DEFAULT, OCI_PTYPE_TYPE, dschp);
+	err = OCIDescribeAny(svchp, errhp, (void*)objptr, (ub4)strlen(objptr), OCI_OTYPE_NAME, OCI_DEFAULT, OCI_PTYPE_TYPE, dschp);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
-		goto error_return;
+		goto err_ret;
 	}
 
 	err = OCIAttrGet((dvoid*)dschp, OCI_HTYPE_DESCRIBE, (dvoid*)&parmh, (ub4*)0, OCI_ATTR_PARAM, errhp);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
-		goto error_return;
+		goto err_ret;
 	}
 
 	ub1 ptyp = 0;
 	err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid*)&ptyp, (ub4*)0, OCI_ATTR_PTYPE, errhp);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
-		goto error_return;
+		goto err_ret;
 	}
 
 	OCITypeCode otc;
 	err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid*)&otc, (ub4*)0, OCI_ATTR_TYPECODE, errhp);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
-		goto error_return;
+		goto err_ret;
+	}
+
+	OraText *tnm = NULL;
+	ub4 tnl = 0;
+	err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid*)&tnm, (ub4 *)&tnl, OCI_ATTR_NAME, errhp);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		goto err_ret;
 	}
 
 	TYP_PROP(OCI_ATTR_IS_INCOMPLETE_TYPE);
@@ -935,7 +942,7 @@ int main(int argc, char* argv[])
 		err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid *)&attrlsthd, (ub4 *)0, OCI_ATTR_LIST_TYPE_ATTRS, errhp);
 		if(err != OCI_SUCCESS) {
 			checkerr(errhp, err, __LINE__);
-			goto error_return;
+			goto err_ret;
 		}
 		ub2 type = 0;
 		ub2 size = 0;
@@ -948,28 +955,61 @@ int main(int argc, char* argv[])
 			err = OCIParamGet((dvoid *)attrlsthd, OCI_DTYPE_PARAM, errhp, (dvoid**)&attrhd, i);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			size = 0;
 			err = OCIAttrGet((dvoid*)attrhd, OCI_DTYPE_PARAM, (dvoid*)&size,(ub4*)0, OCI_ATTR_DATA_SIZE, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			tc = 0;
 			err = OCIAttrGet((dvoid*)attrhd, OCI_DTYPE_PARAM, (dvoid*)&tc,(ub4*)0, OCI_ATTR_TYPECODE, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
+			}
+
+			if (tc == OCI_TYPECODE_OBJECT)
+			{
+				OCIRef *attr_type_ref;
+				OCIDescribe *nested_dschp;
+
+				err = OCIHandleAlloc(envhp, (void**)&nested_dschp, OCI_HTYPE_DESCRIBE, (size_t)0, (void**) NULL);
+				if(err != OCI_SUCCESS)
+					goto err_ret;
+
+				err = OCIAttrGet((void *)attrhd, OCI_DTYPE_PARAM, (void *)&attr_type_ref, (ub4*)0, OCI_ATTR_REF_TDO,errhp);
+				if(err != OCI_SUCCESS)
+					goto err_ret;
+
+				err = OCIDescribeAny(svchp, errhp,(void*)attr_type_ref, 0, OCI_OTYPE_REF, OCI_DEFAULT, OCI_PTYPE_TYPE, nested_dschp);
+				if(err != OCI_SUCCESS)
+					goto err_ret;
+
+				OCIParam *nested_parmh = NULL;
+				err = OCIAttrGet((dvoid*)nested_dschp, OCI_HTYPE_DESCRIBE, (dvoid*)&nested_parmh, (ub4*)0, OCI_ATTR_PARAM, errhp);
+				if(err != OCI_SUCCESS) {
+					checkerr(errhp, err, __LINE__);
+					goto err_ret;
+				}
+
+				OraText *nested_tnm = NULL;
+				ub4 nested_tnl = 0;
+				err = OCIAttrGet((dvoid*)nested_parmh, OCI_DTYPE_PARAM, (dvoid*)&nested_tnm, (ub4 *)&nested_tnl, OCI_ATTR_NAME, errhp);
+				if(err != OCI_SUCCESS) {
+					checkerr(errhp, err, __LINE__);
+					goto err_ret;
+				}
 			}
 
 			type = 0;
 			err = OCIAttrGet((dvoid*)attrhd, OCI_DTYPE_PARAM, (dvoid*)&type, (ub4 *)0, OCI_ATTR_DATA_TYPE, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			nm = NULL;
@@ -977,7 +1017,7 @@ int main(int argc, char* argv[])
 			err = OCIAttrGet((dvoid*)attrhd, OCI_DTYPE_PARAM, (dvoid*)&nm, (ub4 *)&nl, OCI_ATTR_NAME, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			printf("ATTR [%d] %.*s: type code %d, type %d, size %d\n", i, nl, nm, tc, type, size);
@@ -990,7 +1030,7 @@ int main(int argc, char* argv[])
 		err = OCIAttrGet((dvoid*)parmh, OCI_DTYPE_PARAM, (dvoid *)&mthdlsthd, (ub4 *)0, OCI_ATTR_LIST_TYPE_METHODS, errhp);
 		if(err != OCI_SUCCESS) {
 			checkerr(errhp, err, __LINE__);
-			goto error_return;
+			goto err_ret;
 		}
 		ub2 type = 0;
 		ub2 size = 0;
@@ -1003,7 +1043,7 @@ int main(int argc, char* argv[])
 			err = OCIParamGet((dvoid *)mthdlsthd, OCI_DTYPE_PARAM, errhp, (dvoid**)&mthdhd, i);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			nm = NULL;
@@ -1011,14 +1051,14 @@ int main(int argc, char* argv[])
 			err = OCIAttrGet((dvoid*)mthdhd, OCI_DTYPE_PARAM, (dvoid*)&nm, (ub4 *)&nl, OCI_ATTR_NAME, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			enc = OCITypeEncap::OCI_TYPEENCAP_PUBLIC;
 			err = OCIAttrGet((dvoid*)mthdhd, OCI_DTYPE_PARAM, (dvoid*)&enc,(ub4*)0, OCI_ATTR_ENCAPSULATION, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 			printf("MTHD [%d] %.*s: encapsulation %s\n", i, nl, nm, enc == OCITypeEncap::OCI_TYPEENCAP_PUBLIC ? "OCI_TYPEENCAP_PUBLIC" : "OCI_TYPEENCAP_PRIVATE");
 			TYP_PROP_M(OCI_ATTR_IS_CONSTRUCTOR);
@@ -1040,14 +1080,14 @@ int main(int argc, char* argv[])
 			err = OCIAttrGet((dvoid*)mthdhd, OCI_DTYPE_PARAM, (dvoid*)&mthdarglsthd, (ub4 *)0, OCI_ATTR_LIST_ARGUMENTS, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 			
 			ub2 nummthdargs = 0;
 			err = OCIAttrGet((dvoid*)mthdarglsthd, OCI_DTYPE_PARAM, (dvoid*)&nummthdargs, (ub4*)0, OCI_ATTR_NUM_PARAMS, errhp);
 			if(err != OCI_SUCCESS) {
 				checkerr(errhp, err, __LINE__);
-				goto error_return;
+				goto err_ret;
 			}
 
 			if (nummthdargs > 0) {
@@ -1059,21 +1099,31 @@ int main(int argc, char* argv[])
 					err = OCIParamGet((dvoid *)mthdarglsthd, OCI_DTYPE_PARAM, errhp, (dvoid**)&mthdarg, j);
 					if(err != OCI_SUCCESS) {
 						checkerr(errhp, err, __LINE__);
-						goto error_return;
+						goto err_ret;
 					}
 					anm = NULL;
 					anl = 0;
 					err = OCIAttrGet((dvoid*)mthdarg, OCI_DTYPE_PARAM, (dvoid*)&anm, (ub4 *)&anl, OCI_ATTR_NAME, errhp);
 					if(err != OCI_SUCCESS) {
 						checkerr(errhp, err, __LINE__);
-						goto error_return;
+						goto err_ret;
 					}
 					printf("\t\targ %.*s\n", anl, anm);
 				}
 			}
 		}
 	}
+err_ret:
+	return false;
+}
 
+int main(int argc, char* argv[])
+{
+	if(setup_env())
+		goto error_return;
+
+	if(describe("sys.aq$_jms_map_message"))
+		goto error_return;
 
 #if 0 // statement tests
 	if(statement("select longd from rawlong"))
