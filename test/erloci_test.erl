@@ -149,7 +149,8 @@ db_test_() ->
             , fun lob_test/1
             , fun describe_test/1
             , fun function_test/1
-            , fun procedure_test/1
+            , fun procedure_scalar_test/1
+            , fun procedure_cur_test/1
         ]}
     }}.
 
@@ -658,9 +659,9 @@ function_test({_, OciSession}) ->
     ?assertEqual({executed, 0}, DropFunStmt:exec_stmt()),
     ?assertEqual(ok, DropFunStmt:close()).
 
-procedure_test({_, OciSession}) ->
+procedure_scalar_test({_, OciSession}) ->
     ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                       procedure_test                           |"),
+    ?ELog("|                     procedure_scalar_test                      |"),
     ?ELog("+----------------------------------------------------------------+"),
 
     CreateProcedure = OciSession:prep_sql(<<"
@@ -671,7 +672,7 @@ procedure_test({_, OciSession}) ->
         begin
             p_result := p_first + to_number(p_second);
             p_second := 'The sum is ' || to_char(p_result);
-        end;
+        end "?TESTPROCEDURE";
         ">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateProcedure),
     ?assertEqual({executed, 0}, CreateProcedure:exec_stmt()),
@@ -714,3 +715,59 @@ procedure_test({_, OciSession}) ->
     DropProcStmt = OciSession:prep_sql(<<"drop procedure "?TESTPROCEDURE>>),
     ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
     ?assertEqual(ok, DropProcStmt:close()).
+
+procedure_cur_test({_, OciSession}) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                       procedure_cur_test                       |"),
+    ?ELog("+----------------------------------------------------------------+"),
+
+    RowCount = 10,
+
+    flush_table(OciSession),
+
+    ?ELog("inserting into table ~s", [?TESTTABLE]),
+    BoundInsStmt = OciSession:prep_sql(?INSERT),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
+    ?assertMatch(ok, BoundInsStmt:bind_vars(?BIND_LIST)),
+    ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt(
+        [{ I                                                                                % pkey 
+         , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
+         , I+I/2                                                                            % rank
+         , I+I/3                                                                            % hero
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , I                                                                                % votes
+         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , I*2+I/1000                                                                       % chapters
+         , I                                                                                % votes_first_rank
+         } || I <- lists:seq(1, RowCount)]
+        , 1
+    )),
+    ?assertEqual(ok, BoundInsStmt:close()),
+
+    CreateProcedure = OciSession:prep_sql(<<"
+        create or replace procedure "
+        ?TESTPROCEDURE
+        "(p_cur out sys_refcursor)
+        is
+        begin
+            open p_cur for select * from "?TESTTABLE";
+        end "?TESTPROCEDURE";
+        ">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateProcedure),
+    ?assertEqual({executed, 0}, CreateProcedure:exec_stmt()),
+    ?assertEqual(ok, CreateProcedure:close()),
+
+    ExecStmt = OciSession:prep_sql(<<"begin "?TESTPROCEDURE"(:cursor); end;">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt),
+    ?assertMatch(ok, ExecStmt:bind_vars([{<<":cursor">>, out, 'SQLT_CUR'}])),
+    {executed, 1, CurStmt} = ExecStmt:exec_stmt(),
+    {cols, Cols} = CurStmt:exec_stmt(),
+    {{rows, Rows}, true} = CurStmt:fetch_rows(RowCount+1),
+    ?assertEqual(RowCount, length(Rows)),
+    ?assertEqual(ok, ExecStmt:close()),
+
+    % Drop procedure
+    DropProcStmt = OciSession:prep_sql(<<"drop procedure "?TESTPROCEDURE>>),
+    ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
+    ?assertEqual(ok, DropProcStmt:close()).
+
