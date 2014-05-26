@@ -27,35 +27,10 @@ transcoder & command::tc	= transcoder::instance();
 extern void map_schema_to_bind_args(term &, vector<var> &);
 extern size_t map_value_to_bind_args(term &, vector<var> &);
 
-void command::config(
-		void * (*child_list)(void *),
-		size_t (*calculate_resp_size)(void *),
-		void (*append_int_to_list)(const int, void *),
-		void (*append_float_to_list)(const unsigned char[4], void *),
-		void (*append_double_to_list)(const unsigned char[8], void *),
-		void (*append_string_to_list)(const char *, size_t, void *),
-		void (*append_tuple_to_list)(unsigned long long, unsigned long long, void *),
-		void (*append_ext_tuple_to_list)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
-		void (*append_coldef_to_list)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
-		void (*append_desc_to_list)(const char *, size_t, const unsigned short, const unsigned int, void *),
-		void (*binary_data)(const unsigned char *, unsigned long long, void *),
-		void (*append_bin_arg_tuple_to_list)(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *),
-		void (*append_int_arg_tuple_to_list)(const unsigned char *, unsigned long long, unsigned long long, void *)
-		)
+void command::config(intf_funs ifn)
 {
-	ocisession::config((ocisession::FNAD2L)append_desc_to_list);
-	ocistmt::config((ocistmt::FNCDEFAPP)append_coldef_to_list,
-					(ocistmt::FNFLTAPP)append_float_to_list,
-					(ocistmt::FNDBLAPP)append_double_to_list,
-					(ocistmt::FNSTRAPP)append_string_to_list,
-					(ocistmt::FNTUPAPP)append_tuple_to_list,
-					(ocistmt::FNTUPEAPP)append_ext_tuple_to_list,
-					(ocistmt::FNSZAPP)calculate_resp_size,
-					(ocistmt::FNCHLDLST)child_list,
-					(ocistmt::FNLOBDATA)binary_data,
-					(ocistmt::FNBINKVAPP)append_bin_arg_tuple_to_list,
-					(ocistmt::FNINTKVAPP)append_int_arg_tuple_to_list
-					);
+	ocisession::config(ifn);
+	ocistmt::config(ifn);
 }
 
 bool command::change_log_flag(term & t, term & resp)

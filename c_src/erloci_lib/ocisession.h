@@ -25,9 +25,7 @@ using namespace std;
 class ocisession
 {
 public:
-	typedef void (*FNAD2L)(const char * col_name, size_t len, const unsigned short data_type,
-													 const unsigned int max_len, void * list);
-	static void config(FNAD2L);
+	static void config(intf_funs);
 	static inline void * getenv() { return envhp; };
 
 	inline void *getsession() { return _svchp; }
@@ -44,7 +42,7 @@ public:
 	~ocisession(void);
 
 private:
-	static FNAD2L append_desc_to_list;
+	static intf_funs intf;
 	static void * envhp;
 	static void * stmt_lock;
 	static list<ocisession*> _sessions;

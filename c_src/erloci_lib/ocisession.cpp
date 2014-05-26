@@ -24,12 +24,12 @@
 void * ocisession::envhp = NULL;
 void * ocisession::stmt_lock = NULL;
 
-ocisession::FNAD2L ocisession::append_desc_to_list = NULL;
+intf_funs ocisession::intf;
 list<ocisession*> ocisession::_sessions;
 
-void ocisession::config(FNAD2L _append_desc_to_list)
+void ocisession::config(intf_funs _intf)
 {
-	append_desc_to_list = _append_desc_to_list;
+	intf = _intf;
 
 	// Initialize OCI layer (late initializer)
 	intf_ret r;
@@ -266,7 +266,7 @@ void ocisession::describe_object(void *objptr, size_t objptr_len, ub1 objtyp,
 					goto error_exit;
 				}
 
-				(*append_desc_to_list)((char*)col_name, col_name_len, coltyp, col_width, desc_list);
+				(*intf.append_desc_to_list)((char*)col_name, col_name_len, coltyp, col_width, desc_list);
 			}
 		}
 		break;

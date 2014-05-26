@@ -37,33 +37,11 @@ struct column {
 	vector<OCILobLocator*> loblps;
 };
 
-ocistmt::FNCDEFAPP ocistmt::coldef_append		= NULL;
-ocistmt::FNFLTAPP ocistmt::float_append			= NULL;
-ocistmt::FNDBLAPP ocistmt::double_append		= NULL;
-ocistmt::FNSTRAPP ocistmt::string_append		= NULL;
-ocistmt::FNTUPAPP ocistmt::tuple_append			= NULL;
-ocistmt::FNTUPEAPP ocistmt::tuple_append_ext	= NULL;
-ocistmt::FNSZAPP ocistmt::sizeof_resp			= NULL;
-ocistmt::FNCHLDLST ocistmt::child_list			= NULL;
-ocistmt::FNLOBDATA ocistmt::lob_data			= NULL;
-ocistmt::FNBINKVAPP ocistmt::bin_kv_append		= NULL;
-ocistmt::FNINTKVAPP ocistmt::int_kv_append		= NULL;
+intf_funs ocistmt::intf;
 
-void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNFLTAPP fa, ocistmt::FNDBLAPP da, ocistmt::FNSTRAPP sa,
-	ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl,
-	ocistmt::FNLOBDATA lobf, ocistmt::FNBINKVAPP bkva, ocistmt::FNINTKVAPP ikva)
+void ocistmt::config(intf_funs _intf)
 {
-	coldef_append = cda;
-	float_append = fa;
-	double_append = da;
-	string_append = sa;
-	sizeof_resp = sr;
-	tuple_append = tup;
-	tuple_append_ext = tupe;
-	child_list = cl;
-	lob_data = lobf;
-	bin_kv_append = bkva;
-	int_kv_append = ikva;
+	intf = _intf;
 }
 
 ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
@@ -271,9 +249,9 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 					throw r;
 				}
 
-				(*string_append)((char*)rowID, strlen((char*)rowID), rowid_list);
+				(*intf.append_string_to_list)((char*)rowID, strlen((char*)rowID), rowid_list);
 			} else {
-				(*string_append)(NULL, 0, rowid_list);
+				(*intf.append_string_to_list)(NULL, 0, rowid_list);
 			}
 		}
 
@@ -512,7 +490,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				throw r;
 			}
 
-			(*coldef_append)((char*)col_name, len, cur_clm.dtype, cur_clm.dlen, cur_clm.dprec, cur_clm.dscale, column_list);
+			(*intf.append_coldef_to_list)((char*)col_name, len, cur_clm.dtype, cur_clm.dlen, cur_clm.dprec, cur_clm.dscale, column_list);
             col_name = NULL;
 
             /* Increment counter and get next descriptor, if there is one */
@@ -547,10 +525,10 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 			if(_argsin[i].dir == DIR_OUT || _argsin[i].dir == DIR_INOUT) {
 				switch (_argsin[i].dty) {
 				case SQLT_INT:
-					(*int_kv_append)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
+					(*intf.append_int_arg_tuple_to_list)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
 					break;
 				case SQLT_CHR:
-					(*bin_kv_append)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), (const unsigned char*)(_argsin[i].datap), _argsin[i].datap_len, out_list);
+					(*intf.append_bin_arg_tuple_to_list)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), (const unsigned char*)(_argsin[i].datap), _argsin[i].datap_len, out_list);
 					break;
 				default:
 					r.fn_ret = FAILURE;
@@ -620,31 +598,31 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 		}
 
 		if (res != OCI_NO_DATA) {
-	        row = (*child_list)(row_list);
-			for (unsigned int i = 0; i < _columns.size(); ++i)
+	        row = (*intf.child_list)(row_list);
+			for (unsigned int i = 0; i < _columns.size(); ++i) {
 					switch (_columns[i]->dtype) {
 					case SQLT_FLT:
 					case SQLT_BFLOAT:
 					case SQLT_IBFLOAT: // NULL is empty binary
 						if(_columns[i]->indp < 0)
-							(*string_append)("", 0, row);
+							(*intf.append_string_to_list)("", 0, row);
 						else
-							(*float_append)((const unsigned char*)(_columns[i]->row_valp), row);
+							(*intf.append_float_to_list)((const unsigned char*)(_columns[i]->row_valp), row);
 						memset(_columns[i]->row_valp, 0, sizeof(float));
 						break;
 					case SQLT_BDOUBLE:
 					case SQLT_IBDOUBLE: // NULL is empty binary
 						if(_columns[i]->indp < 0)
-							(*string_append)("", 0, row);
+							(*intf.append_string_to_list)("", 0, row);
 						else
-							(*double_append)((const unsigned char*)(_columns[i]->row_valp), row);
+							(*intf.append_double_to_list)((const unsigned char*)(_columns[i]->row_valp), row);
 						memset(_columns[i]->row_valp, 0, sizeof(double));
 						break;
 					case SQLT_INT:
 					case SQLT_UIN:
 					case SQLT_VNU:
 					case SQLT_NUM:
-						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
 						memset(_columns[i]->row_valp, 0, sizeof(OCINumber));
 						break;
 					case SQLT_TIMESTAMP:
@@ -662,7 +640,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						break;*/
 					case SQLT_DAT:
 						((OCIDate*)_columns[i]->row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)(_columns[i]->row_valp))->OCIDateYYYY);
-						(*string_append)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
 						memset(_columns[i]->row_valp, 0, sizeof(OCIDate));
 						break;
 					case SQLT_BFILE: {
@@ -692,7 +670,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 								REMOTE_LOG(ERR, "failed OCILobFileGetName for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
-							(*tuple_append_ext)((unsigned long long)_tlob, (unsigned long long)loblen, (const char*)dir, dlen, (const char*)file, flen, row);
+							(*intf.append_ext_tuple_to_list)((unsigned long long)_tlob, (unsigned long long)loblen, (const char*)dir, dlen, (const char*)file, flen, row);
 							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
@@ -717,7 +695,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 								REMOTE_LOG(ERR, "failed OCILobLocatorAssign for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
 								throw r;
 							}
-							(*tuple_append)((unsigned long long)_tlob, loblen, row);
+							(*intf.append_tuple_to_list)((unsigned long long)_tlob, loblen, row);
 							_columns[i]->loblps.push_back(_tlob);
 						break;
 					}
@@ -725,7 +703,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						size_t str_len = _columns[i]->dlen;
 						if(str_len > 0) // Handling for non NULL column
 							str_len = strlen((char*)(_columns[i]->row_valp));
-						(*string_append)((char*)(_columns[i]->row_valp), str_len, row);
+						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), str_len, row);
 						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
 						}
 						break;
@@ -736,7 +714,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 					case SQLT_STR:
 						{
 							size_t str_len = strlen((char*)(_columns[i]->row_valp));
-							(*string_append)((char*)(_columns[i]->row_valp), str_len, row);
+							(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), str_len, row);
 							memset(_columns[i]->row_valp, 0, str_len);
 						}
 						break;
@@ -747,7 +725,8 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						throw r;
 						break;
 					}
-			total_est_row_size += (*sizeof_resp)(row);
+			}
+			total_est_row_size += (*intf.calculate_resp_size)(row);
 		}
     } while (res != OCI_NO_DATA
 			&& num_rows < maxrowcount
@@ -852,7 +831,7 @@ intf_ret ocistmt::lob(void * data, void * _lob, unsigned long long offset, unsig
 		throw r;
 	}
 
-	(*lob_data)(buf, loblen, data);
+	(*intf.binary_data)(buf, loblen, data);
 
 	delete buf;
 	return r;

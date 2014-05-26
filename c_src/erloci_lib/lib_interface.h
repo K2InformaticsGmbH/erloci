@@ -107,4 +107,26 @@ extern void checkerr0(intf_ret *, unsigned int, int, const char *, int);
 #define	SPRINT snprintf
 #endif
 
+typedef struct _intf_funs
+{
+	size_t (*calculate_resp_size)(void *); // TODO
+	void (*append_int_to_list)(const int, void *);
+	void (*append_float_to_list)(const unsigned char[4], void *);
+	void (*append_double_to_list)(const unsigned char[8], void *);
+	void (*append_string_to_list)(const char *, size_t, void *);
+	void (*append_tuple_to_list)(unsigned long long, unsigned long long, void *);
+	void (*append_ext_tuple_to_list)(unsigned long long, unsigned long long,
+									const char *, unsigned long long,
+									const char *, unsigned long long,
+									void *);
+	void (*binary_data)(const unsigned char *, unsigned long long len, void *);
+	void (*append_coldef_to_list)(const char *, size_t,
+								  const unsigned short, const unsigned int, const unsigned short,
+								  const signed char, void *);
+	void (*append_desc_to_list)(const char *, size_t, const unsigned short, const unsigned int, void *);
+	void * (*child_list)(void *);
+	void (*append_bin_arg_tuple_to_list)(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *);
+	void (*append_int_arg_tuple_to_list)(const unsigned char *, unsigned long long, unsigned long long, void *);
+} intf_funs;
+
 #endif // OCI_LIB_INTF

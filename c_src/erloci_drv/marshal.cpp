@@ -468,3 +468,19 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 
 	return bind_count;
 }
+
+intf_funs marshall_intf_funs = {
+	calculate_resp_size,
+	append_int_to_list,
+	append_float_to_list,
+	append_double_to_list,
+	append_string_to_list,
+	append_tuple_to_list,
+	append_ext_tuple_to_list,
+	binary_data,
+	append_coldef_to_list,
+	append_desc_to_list,
+	child_list,
+	append_bin_arg_tuple_to_list,
+	append_int_arg_tuple_to_list
+};

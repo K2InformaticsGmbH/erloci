@@ -38,20 +38,7 @@ threads::threads(void)
 {
     REMOTE_LOG(DBG, "Initializing Thread pool...");
 
-	command::config(child_list
-		, calculate_resp_size
-		, append_int_to_list
-		, append_float_to_list
-		, append_double_to_list
-		, append_string_to_list
-		, append_tuple_to_list
-		, append_ext_tuple_to_list
-		, append_coldef_to_list
-		, append_desc_to_list
-		, binary_data
-		, append_bin_arg_tuple_to_list
-		, append_int_arg_tuple_to_list
-		);
+	command::config(marshall_intf_funs);
 
 #ifdef USING_THREAD_POOL
 #ifdef __WIN32__

@@ -106,26 +106,6 @@ extern void log_args(int, void *, const char *);
 #define LOG_ARGS(_count,_args,_str)
 #endif
 
-// ThreadPool and IdleTimer
-extern size_t calculate_resp_size(void *); // TODO
-extern void append_int_to_list(const int, void *);
-extern void append_float_to_list(const unsigned char[4], void *);
-extern void append_double_to_list(const unsigned char[8], void *);
-extern void append_string_to_list(const char *, size_t, void *);
-extern void append_tuple_to_list(unsigned long long, unsigned long long, void *);
-extern void append_ext_tuple_to_list(unsigned long long, unsigned long long,
-	const char *, unsigned long long,
-	const char *, unsigned long long,
-	void *);
-extern void binary_data(const unsigned char *, unsigned long long len, void *);
-extern void append_coldef_to_list(const char *, size_t,
-								  const unsigned short, const unsigned int, const unsigned short,
-								  const signed char, void *);
-extern void append_desc_to_list(const char *, size_t, const unsigned short, const unsigned int, void *);
-extern void * child_list(void *);
-extern void append_bin_arg_tuple_to_list(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *);
-extern void append_int_arg_tuple_to_list(const unsigned char *, unsigned long long, unsigned long long, void *);
-
 #define MAX_FORMATTED_STR_LEN 1024
 
 // Printing the packet
@@ -147,4 +127,7 @@ extern void append_int_arg_tuple_to_list(const unsigned char *, unsigned long lo
 #else
 #define LOG_DUMP(__tag, __len, __buf)
 #endif
+
+extern intf_funs marshall_intf_funs;
+
 #endif // OCI_MARSHAL_H

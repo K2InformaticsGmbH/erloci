@@ -32,17 +32,6 @@ typedef struct column column;
 class ocistmt
 {
 public:
-	typedef void (*FNCDEFAPP)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *);
-	typedef void (*FNFLTAPP)(const unsigned char[4], void *);						// float_append
-	typedef void (*FNDBLAPP)(const unsigned char[8], void *);						// double_append
-	typedef void (*FNSTRAPP)(const char *, size_t, void *);							// string_append
-	typedef void (*FNLOBDATA)(const unsigned char *, unsigned long long, void *);	// binary_append
-	typedef void (*FNTUPAPP)(unsigned long long, unsigned long long, void *);		// tuple_append
-	typedef void (*FNTUPEAPP)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *);	// tuple_append_ext
-	typedef size_t (*FNSZAPP)(void *);												// sizeof_resp
-	typedef void * (*FNCHLDLST)(void *);											// child_list
-	typedef void (*FNBINKVAPP)(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *);
-	typedef void (*FNINTKVAPP)(const unsigned char *, unsigned long long, unsigned long long, void *);
 
 	ocistmt(void *ocisess, unsigned char *stmt, size_t stmt_len);
 	inline void del() { delete this; };
@@ -54,20 +43,10 @@ public:
 	intf_ret lob(void * data, void * lob, unsigned long long offset, unsigned long long length);
 	void close(void);
 
-	static void config(FNCDEFAPP, FNFLTAPP, FNDBLAPP, FNSTRAPP, FNTUPAPP, FNTUPEAPP, FNSZAPP, FNCHLDLST, FNLOBDATA, FNBINKVAPP, FNINTKVAPP);
+	static void config(intf_funs);
 
 private:
-	static FNCDEFAPP	coldef_append;
-	static FNFLTAPP		float_append;
-	static FNDBLAPP		double_append;
-	static FNSTRAPP		string_append;
-	static FNLOBDATA	lob_data;
-	static FNTUPAPP		tuple_append;
-	static FNTUPEAPP	tuple_append_ext;
-	static FNSZAPP		sizeof_resp;
-	static FNCHLDLST	child_list;
-	static FNBINKVAPP	bin_kv_append;
-	static FNINTKVAPP	int_kv_append;
+	static intf_funs intf;
 
 	char *_stmtstr;
 	void *_svchp;
