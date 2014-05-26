@@ -38,7 +38,9 @@ void command::config(
 		void (*append_ext_tuple_to_list)(unsigned long long, unsigned long long, const char *, unsigned long long, const char *, unsigned long long, void *),
 		void (*append_coldef_to_list)(const char *, size_t, const unsigned short, const unsigned int, const unsigned short, const signed char, void *),
 		void (*append_desc_to_list)(const char *, size_t, const unsigned short, const unsigned int, void *),
-		void (*binary_data)(const unsigned char *, unsigned long long, void *)
+		void (*binary_data)(const unsigned char *, unsigned long long, void *),
+		void (*append_bin_arg_tuple_to_list)(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *),
+		void (*append_int_arg_tuple_to_list)(const unsigned char *, unsigned long long, unsigned long long, void *)
 		)
 {
 	ocisession::config((ocisession::FNAD2L)append_desc_to_list);
@@ -50,7 +52,10 @@ void command::config(
 					(ocistmt::FNTUPEAPP)append_ext_tuple_to_list,
 					(ocistmt::FNSZAPP)calculate_resp_size,
 					(ocistmt::FNCHLDLST)child_list,
-					(ocistmt::FNLOBDATA)binary_data);
+					(ocistmt::FNLOBDATA)binary_data,
+					(ocistmt::FNBINKVAPP)append_bin_arg_tuple_to_list,
+					(ocistmt::FNINTKVAPP)append_int_arg_tuple_to_list
+					);
 }
 
 bool command::change_log_flag(term & t, term & resp)
@@ -477,9 +482,10 @@ bool command::exec_stmt(term & t, term & resp)
 	term & statement = t[3];
 	term & bind_list = t[4];
 	term & auto_cmit = t[5];
-    term columns, rowids;
+    term columns, rowids, outdata;
 	columns.lst();
 	rowids.lst();
+	outdata.lst();
     if(conection.is_any_int() && statement.is_any_int() && bind_list.is_list() && auto_cmit.is_any_int()) {
 		ocisession * conn_handle = (ocisession *)(conection.v.ll);
 		ocistmt * statement_handle = (ocistmt *)(statement.v.ll);
@@ -493,13 +499,15 @@ bool command::exec_stmt(term & t, term & resp)
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				size_t bound_count = map_value_to_bind_args(bind_list, statement_handle->get_in_bind_args());
-				unsigned int exec_ret = statement_handle->execute(&columns, &rowids, auto_commit);
+				unsigned int exec_ret = statement_handle->execute(&columns, &rowids, &outdata, auto_commit);
 				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
 				// TODO : Also return bound values from here
 				term & _t = resp.insert().tuple();
 				if (columns.length() == 0 && rowids.length() == 0) {
 					_t.insert().atom("executed");
 					_t.insert().integer(exec_ret);
+					if (outdata.length() > 0)
+						_t.add(outdata);
 				} else if (columns.length() > 0 && rowids.length() == 0) {
 					_t.insert().atom("cols");
 					_t.add(columns);

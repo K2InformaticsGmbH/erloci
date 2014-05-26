@@ -158,6 +158,32 @@ void * child_list(void * list)
 	return &_t;
 }
 
+void append_bin_arg_tuple_to_list(const unsigned char * val, unsigned long long len, const unsigned char * bval, unsigned long long blen, void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().binary((const char*)val, len);
+	_t.insert().binary((const char*)bval, blen);
+}
+
+void append_int_arg_tuple_to_list(const unsigned char * val, unsigned long long len, unsigned long long ival, void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().binary((const char*)val, len);
+	_t.insert().integer(ival);
+}
+
 void append_tuple_to_list(unsigned long long ptr, unsigned long long len, void * list)
 {
 	ASSERT(list!=NULL);
@@ -248,9 +274,10 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
 	size_t len = 0;
 	for (term::iterator it = t.begin() ; it != t.end(); ++it) {
 		ASSERT((*it).is_tuple()
-			&& (*it).length() == 2
+			&& (*it).length() == 3
 			&& (*it)[0].is_binary()
-			&& (*it)[1].is_any_int());
+			&& (*it)[1].is_any_int()
+			&& (*it)[2].is_any_int());
 
 		if(sizeof(v.name) < (*it)[0].str_len+1) {
 			REMOTE_LOG(ERR, "variable %s is too long, max %d\n", &(*it)[0].str[0], sizeof(v.name)-1);
@@ -259,7 +286,10 @@ void map_schema_to_bind_args(term & t, vector<var> & vars)
 		strncpy(v.name, &((*it)[0].str[0]), (*it)[0].str_len);
 		v.name[(*it)[0].str_len]='\0';
 
-		v.dty = (*it)[1].v.ui;
+		// Direction in / out / in out (ARG_DIR)
+		v.dir = (ARG_DIR)((*it)[1].v.ui);
+
+		v.dty = (*it)[2].v.ui;
 
 		// Initialized, to be prepared later on first execute
 		v.value_sz = 0;
@@ -290,7 +320,6 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	
 	// loop through the list
 	size_t bind_count = 0;
-	//for (size_t li = 0; li < t.length(); ++li) {
 	for (term::iterator it = t.begin() ; it != t.end(); ++it) {
 		++bind_count;
 		term & t1 = (*it);

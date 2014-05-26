@@ -48,9 +48,16 @@ typedef enum _LOG_LEVEL {
 #endif
 
 #include <vector>
+typedef enum _ARG_DIR {
+	DIR_IN		= 0,
+	DIR_OUT		= 1,
+	DIR_INOUT	= 2,
+} ARG_DIR;
+
 typedef struct var {
 	char name[256];
 	unsigned short dty;
+	ARG_DIR dir;
 	std::vector<void *> valuep;
 	std::vector<unsigned short> alen;
 	std::vector<signed short> ind;

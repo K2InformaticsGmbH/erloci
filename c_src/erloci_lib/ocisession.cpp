@@ -152,9 +152,9 @@ void ocisession::describe_object(void *objptr, size_t objptr_len, ub1 objtyp,
 {
 	intf_ret r;
 
-	OCIDescribe *dschp = (OCIDescribe *) 0;		/* describe handle */
-	OCIParam *parmh = (OCIParam *) 0;			/* parameter handle */	
-	ub1 parameter_type = 0;						/* type of the described parameter handle */
+	OCIDescribe *dschp = NULL;		/* describe handle */
+	OCIParam *parmh = NULL;			/* parameter handle */	
+	ub1 parameter_type = 0;			/* type of the described parameter handle */
 
 	r.handle = envhp;
 	checkenv(&r, OCIHandleAlloc((OCIEnv*)envhp, (dvoid **)&dschp,

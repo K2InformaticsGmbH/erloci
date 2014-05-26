@@ -48,7 +48,10 @@ threads::threads(void)
 		, append_ext_tuple_to_list
 		, append_coldef_to_list
 		, append_desc_to_list
-		, binary_data);
+		, binary_data
+		, append_bin_arg_tuple_to_list
+		, append_int_arg_tuple_to_list
+		);
 
 #ifdef USING_THREAD_POOL
 #ifdef __WIN32__

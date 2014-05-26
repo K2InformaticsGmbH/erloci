@@ -46,10 +46,12 @@ ocistmt::FNTUPEAPP ocistmt::tuple_append_ext	= NULL;
 ocistmt::FNSZAPP ocistmt::sizeof_resp			= NULL;
 ocistmt::FNCHLDLST ocistmt::child_list			= NULL;
 ocistmt::FNLOBDATA ocistmt::lob_data			= NULL;
+ocistmt::FNBINKVAPP ocistmt::bin_kv_append		= NULL;
+ocistmt::FNINTKVAPP ocistmt::int_kv_append		= NULL;
 
 void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNFLTAPP fa, ocistmt::FNDBLAPP da, ocistmt::FNSTRAPP sa,
 	ocistmt::FNTUPAPP tup, ocistmt::FNTUPEAPP tupe, ocistmt::FNSZAPP sr, ocistmt::FNCHLDLST cl,
-	ocistmt::FNLOBDATA lobf)
+	ocistmt::FNLOBDATA lobf, ocistmt::FNBINKVAPP bkva, ocistmt::FNINTKVAPP ikva)
 {
 	coldef_append = cda;
 	float_append = fa;
@@ -60,6 +62,8 @@ void ocistmt::config(ocistmt::FNCDEFAPP cda, ocistmt::FNFLTAPP fa, ocistmt::FNDB
 	tuple_append_ext = tupe;
 	child_list = cl;
 	lob_data = lobf;
+	bin_kv_append = bkva;
+	int_kv_append = ikva;
 }
 
 ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
@@ -151,13 +155,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 	}																										\
 }
 
-#define FETCH_ROWIDS
-
-#ifdef FETCH_ROWIDS
-//#define PRINT_ROWIDS
-#endif
-
-unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_commit)
+unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_list, bool auto_commit)
 {
 	ub4 row_count = 0;
 	intf_ret r;
@@ -220,11 +218,6 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 		}
 	}
 
-	//ub4 mode = (auto_commit ? OCI_COMMIT_ON_SUCCESS : OCI_DEFAULT);
-#ifdef FETCH_ROWIDS
-#ifdef PRINT_ROWIDS
-	vector<char*> rowids;
-#endif
 	do {
 		/* execute the statement one at a time with retrive row-id */
 		checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, (_stmt_typ == OCI_STMT_SELECT ? 0 : row_count+1), row_count,
@@ -282,25 +275,10 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 			} else {
 				(*string_append)(NULL, 0, rowid_list);
 			}
-#ifdef PRINT_ROWIDS
-			rowids.push_back((char*)rowID);
-#endif
 		}
 
 		++row_count;
 	} while((size_t)row_count < _iters);
-#else
-	/* execute the statement all rows */
-	checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, _iters, 0,
-								(OCISnapshot *)NULL, (OCISnapshot *)NULL,
-								OCI_DEFAULT));
-	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG("failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
-		if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
-		ocisess->release_stmt(this);
-		throw r;
-	}
-#endif
 
 	if(auto_commit && _stmt_typ != OCI_STMT_SELECT) {
 		/* commit */
@@ -310,23 +288,6 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 			ocisess->release_stmt(this);
 			throw r;
 		}
-	}
-
-#ifdef PRINT_ROWIDS
-	if(_stmt_typ == OCI_STMT_INSERT || _stmt_typ == OCI_STMT_UPDATE)
-		for(int __i = 0; __i < _iters; ++__i)
-			REMOTE_LOG("Inserted row id %s\n", rowids[__i]);
-#endif
-
-	for(unsigned int i = 0; i < _argsin.size(); ++i) {
-		if(_argsin[i].datap) {
-			free(_argsin[i].datap);
-			_argsin[i].datap = NULL;
-		}
-		_argsin[i].datap_len = 0;
-		_argsin[i].value_sz = 0;
-		_argsin[i].valuep.clear();
-		_argsin[i].alen.clear();
 	}
 
 	if(_stmt_typ == OCI_STMT_SELECT) {
@@ -581,6 +542,39 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
         //REMOTE_LOG("Port: Returning Column(s)\n");
     }
 
+	else if(_stmt_typ == OCI_STMT_BEGIN || _stmt_typ == OCI_STMT_CALL || _stmt_typ == OCI_STMT_DECLARE) {
+		for(unsigned int i = 0; i < _argsin.size(); ++i) {
+			if(_argsin[i].dir == DIR_OUT || _argsin[i].dir == DIR_INOUT) {
+				switch (_argsin[i].dty) {
+				case SQLT_INT:
+					(*int_kv_append)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
+					break;
+				case SQLT_CHR:
+					(*bin_kv_append)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), (const unsigned char*)(_argsin[i].datap), _argsin[i].datap_len, out_list);
+					break;
+				default:
+					r.fn_ret = FAILURE;
+					SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] unsupporetd type %u\n", __FUNCTION__, __LINE__, _argsin[i].dty);
+					REMOTE_LOG(ERR, "Unsuported out variable type %d (%s)\n", _argsin[i].dty, _stmtstr);
+					throw r;
+					break;
+				}
+			}
+		}
+	}
+
+	// Clear the in/out/inout arguments (if any)
+	for(unsigned int i = 0; i < _argsin.size(); ++i) {
+		if(_argsin[i].datap) {
+			free(_argsin[i].datap);
+			_argsin[i].datap = NULL;
+		}
+		_argsin[i].datap_len = 0;
+		_argsin[i].value_sz = 0;
+		_argsin[i].valuep.clear();
+		_argsin[i].alen.clear();
+	}
+
 	if (row_count < 2) {
 		checkerr(&r, OCIAttrGet(_stmthp, OCI_HTYPE_STMT, &row_count, 0, OCI_ATTR_ROW_COUNT, (OCIError*)_errhp));
 		if(r.fn_ret != SUCCESS) {
@@ -590,7 +584,6 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, bool auto_c
 		}
 	}
 
-	//Sleep(50000);
 	return row_count;
 }
 

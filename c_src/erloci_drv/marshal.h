@@ -107,22 +107,24 @@ extern void log_args(int, void *, const char *);
 #endif
 
 // ThreadPool and IdleTimer
-extern size_t calculate_resp_size(void * resp);
+extern size_t calculate_resp_size(void *); // TODO
 extern void append_int_to_list(const int, void *);
 extern void append_float_to_list(const unsigned char[4], void *);
 extern void append_double_to_list(const unsigned char[8], void *);
-extern void append_string_to_list(const char * string, size_t len, void * list);
-extern void append_tuple_to_list(unsigned long long ptr, unsigned long long len, void * list);
-extern void append_ext_tuple_to_list(unsigned long long ptr, unsigned long long len,
-	const char * dir, unsigned long long dlen,
-	const char * file, unsigned long long flen,
-	void * list);
-extern void binary_data(const unsigned char * val, unsigned long long len, void * data);
-extern void append_coldef_to_list(const char * col_name, size_t len,
-								  const unsigned short data_type, const unsigned int max_len, const unsigned short precision,
-								  const signed char scale, void * list);
-extern void append_desc_to_list(const char * col_name, size_t len, const unsigned short data_type, const unsigned int max_len, void * list);
-extern void * child_list(void * list);
+extern void append_string_to_list(const char *, size_t, void *);
+extern void append_tuple_to_list(unsigned long long, unsigned long long, void *);
+extern void append_ext_tuple_to_list(unsigned long long, unsigned long long,
+	const char *, unsigned long long,
+	const char *, unsigned long long,
+	void *);
+extern void binary_data(const unsigned char *, unsigned long long len, void *);
+extern void append_coldef_to_list(const char *, size_t,
+								  const unsigned short, const unsigned int, const unsigned short,
+								  const signed char, void *);
+extern void append_desc_to_list(const char *, size_t, const unsigned short, const unsigned int, void *);
+extern void * child_list(void *);
+extern void append_bin_arg_tuple_to_list(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *);
+extern void append_int_arg_tuple_to_list(const unsigned char *, unsigned long long, unsigned long long, void *);
 
 #define MAX_FORMATTED_STR_LEN 1024
 

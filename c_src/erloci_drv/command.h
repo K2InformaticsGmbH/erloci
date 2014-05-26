@@ -62,7 +62,11 @@ public:
 		// append_desc_to_list
 		void (*)(const char*, size_t, const unsigned short, const unsigned int, void*),
 		// binary_data
-		void (*)(const unsigned char*, unsigned long long, void*)
+		void (*)(const unsigned char*, unsigned long long, void*),
+		// append_bin_arg_tuple_to_list
+		void (*)(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *),
+		// append_int_arg_tuple_to_list
+		void (*)(const unsigned char *, unsigned long long, unsigned long long, void *)
 		);
 };
 
