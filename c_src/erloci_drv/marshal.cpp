@@ -184,6 +184,23 @@ void append_int_arg_tuple_to_list(const unsigned char * val, unsigned long long 
 	_t.insert().integer(ival);
 }
 
+void append_cur_arg_tuple_to_list(const unsigned char * val, unsigned long long len, unsigned long long ival1, unsigned long long ival2, void * list)
+{
+	ASSERT(list!=NULL);
+
+    term *container_list = (term *)list;
+    ASSERT(container_list->is_list());
+
+	term & _t = container_list->insert();
+	_t.tuple();
+	_t.insert().binary((const char*)val, len);
+	term & _t1 = _t.insert();
+	_t1.tuple();
+	_t1.insert().atom("cursor");
+	_t1.insert().integer(ival1);
+	_t1.insert().integer(ival2);
+}
+
 void append_tuple_to_list(unsigned long long ptr, unsigned long long len, void * list)
 {
 	ASSERT(list!=NULL);
@@ -482,5 +499,6 @@ intf_funs marshall_intf_funs = {
 	append_desc_to_list,
 	child_list,
 	append_bin_arg_tuple_to_list,
-	append_int_arg_tuple_to_list
+	append_int_arg_tuple_to_list,
+	append_cur_arg_tuple_to_list
 };

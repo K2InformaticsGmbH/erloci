@@ -32,7 +32,7 @@ typedef struct column column;
 class ocistmt
 {
 public:
-
+	ocistmt(void *ocisess, void *stmt);
 	ocistmt(void *ocisess, unsigned char *stmt, size_t stmt_len);
 	inline void del() { delete this; };
 

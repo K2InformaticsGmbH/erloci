@@ -689,7 +689,7 @@ procedure_scalar_test({_, OciSession}) ->
                                ,{<<":p_result">>,7}]}, ExecStmt:exec_stmt([{5, <<"2             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt:close()),
 
-    ExecStmt1 = OciSession:prep_sql(<<"call myproc(:p_first,:p_second,:p_result)">>),
+    ExecStmt1 = OciSession:prep_sql(<<"call "?TESTPROCEDURE"(:p_first,:p_second,:p_result)">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt1),
     ?assertMatch(ok, ExecStmt1:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
                                         , {<<":p_second">>, inout, 'SQLT_CHR'}
@@ -700,7 +700,7 @@ procedure_scalar_test({_, OciSession}) ->
                                ,{<<":p_result">>,7}]}, ExecStmt1:exec_stmt([{5, <<"2             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt1:close()),
 
-    ExecStmt2 = OciSession:prep_sql(<<"declare begin myproc(:p_first,:p_second,:p_result); end;">>),
+    ExecStmt2 = OciSession:prep_sql(<<"declare begin "?TESTPROCEDURE"(:p_first,:p_second,:p_result); end;">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt2),
     ?assertMatch(ok, ExecStmt2:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
                                         , {<<":p_second">>, inout, 'SQLT_CHR'}
@@ -759,11 +759,12 @@ procedure_cur_test({_, OciSession}) ->
 
     ExecStmt = OciSession:prep_sql(<<"begin "?TESTPROCEDURE"(:cursor); end;">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt),
-    ?assertMatch(ok, ExecStmt:bind_vars([{<<":cursor">>, out, 'SQLT_CUR'}])),
-    {executed, 1, CurStmt} = ExecStmt:exec_stmt(),
+    ?assertMatch(ok, ExecStmt:bind_vars([{<<":cursor">>, out, 'SQLT_RSET'}])),
+    {executed, 1, [{<<":cursor">>, CurStmt}]} = ExecStmt:exec_stmt(),
     {cols, Cols} = CurStmt:exec_stmt(),
     {{rows, Rows}, true} = CurStmt:fetch_rows(RowCount+1),
     ?assertEqual(RowCount, length(Rows)),
+    ?assertEqual(ok, CurStmt:close()),
     ?assertEqual(ok, ExecStmt:close()),
 
     % Drop procedure

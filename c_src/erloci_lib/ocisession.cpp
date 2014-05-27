@@ -297,6 +297,16 @@ ocistmt* ocisession::prepare_stmt(OraText *stmt, size_t stmt_len)
 	return statement;
 }
 
+ocistmt* ocisession::make_stmt(void *stmt)
+{
+	ocilock scopelock(envhp,_errhp,stmt_lock);
+
+	ocistmt * statement = new ocistmt(this, stmt);
+	_statements.push_back(statement);
+
+	return statement;
+}
+
 void ocisession::release_stmt(ocistmt *stmt)
 {
 	ocilock scopelock(envhp,_errhp,stmt_lock);

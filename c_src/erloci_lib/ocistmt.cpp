@@ -44,6 +44,44 @@ void ocistmt::config(intf_funs _intf)
 	intf = _intf;
 }
 
+ocistmt::ocistmt(void *ocisess, void *stmt)
+{
+	intf_ret r;
+	
+	OCIEnv *envhp = (OCIEnv *)ocisession::getenv();
+
+	_svchp = ((ocisession *)ocisess)->getsession();
+	_iters = 1;
+	_ocisess = ocisess;
+		
+	_stmtstr = new char[1];
+	_stmtstr[0] = '\0';
+
+	// allocate error handle
+	r.handle = envhp;
+	checkenv(&r, OCIHandleAlloc(envhp,			/* environment handle */
+                            (void **) &_errhp,	/* returned err handle */
+                            OCI_HTYPE_ERROR,	/* typ of handle to allocate */
+                            (size_t) 0,			/* optional extra memory size */
+                            (void **) NULL));	/* returned extra memeory */
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCIHandleAlloc %s (%s)\n", r.gerrbuf, _stmtstr);
+        throw r;
+	}
+
+	_stmthp = stmt;
+	_stmt_typ = 0;
+    checkerr(&r, OCIAttrGet((dvoid*) _stmthp, (ub4) OCI_HTYPE_STMT,
+                            (dvoid*) &_stmt_typ, (ub4 *)NULL, (ub4)OCI_ATTR_STMT_TYPE, (OCIError*)_errhp));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCIAttrGet error %s (%s)\n", r.gerrbuf, _stmtstr);
+        throw r;
+	}
+
+	if(_stmt_typ == OCI_STMT_SELECT)
+		_iters = 0;
+}
+
 ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 {
 	intf_ret r;
@@ -182,13 +220,38 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 	if(_argsin.size() > 0)
 		_iters = _argsin[0].valuep.size();
 	for(size_t i = 0; i < _argsin.size(); ++i) {
-		checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_argsin[i].ocibind), (OCIError*)_errhp,
-									(text*)(_argsin[i].name), -1,
-									_argsin[i].datap, _argsin[i].value_sz,
-									_argsin[i].dty,
-									&_argsin[i].ind[0], &_argsin[i].alen[0],
-									(ub2*)NULL,0,
-									(ub4*)NULL, OCI_DEFAULT));
+		if(_argsin[i].dty == SQLT_RSET) {
+
+			if(_argsin[i].datap != NULL)
+				free(_argsin[i].datap);
+
+			// allocate the ref cursor statement handle
+			r.handle = envhp;
+			checkenv(&r, OCIHandleAlloc(envhp,							/* environment handle */
+										(void **) &(_argsin[i].datap),	/* returned statement handle */
+										OCI_HTYPE_STMT,					/* typ of handle to allocate */
+										(size_t) 0,						/* optional extra memory size */
+										(void **) NULL));				/* returned extra memeory */
+			if(r.fn_ret != SUCCESS) {
+   				REMOTE_LOG(ERR, "failed OCIHandleAlloc %s (%s)\n", r.gerrbuf, _stmtstr);
+				throw r;
+			}
+			r.handle = _errhp;
+			_argsin[i].value_sz = 0;
+			checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_argsin[i].ocibind), (OCIError*)_errhp,
+										(text*)(_argsin[i].name), -1,
+										&(_argsin[i].datap), _argsin[i].value_sz, _argsin[i].dty,
+										(dvoid*)NULL, (ub2*)NULL, (ub2*)NULL, 0, (ub4*)NULL,
+										OCI_DEFAULT));
+		} else {
+			checkerr(&r, OCIBindByName((OCIStmt*)_stmthp, (OCIBind**)(&_argsin[i].ocibind), (OCIError*)_errhp,
+										(text*)(_argsin[i].name), -1,
+										_argsin[i].datap, _argsin[i].value_sz,
+										_argsin[i].dty,
+										&_argsin[i].ind[0], &_argsin[i].alen[0],
+										(ub2*)NULL,0,
+										(ub4*)NULL, OCI_DEFAULT));
+		}
 		if(r.fn_ret != SUCCESS) {
 			REMOTE_LOG(ERR, "failed OCIBindByName error %s (%s)\n", r.gerrbuf, _stmtstr);
 			ocisess->release_stmt(this);
@@ -196,75 +259,77 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 		}
 	}
 
-	do {
-		/* execute the statement one at a time with retrive row-id */
-		checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, (_stmt_typ == OCI_STMT_SELECT ? 0 : row_count+1), row_count,
-									(OCISnapshot *)NULL, (OCISnapshot *)NULL,
-									OCI_DEFAULT));
-		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
-			if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
-			ocisess->release_stmt(this);
-			throw r;
-		}
-		if(_stmt_typ == OCI_STMT_INSERT || _stmt_typ == OCI_STMT_UPDATE || _stmt_typ == OCI_STMT_DELETE) {
-			ub4 rc = 0;
-			checkerr(&r, OCIAttrGet(_stmthp, OCI_HTYPE_STMT, &rc, 0, OCI_ATTR_ROW_COUNT, (OCIError*)_errhp));
+	if (_stmtstr[0] != '\0') { // REF Cursors do not require Stmt Release
+		do {
+			/* execute the statement one at a time with retrive row-id */
+			checkerr(&r, OCIStmtExecute((OCISvcCtx*)_svchp, (OCIStmt*)_stmthp, (OCIError*)_errhp, (_stmt_typ == OCI_STMT_SELECT ? 0 : row_count+1), row_count,
+										(OCISnapshot *)NULL, (OCISnapshot *)NULL,
+										OCI_DEFAULT));
 			if(r.fn_ret != SUCCESS) {
-				REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_ATTR_ROW_COUNT) error %s (%s)\n", r.gerrbuf, _stmtstr);
+				REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+				if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 				ocisess->release_stmt(this);
 				throw r;
 			}
-
-			// returned RowID is only valid if anything was changed at all
-			if(rc > 0) {
-				// Get the row ID for the row that was just inserted.
-				OraText *rowID = new OraText[19]; // Extra char for null termination.
-				ub2 size = 18;
-				OCIRowid *pRowID;
-				//OCIError *pError;
-				memset(rowID, 0, 19); // Set to all nulls so that string will be null terminated.
-				//OCIHandleAlloc(envhp, (void**)&pError, OCI_HTYPE_ERROR, 0, NULL);
-				checkerr(&r, OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL));
+			if(_stmt_typ == OCI_STMT_INSERT || _stmt_typ == OCI_STMT_UPDATE || _stmt_typ == OCI_STMT_DELETE) {
+				ub4 rc = 0;
+				checkerr(&r, OCIAttrGet(_stmthp, OCI_HTYPE_STMT, &rc, 0, OCI_ATTR_ROW_COUNT, (OCIError*)_errhp));
 				if(r.fn_ret != SUCCESS) {
-					REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
-					if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
+					REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_ATTR_ROW_COUNT) error %s (%s)\n", r.gerrbuf, _stmtstr);
 					ocisess->release_stmt(this);
 					throw r;
 				}
 
-				checkerr(&r, OCIAttrGet((OCIStmt*)_stmthp, OCI_HTYPE_STMT, pRowID, 0, OCI_ATTR_ROWID, (OCIError*)_errhp));
-				if(r.fn_ret != SUCCESS) {
-					REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
-					if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
-					ocisess->release_stmt(this);
-					throw r;
-				}
+				// returned RowID is only valid if anything was changed at all
+				if(rc > 0) {
+					// Get the row ID for the row that was just inserted.
+					OraText *rowID = new OraText[19]; // Extra char for null termination.
+					ub2 size = 18;
+					OCIRowid *pRowID;
+					//OCIError *pError;
+					memset(rowID, 0, 19); // Set to all nulls so that string will be null terminated.
+					//OCIHandleAlloc(envhp, (void**)&pError, OCI_HTYPE_ERROR, 0, NULL);
+					checkerr(&r, OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL));
+					if(r.fn_ret != SUCCESS) {
+						REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+						if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
+						ocisess->release_stmt(this);
+						throw r;
+					}
 
-				checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
-				if(r.fn_ret != SUCCESS) {
-					REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
-					if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
-					ocisess->release_stmt(this);
-					throw r;
-				}
+					checkerr(&r, OCIAttrGet((OCIStmt*)_stmthp, OCI_HTYPE_STMT, pRowID, 0, OCI_ATTR_ROWID, (OCIError*)_errhp));
+					if(r.fn_ret != SUCCESS) {
+						REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+						if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
+						ocisess->release_stmt(this);
+						throw r;
+					}
 
-				(*intf.append_string_to_list)((char*)rowID, strlen((char*)rowID), rowid_list);
-			} else {
-				(*intf.append_string_to_list)(NULL, 0, rowid_list);
+					checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
+					if(r.fn_ret != SUCCESS) {
+						REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+						if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
+						ocisess->release_stmt(this);
+						throw r;
+					}
+
+					(*intf.append_string_to_list)((char*)rowID, strlen((char*)rowID), rowid_list);
+				} else {
+					(*intf.append_string_to_list)(NULL, 0, rowid_list);
+				}
 			}
-		}
 
-		++row_count;
-	} while((size_t)row_count < _iters);
+			++row_count;
+		} while((size_t)row_count < _iters);
 
-	if(auto_commit && _stmt_typ != OCI_STMT_SELECT) {
-		/* commit */
-		checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
-		if(r.fn_ret != SUCCESS) {
-			REMOTE_LOG(ERR, "failed OCITransCommit error %s (%s)\n", r.gerrbuf, _stmtstr);
-			ocisess->release_stmt(this);
-			throw r;
+		if(auto_commit && _stmt_typ != OCI_STMT_SELECT) {
+			/* commit */
+			checkerr(&r, OCITransCommit((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
+			if(r.fn_ret != SUCCESS) {
+				REMOTE_LOG(ERR, "failed OCITransCommit error %s (%s)\n", r.gerrbuf, _stmtstr);
+				ocisess->release_stmt(this);
+				throw r;
+			}
 		}
 	}
 
@@ -525,10 +590,15 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 			if(_argsin[i].dir == DIR_OUT || _argsin[i].dir == DIR_INOUT) {
 				switch (_argsin[i].dty) {
 				case SQLT_INT:
-					(*intf.append_int_arg_tuple_to_list)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
+					(*intf.append_int_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
 					break;
 				case SQLT_CHR:
-					(*intf.append_bin_arg_tuple_to_list)((const unsigned char *)_argsin[i].name, strlen(_argsin[i].name), (const unsigned char*)(_argsin[i].datap), _argsin[i].datap_len, out_list);
+					(*intf.append_bin_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name), (const unsigned char*)(_argsin[i].datap), _argsin[i].datap_len, out_list);
+					break;
+				case SQLT_RSET:
+					(*intf.append_cur_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name),
+														 (unsigned long long)_ocisess,
+														 (unsigned long long)((ocisession*)_ocisess)->make_stmt(_argsin[i].datap), out_list);
 					break;
 				default:
 					r.fn_ret = FAILURE;
@@ -543,7 +613,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 
 	// Clear the in/out/inout arguments (if any)
 	for(unsigned int i = 0; i < _argsin.size(); ++i) {
-		if(_argsin[i].datap) {
+		if(_argsin[i].datap && _argsin[i].dty != SQLT_RSET) {
 			free(_argsin[i].datap);
 			_argsin[i].datap = NULL;
 		}
@@ -864,11 +934,13 @@ ocistmt::~ocistmt(void)
 	}
 	_columns.clear();
 
-	r.handle = _errhp;
-    checkerr(&r, OCIStmtRelease((OCIStmt*)_stmthp, (OCIError*)_errhp, (OraText *) NULL, 0, OCI_DEFAULT));
-	if(r.fn_ret != SUCCESS) {
-		REMOTE_LOG(ERR, "failed OCIStmtRelease %s (%s)\n", r.gerrbuf, _stmtstr);
-        throw r;
+	if (_stmtstr[0] != '\0') { // REF Cursors do not require Stmt Release
+		r.handle = _errhp;
+		checkerr(&r, OCIStmtRelease((OCIStmt*)_stmthp, (OCIError*)_errhp, (OraText *) NULL, 0, OCI_DEFAULT));
+		if(r.fn_ret != SUCCESS) {
+			REMOTE_LOG(ERR, "failed OCIStmtRelease %s (%s)\n", r.gerrbuf, _stmtstr);
+			throw r;
+		}
 	}
 
 	(void) OCIHandleFree(_stmthp, OCI_HTYPE_STMT);

@@ -127,6 +127,7 @@ typedef struct _intf_funs
 	void * (*child_list)(void *);
 	void (*append_bin_arg_tuple_to_list)(const unsigned char *, unsigned long long, const unsigned char *, unsigned long long, void *);
 	void (*append_int_arg_tuple_to_list)(const unsigned char *, unsigned long long, unsigned long long, void *);
+	void (*append_cur_arg_tuple_to_list)(const unsigned char *, unsigned long long, unsigned long long, unsigned long long, void *);
 } intf_funs;
 
 #endif // OCI_LIB_INTF

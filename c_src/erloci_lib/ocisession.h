@@ -36,6 +36,7 @@ public:
 	void rollback(void);
 	void describe_object(void *objptr, size_t objptr_len, unsigned char objtyp, void *desc_list);
 	ocistmt* prepare_stmt(unsigned char *stmt, size_t stmt_len);
+	ocistmt* make_stmt(void *stmt);
 	void release_stmt(ocistmt *stmt);
 	bool has_statement(ocistmt *stmt);
 

@@ -241,8 +241,14 @@ collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, Stm
         {error, Error}  -> {error, Error};
         {cols, Clms}    -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
                                                        , [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
-        {executed, _}       -> R;
-        {executed, _, _}    -> R;
+        {executed, _} -> R;
+        {executed, C, OutVars} ->
+            {executed, C, [
+                case OV of
+                    {N,{cursor, SessionId, NewStmtId}} -> {N, {?MODULE, statement, PortPid, SessionId, NewStmtId}};
+                    Other -> Other
+                end
+             || OV <- OutVars]};
         R               -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
     end.
 
