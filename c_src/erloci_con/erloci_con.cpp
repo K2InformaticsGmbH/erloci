@@ -12,576 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
-#if 0
-#include "ocisession.h"
-
-#include "string.h"
-#include "stdarg.h"
-
-#include <ocidfn.h>
-
-void append_coldef_to_list(const char * col_name, size_t len,
-						   const unsigned short data_type, const unsigned int max_len, const unsigned short prec,
-						   const signed char scale, void * list)
-{
-	printf("\t%s\n", col_name);
-}
-
-static unsigned int string_count = 0;
-void string_append(const char * string, size_t len, void * list)
-{
-	//printf("%.*s\t", len, string);
-	string_count++;
-	if (string_count % 100 == 0)
-		printf("string items %d\n", string_count);
-}
-
-static unsigned int list_count = 0;
-void list_append(const void * sub_list, void * list)
-{
-	//printf("\t");
-	list_count++;
-	if (list_count % 100 == 0)
-		printf("list items %d\n", list_count);
-}
-
-size_t sizeof_resp(void * resp)
-{
-	return 0;
-}
-
-int memory_leak_test(const char *tns, const char *usr, const char *pwd)
-{
-	ocisession * ocisess = NULL;
-	ocistmt *stmt = NULL;
-
-	const char * qry = "SELECT * FROM ALL_TABLES";
-
-	for(int i = 100; i>0; --i) {
-		try {
-			ocisess = new ocisession(tns, strlen(tns),
-									 usr, strlen(usr),
-									 pwd, strlen(pwd));
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case CONTINUE_WITH_ERROR:
-					printf("oci_get_session error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_get_session failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-
-		printf("Columns:\n");
-		try {
-			stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-			stmt->execute(NULL, NULL, true);
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case CONTINUE_WITH_ERROR:
-					printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-		
-		try {
-			stmt->rows(NULL, 100);
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case CONTINUE_WITH_ERROR:
-					printf("oci_produce_rows error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-
-		try {
-			stmt->close();
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case SUCCESS:
-					printf("oci_close_statement success...!\n");
-					break;
-				case CONTINUE_WITH_ERROR:
-					printf("oci_close_statement error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_close_statement failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-
-		try {
-			delete ocisess;
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case SUCCESS:
-					//printf("oci_free_session success...!\n");
-					break;
-				case CONTINUE_WITH_ERROR:
-					printf("oci_free_session error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_free_session failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-	}
-}
-
-
-char modqry[1024];
-int drop_create_insert_select(const char *tns, const char *usr, const char *pwd, int tid)
-{
-	ocisession * ocisess = NULL;
-	ocistmt *stmt = NULL;
-
-	try {
-		ocisess = new ocisession(tns, strlen(tns),
-							     usr, strlen(usr),
-								 pwd, strlen(pwd));
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_get_session error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_get_session failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	// Drop can fail so ignoring the errors
-	sprintf(modqry, "drop table oci_test_table_%d", tid);
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				break;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				break;
-		}
-	}
-
-	// Create table
-	sprintf(modqry, "create table oci_test_table_%d(pkey number,\
-                                       publisher varchar2(100),\
-                                       rank number,\
-                                       hero varchar2(100),\
-                                       real varchar2(100),\
-                                       votes number,\
-                                       votes_first_rank number)", tid);
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				//printf("oci_exec_sql success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	// insert some rows
-	for(int i=10; i>0; --i) {
-		sprintf(modqry, "insert into oci_test_table_%d values (%d,'publisher%d',%d,'hero%d','real%d',%d,%d)", tid, i, i, i, i, i, i, i);
-		try {
-			stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-			stmt->execute(NULL, NULL, true);
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case CONTINUE_WITH_ERROR:
-					printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-	}
-
-	// read back rows
-	sprintf(modqry, "select * from oci_test_table_%d", tid);
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)modqry, strlen(modqry));
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	try {
-		stmt->rows(NULL, 100);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_produce_rows error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-	
-	try {
-		stmt->close();
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				printf("oci_close_statement success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_close_statement error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_close_statement failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	try {
-		delete ocisess;
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				//printf("oci_free_session success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_free_session error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_free_session failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-}
-
-int insert_bind_select(const char *tns, const char *usr, const char *pwd)
-{
-	ocisession * ocisess = NULL;
-	ocistmt *stmt = NULL;
-	intf_ret r;
-	char * qry = NULL;
-
-	try {
-		ocisess = new ocisession(tns, strlen(tns),
-							     usr, strlen(usr),
-								 pwd, strlen(pwd));
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_get_session error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_get_session failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	// Drop can fail so ignoring the errors
-	qry = "drop table erloci_table";
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				break;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				break;
-		}
-	}
-
-	// Create table
-	qry = "create table erloci_table(pkey number,\
-                                     publisher varchar2(100),\
-                                     rank number,\
-                                     hero varchar2(100),\
-                                     real varchar2(100),\
-                                     votes number,\
-                                     votes_first_rank number)";
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				//printf("oci_exec_sql success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	// insert some rows
-	string_count = 0;
-	list_count = 0;
-	qry = "insert into erloci_table values (:pkey,:publisher,:rank,:hero,:real,:votes,:votes_first_rank)";
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				//printf("oci_exec_sql success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-	vector<var> & varsin = stmt->get_in_bind_args();
-	varsin.push_back(var(":pkey", SQLT_INT));				//0
-	varsin.push_back(var(":publisher", SQLT_STR));			//1
-	varsin.push_back(var(":rank", SQLT_INT));				//2
-	varsin.push_back(var(":hero", SQLT_STR));				//3
-	varsin.push_back(var(":real", SQLT_STR));				//4
-	varsin.push_back(var(":votes", SQLT_INT));				//5
-	varsin.push_back(var(":votes_first_rank", SQLT_INT));	//6
-
-	vector<var> & varsout = stmt->get_out_bind_args();
-	varsout.push_back(var(":row_id", SQLT_STR));			//0
-	
-	for(int i=0; i < varsin.size(); ++i) {
-		varsin[i].valuep.clear();
-		varsin[i].alen.clear();
-		varsin[i].value_sz = 0;
-		varsin[i].datap = NULL;
-		varsin[i].datap_len = 0;
-	}
-
-	char tmp[100];
-	int tmp_len = 0;
-	char * tmpp = NULL;
-	int *tmpint = NULL;
-	unsigned int rows = 50000;
-	for(unsigned int i=rows; i>0; --i) {
-
-		// :pkey
-		tmpint = new int;
-		*tmpint = i;
-		varsin[0].valuep.push_back(tmpint);
-		if (sizeof(int)+1 > varsin[0].value_sz) varsin[0].value_sz = sizeof(int);
-		varsin[0].alen.push_back(sizeof(int));
-		varsin[0].ind.push_back(0);
-
-		// :publisher
-		sprintf(tmp, "publisher%d", i);
-		tmp_len = (int)strlen(tmp)+1;
-		tmpp = new char[tmp_len];
-		memcpy(tmpp, tmp, tmp_len);
-		varsin[1].valuep.push_back(tmpp);
-		if (tmp_len > varsin[1].value_sz) varsin[1].value_sz = tmp_len;
-		varsin[1].alen.push_back(tmp_len);
-		varsin[1].ind.push_back(0);
-
-		// :rank
-		tmpint = new int;
-		*tmpint = i;
-		varsin[2].valuep.push_back(tmpint);
-		if (sizeof(int)+1 > varsin[2].value_sz) varsin[2].value_sz = sizeof(int);
-		varsin[2].alen.push_back(sizeof(int));
-		varsin[2].ind.push_back(0);
-
-		// :hero
-		sprintf(tmp, "hero%d", i);
-		tmp_len = (int)strlen(tmp)+1;
-		tmpp = new char[tmp_len];
-		memcpy(tmpp, tmp, tmp_len);
-		varsin[3].valuep.push_back(tmpp);
-		if (tmp_len > varsin[3].value_sz) varsin[3].value_sz = tmp_len;
-		varsin[3].alen.push_back(tmp_len);
-		varsin[3].ind.push_back(0);
-
-		// :real
-		sprintf(tmp, "real%d", i);
-		tmp_len = (int)strlen(tmp)+1;
-		tmpp = new char[tmp_len];
-		memcpy(tmpp, tmp, tmp_len);
-		varsin[4].valuep.push_back(tmpp);
-		if (tmp_len > varsin[4].value_sz) varsin[4].value_sz = tmp_len;
-		varsin[4].alen.push_back(tmp_len);
-		varsin[4].ind.push_back(0);
-
-		// :votes
-		tmpint = new int;
-		*tmpint = i;
-		varsin[5].valuep.push_back(tmpint);
-		if (sizeof(int)+1 > varsin[5].value_sz) varsin[5].value_sz = sizeof(int);
-		varsin[5].alen.push_back(sizeof(int));
-		varsin[5].ind.push_back(0);
-
-		// :votes_first_rank
-		tmpint = new int;
-		*tmpint = i;
-		varsin[6].valuep.push_back(tmpint);
-		if (sizeof(int)+1 > varsin[6].value_sz) varsin[6].value_sz = sizeof(int);
-		varsin[6].alen.push_back(sizeof(int));
-		varsin[6].ind.push_back(0);
-	}
-
-	printf("inserting %d rows\n", rows);
-	try {
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-	try {
-		stmt->close();
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				printf("oci_close_statement success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_close_statement error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_close_statement failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	// read back rows
-	qry = "select * from erloci_table";
-	try {
-		stmt = ocisess->prepare_stmt((unsigned char *)qry, strlen(qry));
-		stmt->execute(NULL, NULL, true);
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case CONTINUE_WITH_ERROR:
-				printf("oci_exec_sql error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_exec_sql failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	do {
-		try {
-			r = stmt->rows(NULL, 100);
-		}
-		catch (intf_ret r) {
-			switch(r.fn_ret) {
-				case CONTINUE_WITH_ERROR:
-					printf("oci_produce_rows error... %s!\n", r.gerrbuf);
-					return -1;
-				case FAILURE:
-					printf("oci_produce_rows failed... %s!\n", r.gerrbuf);
-					return -1;
-			}
-		}
-	} while (r.fn_ret == MORE);
-
-	
-	try {
-		stmt->close();
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				printf("oci_close_statement success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_close_statement error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_close_statement failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-
-	try {
-		delete ocisess;
-	}
-	catch (intf_ret r) {
-		switch(r.fn_ret) {
-			case SUCCESS:
-				//printf("oci_free_session success...!\n");
-				break;
-			case CONTINUE_WITH_ERROR:
-				printf("oci_free_session error... %s!\n", r.gerrbuf);
-				return -1;
-			case FAILURE:
-				printf("oci_free_session failed... %s!\n", r.gerrbuf);
-				return -1;
-		}
-	}
-}
-
-bool log_flag = true;
-void log_remote(const char * filename, const char * funcname, unsigned int linenumber, unsigned int level, void *term, const char *fmt, ...)
-{
-    va_list arguments;
-    va_start(arguments, fmt);
-
-    vprintf(fmt, arguments);
-
-    va_end(arguments);
-}
-#else
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <oci.h>
+#include <orid.h>
 
 void checkerr(OCIError * errhp, sword status, int line)
 {
@@ -620,7 +55,6 @@ void checkerr(OCIError * errhp, sword status, int line)
     break;
   }
 }
-#endif
 
 const char
 	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
@@ -864,6 +298,272 @@ bool get_lob(const char * field, OCILobLocator *lob)
 		goto err_ret;\
 	}\
 	(void) printf("\t[%d] "#__attrtype" - %.*s\n", __LINE__, name_len, name);\
+}
+
+static void display_attr_val(OCIEnv *envhp, OCIError *errhp, text *names, OCITypeCode typecode, dvoid *attr_value)
+{
+	text           str_buf[200];
+	double         dnum;
+	ub4            text_len, str_len;
+	OCIRaw         *raw = (OCIRaw *) 0;
+	OCIString      *vs = (OCIString *) 0;
+
+	/* display the data based on the type code */
+	switch (typecode) {
+	case OCI_TYPECODE_DATE :                    /* fixed length string */
+	  str_len = 200;
+	  (void) OCIDateToText(errhp, (CONST OCIDate *) attr_value, (CONST text*) "Month dd, SYYYY, HH:MI A.M.", (ub1) 27, (CONST text*) "American", (ub4) 8, (ub4 *)&str_len, str_buf);
+	  str_buf[str_len+1] = '\0';
+	  (void) printf("attr %s = %s\n", names, (text *) str_buf);
+	  break;
+	case OCI_TYPECODE_RAW :                                /* RAW */
+		raw = *(OCIRaw **) attr_value;
+		(void) printf("attr %s = %s\n", names, (text *) OCIRawPtr(envhp, raw));
+		break;
+	case OCI_TYPECODE_CHAR :                      /* fixed length string */
+	case OCI_TYPECODE_VARCHAR :                              /* varchar  */
+	case OCI_TYPECODE_VARCHAR2 :                             /* varchar2 */
+		vs = *(OCIString **) attr_value;
+		(void) printf("attr %s = %s\n", names, (text *) OCIStringPtr(envhp, vs));
+		break;
+	case OCI_TYPECODE_SIGNED8:                            /* BYTE - sb1  */
+		(void) printf("attr %s = %d\n", names, *(sb1 *) attr_value);
+		break;
+	case OCI_TYPECODE_UNSIGNED8:                 /* UNSIGNED BYTE - ub1  */
+		(void) printf("attr %s = %d\n", names, *(ub1 *) attr_value);
+		break;
+	case OCI_TYPECODE_OCTET:                                /* OCT  */
+		(void) printf("attr %s = %d\n", names, *(ub1 *) attr_value);
+		break;
+	case OCI_TYPECODE_UNSIGNED16:                     /* UNSIGNED SHORT  */
+	case OCI_TYPECODE_UNSIGNED32:                      /* UNSIGNED LONG  */
+	case OCI_TYPECODE_REAL:                                   /* REAL    */
+	case OCI_TYPECODE_DOUBLE:                                 /* DOUBLE  */
+	case OCI_TYPECODE_INTEGER:                                   /* INT  */
+	case OCI_TYPECODE_SIGNED16:                                /* SHORT  */
+	case OCI_TYPECODE_SIGNED32:                                 /* LONG  */
+	case OCI_TYPECODE_DECIMAL:                               /* DECIMAL  */
+	case OCI_TYPECODE_FLOAT:                                 /* FLOAT    */
+	case OCI_TYPECODE_NUMBER:                                /* NUMBER   */
+	case OCI_TYPECODE_SMALLINT:                              /* SMALLINT */
+		(void) OCINumberToReal(errhp, (CONST OCINumber *) attr_value, (uword)sizeof(dnum), (dvoid *) &dnum);
+		(void) printf("attr %s = %f\n", names, dnum);
+		break;
+	default:
+		(void) printf("attr %s - typecode %d\n", names, typecode);
+		break;
+	}
+}
+
+#include <list>
+using namespace std;
+typedef struct _cobject
+{
+	unsigned char *name;
+	unsigned char *type;
+	void * value;
+	unsigned long long value_sz;
+	list<struct _cobject> fields;
+} cobject;
+
+static bool dump_object(OCIEnv * envhp, OCIError * errhp, OCISvcCtx * svchp, void * tdo/* OCIType* or char* */, dvoid * obj, dvoid *null_obj, cobject & out_obj)
+{
+	text           *names[50], *lengths[50], *indexes[50], str_buf[200], *namep;
+	ub1             status;
+	ub2             count, pos;
+	sb4             index;
+	ub4             text_len, str_len, i;
+	double          dnum;
+	boolean         exist, eoc, boc;
+	dvoid          *attr_null_struct, *attr_value, *object, *null_object, *list_attr, *parmp = (dvoid *) 0,
+				   *parmdp = (dvoid *) 0, *parmp1 = (dvoid *) 0, *parmp2 = (dvoid *) 0, *element = (dvoid *) 0,
+				   *null_element = (dvoid *) 0;
+	OCIType        *object_tdo, *attr_tdo, *element_type;
+	OCIInd          attr_null_status;
+	OCITypeCode     typecode;
+	OCITypeElem    *ado;
+	OCIDescribe    *dschp = (OCIDescribe *) 0, *dschp1 = (OCIDescribe *) 0;
+	OCIIter        *itr = (OCIIter *) 0;
+	OCIRef         *elem_ref = (OCIRef *) 0, *type_ref, *tdo_ref;
+
+	if(obj && (null_obj == NULL && (status = OCIObjectGetInd(envhp, errhp, (dvoid *)obj, (dvoid **) &null_obj)) != OCI_SUCCESS))
+		(void) printf("BUG -- OCIObjectGetInd, expect OCI_SUCCESS.\n");
+
+	err = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &dschp, (ub4) OCI_HTYPE_DESCRIBE, (size_t) 0, (dvoid **) 0);
+	if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+	err = OCIDescribeAny(svchp, errhp, (dvoid *) tdo, (ub4) 0, OCI_OTYPE_PTR, (ub1)1, (ub1) OCI_PTYPE_TYPE, dschp);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+
+		// Try assuming tdo as string one more time
+		err = OCIDescribeAny(svchp, errhp, (void*)tdo, (ub4)strlen((const char *)tdo), OCI_OTYPE_NAME, OCI_DEFAULT, OCI_PTYPE_TYPE, dschp);
+		if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+		tdo = NULL;
+	}
+	err = OCIAttrGet((dvoid *) dschp, (ub4) OCI_HTYPE_DESCRIBE, (dvoid *)&parmp, (ub4 *)0, (ub4)OCI_ATTR_PARAM, errhp);
+	if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+	err = OCIAttrGet((dvoid*) parmp,(ub4) OCI_DTYPE_PARAM,(dvoid*) &(out_obj.type), (ub4 *) &str_len,(ub4) OCI_ATTR_NAME, (OCIError *) errhp);
+	if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+	
+	if(tdo == NULL) {
+		err = OCIAttrGet((dvoid*) parmp,(ub4) OCI_DTYPE_PARAM,(dvoid*) &tdo_ref, (ub4 *) 0,(ub4) OCI_ATTR_REF_TDO,(OCIError *) errhp);
+		if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+		err = OCITypeByRef(envhp, errhp, tdo_ref, OCI_DURATION_SESSION,OCI_TYPEGET_HEADER, (OCIType**)&tdo);
+		if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+	}
+
+	out_obj.type[str_len] = '\0';
+	printf("starting displaying instance of type '%s'\n", out_obj.type);
+
+	/* loop through all attributes in the type */
+	err = OCIAttrGet((dvoid*) parmp, (ub4) OCI_DTYPE_PARAM, (dvoid*) &count, (ub4 *) 0, (ub4) OCI_ATTR_NUM_TYPE_ATTRS, (OCIError *) errhp);
+	if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+	err = OCIAttrGet((dvoid *) parmp, (ub4) OCI_DTYPE_PARAM, (dvoid *)&list_attr, (ub4 *)0, (ub4)OCI_ATTR_LIST_TYPE_ATTRS, (OCIError *)errhp);
+	if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+
+	/* loop through all attributes in the type */
+	for (pos = 1; pos <= count; pos++) {
+		cobject other_obj;
+		err = OCIParamGet((dvoid *) list_attr, (ub4) OCI_DTYPE_PARAM, errhp, (dvoid**)&parmdp, (ub4) pos);
+		if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+		err = OCIAttrGet((dvoid*) parmdp, (ub4) OCI_DTYPE_PARAM, (dvoid*) &(other_obj.name), (ub4 *) &str_len, (ub4) OCI_ATTR_NAME, (OCIError *) errhp);
+		if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+		other_obj.name[str_len] = '\0';
+
+		/* get the attribute */
+		if (obj && (OCIObjectGetAttr(envhp, errhp, obj, null_obj, (OCIType*)tdo, (const oratext**)&(other_obj.name), &str_len, 1, (ub4 *)0, 0, &attr_null_status, &attr_null_struct, &attr_value, &attr_tdo) != OCI_SUCCESS))
+			(void) printf("BUG -- OCIObjectGetAttr, expect OCI_SUCCESS.\n");
+
+		/* get the type code of the attribute */
+		err = OCIAttrGet((dvoid*) parmdp, (ub4) OCI_DTYPE_PARAM, (dvoid*) &typecode, (ub4 *) 0, (ub4) OCI_ATTR_TYPECODE, (OCIError *) errhp);
+		if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+
+		/* support only fixed length string, ref and embedded object */
+		switch (typecode) {
+		case OCI_TYPECODE_OBJECT:                     /* embedded object */
+			printf("attribute %s is an embedded object. Display instance ....\n", other_obj.name);
+
+			/* recursive call to dump nested object data */
+			if(obj == NULL) {
+				err = OCIAttrGet((dvoid*) parmdp,(ub4) OCI_DTYPE_PARAM,(dvoid*) &tdo_ref, (ub4 *) 0,(ub4) OCI_ATTR_REF_TDO,(OCIError *) errhp);
+				if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+				err = OCITypeByRef(envhp, errhp, tdo_ref, OCI_DURATION_SESSION,OCI_TYPEGET_HEADER, (OCIType**)&attr_tdo);
+				if(err != OCI_SUCCESS) { checkerr(errhp, err, __LINE__); return true; }
+				attr_value = NULL;
+				attr_null_struct = NULL;
+			}
+			if(dump_object(envhp, errhp, svchp, attr_tdo, attr_value, attr_null_struct, other_obj))
+				return true;
+			out_obj.fields.push_back(other_obj);
+			break;
+       case OCI_TYPECODE_REF :                        /* embedded object */
+			printf("attribute %s is a ref. Pin and display instance ...\n", namep);
+
+			/* pin the object */
+			if(OCIObjectPin(envhp, errhp, *(OCIRef **)attr_value, (OCIComplexObject *)0, OCI_PIN_ANY, OCI_DURATION_SESSION, OCI_LOCK_NONE, (dvoid **)&object) != OCI_SUCCESS)
+				(void) printf("BUG -- OCIObjectPin, expect OCI_SUCCESS.\n");
+
+			/* allocate the ref */
+			if((status = OCIObjectNew(envhp, errhp, svchp, OCI_TYPECODE_REF, (OCIType *)0, (dvoid *)0, OCI_DURATION_DEFAULT, TRUE, (dvoid **) &type_ref))  != OCI_SUCCESS)
+				(void) printf("BUG -- OCIObjectNew, expect OCI_SUCCESS.\n");
+
+			/* get the ref of the type from the object */
+			if((status = OCIObjectGetTypeRef(envhp, errhp, object, type_ref)) != OCI_SUCCESS)
+				(void) printf("BUG -- ORIOGTR, expect OCI_SUCCESS.\n");
+
+			/* pin the type ref to get the type object */
+			if(OCIObjectPin(envhp, errhp, type_ref,  (OCIComplexObject *)0, OCI_PIN_ANY, OCI_DURATION_SESSION, OCI_LOCK_NONE, (dvoid **)&object_tdo) != OCI_SUCCESS)
+				(void) printf("BUG -- OCIObjectPin, expect OCI_SUCCESS.\n");
+
+			/* get null struct of the object */
+			if (( status = OCIObjectGetInd(envhp, errhp, object, &null_object)) != OCI_SUCCESS)
+				(void) printf("BUG -- ORIOGNS, expect OCI_SUCCESS.\n");
+
+			/* call the function recursively to dump the pinned object */
+			if(dump_object(envhp, errhp, svchp, object_tdo, object, null_object, other_obj))
+				return true;
+			out_obj.fields.push_back(other_obj);
+			break;
+       case OCI_TYPECODE_NAMEDCOLLECTION:
+			err = OCIHandleAlloc((dvoid *) envhp, (dvoid **) &dschp1, (ub4) OCI_HTYPE_DESCRIBE, (size_t) 0, (dvoid **) 0);
+			err = OCIDescribeAny(svchp, errhp, (dvoid *) attr_tdo,(ub4) 0, OCI_OTYPE_PTR, (ub1)1,(ub1) OCI_PTYPE_TYPE, dschp1);
+			err = OCIAttrGet((dvoid *) dschp1, (ub4) OCI_HTYPE_DESCRIBE, (dvoid *)&parmp1, (ub4 *)0, (ub4)OCI_ATTR_PARAM, errhp);
+
+			/* get the collection type code of the attribute */
+			err = OCIAttrGet((dvoid*) parmp1, (ub4) OCI_DTYPE_PARAM,(dvoid*) &typecode, (ub4 *) 0,(ub4) OCI_ATTR_COLLECTION_TYPECODE,(OCIError *) errhp);
+
+           switch (typecode) {
+		   case OCI_TYPECODE_VARRAY:                /* variable array */
+				(void) printf("\n---> Dump the table from the top to the bottom.\n");
+				err = OCIAttrGet((dvoid*) parmp1, (ub4)OCI_DTYPE_PARAM,(dvoid*) &parmp2, (ub4 *) 0,(ub4) OCI_ATTR_COLLECTION_ELEMENT,(OCIError *) errhp);
+				err = OCIAttrGet((dvoid*) parmp2,(ub4) OCI_DTYPE_PARAM,(dvoid*) &elem_ref, (ub4 *) 0,(ub4) OCI_ATTR_REF_TDO,(OCIError *) errhp);
+				err = OCITypeByRef(envhp, errhp, elem_ref, OCI_PIN_DEFAULT,(OCITypeGetOpt)OCI_TYPEGET_HEADER, &element_type);
+
+				/* initialize the iterator */
+				err = OCIIterCreate(envhp, errhp, (CONST OCIColl*)attr_value, &itr);
+
+				/* loop through the iterator */
+				for(eoc = FALSE;!OCIIterNext(envhp, errhp, itr, (dvoid **) &element,(dvoid **)&null_element, &eoc) && !eoc;) {
+					/* if type is named type, call the same function recursively */
+					if (typecode == OCI_TYPECODE_OBJECT)
+						dump_object(envhp, errhp, svchp, element_type, element, null_element, other_obj);
+					else  /* else, display the scaler type attribute */
+						display_attr_val(envhp, errhp, namep, typecode, element);
+				}
+				out_obj.fields.push_back(other_obj);
+				break;
+			case OCI_TYPECODE_TABLE:                    /* nested table */
+				(void) printf("\n---> Dump the table from the top to the bottom.\n");
+
+				/* go to the first element and print out the index */
+				err = OCIAttrGet((dvoid*) parmp1, (ub4) OCI_DTYPE_PARAM, (dvoid*) &parmp2, (ub4 *) 0, (ub4) OCI_ATTR_COLLECTION_ELEMENT, (OCIError *) errhp);
+				err = OCIAttrGet((dvoid*) parmp2,(ub4) OCI_DTYPE_PARAM,(dvoid*) &elem_ref, (ub4 *) 0,(ub4) OCI_ATTR_REF_TDO,(OCIError *) errhp);
+				err = OCITypeByRef(envhp, errhp, elem_ref, OCI_DURATION_SESSION,OCI_TYPEGET_HEADER, &element_type);
+
+				attr_value = *(dvoid **)attr_value;
+
+				/* move to the first element in the nested table */
+				err = OCITableFirst(envhp, errhp, (CONST OCITable*) attr_value, &index);
+
+				(void) printf("     The index of the first element is : %d.\n", index);
+
+				/* print out the element */
+				err = OCICollGetElem(envhp, errhp,(CONST OCIColl *) attr_value, index,&exist, (dvoid **) &element,(dvoid **) &null_element);
+
+				/* if it is named type, recursively call the same function */
+				err = OCIAttrGet((dvoid*) parmp2,(ub4) OCI_DTYPE_PARAM,(dvoid*) &typecode, (ub4 *) 0,(ub4) OCI_ATTR_TYPECODE,(OCIError *) errhp);
+
+				if (typecode == OCI_TYPECODE_OBJECT)
+					dump_object(envhp, errhp, svchp, element_type, (dvoid *)element, (dvoid *)null_element, other_obj);
+				else
+					display_attr_val(envhp, errhp, namep, typecode, element);
+
+				for(;!OCITableNext(envhp, errhp, index, (CONST OCITable *) attr_value, &index, &exist) && exist;) {
+					err = OCICollGetElem(envhp, errhp, (CONST OCIColl *)attr_value, index,&exist, (dvoid **) &element, (dvoid **) &null_element);
+					if (typecode == OCI_TYPECODE_OBJECT)
+						dump_object(envhp, errhp, svchp, element_type, (dvoid *)element, (dvoid *)null_element, other_obj);
+					else
+						display_attr_val(envhp, errhp, namep, typecode, element);
+				}
+				out_obj.fields.push_back(other_obj);
+				break;
+			default:
+				break;
+		   }
+           err = OCIHandleFree((dvoid *) dschp1, (ub4) OCI_HTYPE_DESCRIBE);
+           break;
+		default:   /* scaler type, display the attribute value */
+			if(obj) {
+				if (attr_null_status == OCI_IND_NOTNULL) {
+					display_attr_val(envhp, errhp, namep, typecode, attr_value);
+				} else printf("attr %s is null\n", namep);
+			}
+			out_obj.fields.push_back(other_obj);
+			break;
+		}
+	}
+	err = OCIHandleFree((dvoid*) dschp, (ub4) OCI_HTYPE_DESCRIBE);
+	printf("finishing displaying instance of type '%s'\n", out_obj.type);
 }
 
 // sqlplus sbs0/sbs0sbs0_4dev@192.168.1.69/SBS0.k2informatics.ch
@@ -1119,11 +819,37 @@ err_ret:
 
 int main(int argc, char* argv[])
 {
+	dvoid * obj = NULL;
+	dvoid * null_obj = NULL;
+	cobject o;
+
 	if(setup_env())
 		goto error_return;
 
-	if(describe("sys.aq$_jms_map_message"))
+	if(statement("select ts from datetime"))
 		goto error_return;
+
+	// http://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci03typ.htm#i423684
+
+	unsigned char descpp[10];
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)1, (void*)descpp, (sb4)10, (ub2) 180,
+		(void*)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	err = OCIStmtFetch((OCIStmt*)stmthp, (OCIError*)errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+#if 0
+	if(dump_object(envhp, errhp, svchp, "sys.aq$_jms_map_message", obj, null_obj, o))
+	//if(describe("sys.aq$_jms_map_message"))
+		goto error_return;
+#endif
 
 #if 0 // statement tests
 	if(statement("select longd from rawlong"))

@@ -29,6 +29,12 @@ typedef struct column column;
 
 #define LCL_DTYPE_NONE 9999 /* for code upgrade use any value not defined as OCI_DTYPE_* */
 
+#define INT_SQLT_TIMESTAMP		180	// 11 bytes
+#define INT_SQLT_TIMESTAMP_TZ	181	// 13 bytes
+#define INT_SQLT_TIMESTAMP_LTZ	231	// 11 bytes
+#define INT_SQLT_INTERVAL_YM	182	//  5 bytes
+#define INT_SQLT_INTERVAL_DS	183 // 11 bytes
+
 class ocistmt
 {
 public:

@@ -356,16 +356,22 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
         text *col_name;
         ub4 len = 0;
 		for (unsigned int i = 0; i < _columns.size(); ++i) {
-			if(_columns[i]->rtype == LCL_DTYPE_NONE)
-				delete (char*)(_columns[i]->row_valp);
-			else {
-				ub4 trtype = _columns[i]->rtype;
-				vector<OCILobLocator *> & tlobps = _columns[i]->loblps;
-				(void) OCIDescriptorFree(_columns[i]->row_valp, trtype);
-				for(size_t j = 0; j < tlobps.size(); ++j) {
-					(void) OCIDescriptorFree(tlobps[j], trtype);
+			if(_columns[i]->dtype == SQLT_NTY) {
+				checkerr(&r, OCIObjectFree((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, (dvoid*)(_columns[i]->row_valp), OCI_OBJECTFREE_FORCE | OCI_OBJECTFREE_NONULL));
+				if(r.fn_ret != SUCCESS)
+					REMOTE_LOG(ERR, "failed OCIObjectFree for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+			} else {
+				if(_columns[i]->rtype == LCL_DTYPE_NONE)
+					delete (char*)(_columns[i]->row_valp);
+				else {
+					ub4 trtype = _columns[i]->rtype;
+					vector<OCILobLocator *> & tlobps = _columns[i]->loblps;
+					(void) OCIDescriptorFree(_columns[i]->row_valp, trtype);
+					for(size_t j = 0; j < tlobps.size(); ++j) {
+						(void) OCIDescriptorFree(tlobps[j], trtype);
+					}
+					tlobps.clear();
 				}
-				tlobps.clear();
 			}
 			delete _columns[i];
 		}
@@ -474,25 +480,47 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_BIN, "SQLT_BIN");
 				break;
+            case SQLT_DATE:
+				cur_clm.dlen = sizeof(OCIDate);
+				cur_clm.row_valp = new OCIDate;
+				memset(cur_clm.row_valp, 0, sizeof(OCIDate));
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_ODT, "SQLT_ODT");
+                break;
             case SQLT_TIMESTAMP:
-				OCIALLOC(OCI_DTYPE_TIMESTAMP, "SQLT_TIMESTAMP");
-				OCIDEF(SQLT_TIMESTAMP, "SQLT_TIMESTAMP");
+				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(INT_SQLT_TIMESTAMP, "INT_SQLT_TIMESTAMP");
                 break;
             case SQLT_TIMESTAMP_TZ:
-				OCIALLOC(OCI_DTYPE_TIMESTAMP_TZ, "SQLT_TIMESTAMP_TZ");
-				OCIDEF(SQLT_TIMESTAMP_TZ, "SQLT_TIMESTAMP_TZ");
+				cur_clm.dlen = (cur_clm.dlen < 13 ? 13 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(INT_SQLT_TIMESTAMP_TZ, "INT_SQLT_TIMESTAMP_TZ");
                 break;
             case SQLT_TIMESTAMP_LTZ:
-				OCIALLOC(OCI_DTYPE_TIMESTAMP_LTZ, "SQLT_TIMESTAMP_LTZ");
-				OCIDEF(SQLT_TIMESTAMP_LTZ, "SQLT_TIMESTAMP_LTZ");
+				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(INT_SQLT_TIMESTAMP_LTZ, "INT_SQLT_TIMESTAMP_LTZ");
                 break;
             case SQLT_INTERVAL_YM:
-				OCIALLOC(OCI_DTYPE_INTERVAL_YM, "SQLT_INTERVAL_YM");
-				OCIDEF(SQLT_INTERVAL_YM, "SQLT_INTERVAL_YM");
+				cur_clm.dlen = (cur_clm.dlen < 5 ? 5 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(INT_SQLT_INTERVAL_YM, "INT_SQLT_INTERVAL_YM");
                 break;
             case SQLT_INTERVAL_DS:
-				OCIALLOC(OCI_DTYPE_INTERVAL_DS, "SQLT_INTERVAL_DS");
-				OCIDEF(SQLT_INTERVAL_DS, "SQLT_INTERVAL_DS");
+				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(INT_SQLT_INTERVAL_DS, "INT_SQLT_INTERVAL_DS");
                 break;
 			case SQLT_RDD:
 			case SQLT_RID:
@@ -533,6 +561,122 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.row_valp = _t;
 				cur_clm.dlen = _dlen;
                 break;
+			}
+			case SQLT_NTY: {
+				text * col_typ_name = NULL;
+				text * col_typ_schema_name = NULL;
+				ub4 col_typ_name_len = 0;
+				ub4 col_typ_schema_name_len = 0;
+				checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+										(dvoid**) &col_typ_name, (ub4 *) &col_typ_name_len, (ub4) OCI_ATTR_TYPE_NAME,
+										(OCIError*)_errhp));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_ATTR_TYPE_NAME) error %s (%s)\n", r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}				
+				checkerr(&r, OCIAttrGet((dvoid*) mypard, (ub4) OCI_DTYPE_PARAM,
+										(dvoid**) &col_typ_schema_name, (ub4 *) &col_typ_schema_name_len, (ub4) OCI_ATTR_SCHEMA_NAME,
+										(OCIError*)_errhp));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIAttrGet(OCI_ATTR_TYPE_NAME) error %s (%s)\n", r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				OCIType *tdo = NULL;
+				checkerr(&r, OCITypeByName((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp,  (const OCISvcCtx *) _svchp,
+										   (text*)col_typ_schema_name, (ub4)col_typ_schema_name_len,  (text*)col_typ_name, (ub4) col_typ_name_len,  (text*)0, (ub4)0,
+										   OCI_DURATION_SESSION, OCI_TYPEGET_ALL, (OCIType **)&tdo));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCITypeByName(column:%d) error %s (%s)\n", num_cols, r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				OCIDescribe *dschp = (OCIDescribe*)0;
+				r.handle = (OCIEnv*)ocisession::getenv();
+				checkerr(&r, OCIHandleAlloc((OCIEnv*)ocisession::getenv(), (dvoid **) &dschp, (ub4) OCI_HTYPE_DESCRIBE, (size_t) 0, (dvoid **) 0));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIHandleAlloc(column:%d) error %s (%s)\n", num_cols, r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				r.handle = _errhp;
+#if 0
+text *namep;
+ub4 text_len;
+checkerr(&r, OCIDescribeAny((OCISvcCtx*)_svchp, (OCIError*)_errhp, (dvoid *) tdo, (ub4) 0, OCI_OTYPE_PTR, (ub1)1, (ub1) OCI_PTYPE_TYPE, dschp));
+dvoid *parmp = (dvoid *)0;
+checkerr(&r, OCIAttrGet((dvoid *) dschp, (ub4) OCI_HTYPE_DESCRIBE, (dvoid *)&parmp, (ub4 *)0, (ub4)OCI_ATTR_PARAM, (OCIError*)_errhp));
+text *typenamep;
+ub4 str_len;
+checkerr(&r, OCIAttrGet((dvoid*) parmp,(ub4) OCI_DTYPE_PARAM, (dvoid*) &typenamep, (ub4 *) &str_len, (ub4) OCI_ATTR_NAME,(OCIError*)_errhp));
+typenamep[str_len] = '\0';
+
+/* loop through all attributes in the type */
+ub2 count;
+checkerr(&r, OCIAttrGet((dvoid*) parmp, (ub4) OCI_DTYPE_PARAM,(dvoid*) &count, (ub4 *) 0, (ub4) OCI_ATTR_NUM_TYPE_ATTRS,(OCIError*)_errhp));
+dvoid *list_attr;
+checkerr(&r, OCIAttrGet((dvoid*) parmp, (ub4) OCI_DTYPE_PARAM,(dvoid *)&list_attr, (ub4 *)0,(ub4)OCI_ATTR_LIST_TYPE_ATTRS,(OCIError*)_errhp));
+
+dvoid *parmdp = (dvoid *)0;
+for (ub2 pos = 1; pos <= count; pos++)
+{
+	checkerr(&r, OCIParamGet((dvoid*)list_attr, (ub4) OCI_DTYPE_PARAM, (OCIError*)_errhp, (dvoid**)&parmdp, (ub4) pos));
+	checkerr(&r, OCIAttrGet((dvoid*)parmdp, (ub4) OCI_DTYPE_PARAM, (dvoid*) &namep, (ub4 *) &str_len, (ub4) OCI_ATTR_NAME, (OCIError*)_errhp));
+    namep[str_len] = '\0';
+}
+#endif
+				cur_clm.row_valp = NULL;
+				checkerr(&r, OCIObjectNew((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp,  (const OCISvcCtx*) _svchp,
+										  OCI_TYPECODE_OBJECT, tdo, (dvoid*)NULL, OCI_DURATION_SESSION, TRUE, (dvoid**)&(cur_clm.row_valp)));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIObjectNew(column:%d) error %s (%s)\n", num_cols, r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				dvoid *null_object = NULL;
+				checkerr(&r, OCIObjectGetInd((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, cur_clm.row_valp, &null_object));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIObjectNew(column:%d) error %s (%s)\n", num_cols, r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				OCIDefine *defnp = NULL;
+				checkerr(&r, OCIDefineByPos((OCIStmt*)_stmthp, &defnp, (OCIError*)_errhp,
+											num_cols, (dvoid *)(cur_clm.row_valp),
+											(sword) cur_clm.dlen + 1, SQLT_NTY, &(cur_clm.indp), (ub2*)0,
+											(ub2 *)0, OCI_DEFAULT));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIDefineByPos for %p column %d(SQLT_NTY)\n", _stmthp, num_cols);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				checkerr(&r, OCIDefineObject(defnp, (OCIError*)_errhp, (const OCIType*)tdo,
+                        (dvoid**)&(cur_clm.row_valp), (ub4*)&(cur_clm.dlen),
+						(dvoid**)NULL, (ub4*)0));
+				if(r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIDefineObject(column:%d) error %s (%s)\n", num_cols, r.gerrbuf, _stmtstr);
+					if(mypard)
+						OCIDescriptorFree(mypard, OCI_DTYPE_PARAM);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				REMOTE_LOG(ERR, "Column type %.*s.%.*s\n", col_typ_schema_name_len, col_typ_schema_name, col_typ_name_len, col_typ_name);				
+				break;
 			}
             default:
 				r.fn_ret = FAILURE;
@@ -697,17 +841,12 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						break;
 					case SQLT_TIMESTAMP:
 					case SQLT_TIMESTAMP_TZ:
-					case SQLT_TIMESTAMP_LTZ: {
-						r.handle = envhp;
-						ub1 *dtarry = NULL;
-						ub4 len;
-						checkerr(&r, OCIDateTimeToArray(envhp, (OCIError*)_errhp, (CONST OCIDateTime *)(_columns[i]->row_valp),
-                                        (CONST OCIInterval *)NULL, dtarry, &len, (ub1)0xFF));
-						r.handle = _errhp; }
-						break;
-					/*case SQLT_INTERVAL_YM:
+					case SQLT_TIMESTAMP_LTZ:
+					case SQLT_INTERVAL_YM:
 					case SQLT_INTERVAL_DS:
-						break;*/
+						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
+						break;
 					case SQLT_DAT:
 						((OCIDate*)_columns[i]->row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)(_columns[i]->row_valp))->OCIDateYYYY);
 						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
@@ -775,18 +914,21 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 							str_len = strlen((char*)(_columns[i]->row_valp));
 						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), str_len, row);
 						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
-						}
 						break;
+					}
 					case SQLT_BIN:
 					case SQLT_RID:
 					case SQLT_RDD:
 					case SQLT_AFC:
-					case SQLT_STR:
-						{
-							size_t str_len = strlen((char*)(_columns[i]->row_valp));
-							(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), str_len, row);
-							memset(_columns[i]->row_valp, 0, str_len);
-						}
+					case SQLT_STR: {
+						size_t str_len = strlen((char*)(_columns[i]->row_valp));
+						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), str_len, row);
+						memset(_columns[i]->row_valp, 0, str_len);
+						break;
+					}
+					case SQLT_NTY:
+						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
+						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
 						break;
 					default:
 						r.fn_ret = FAILURE;
@@ -919,16 +1061,22 @@ ocistmt::~ocistmt(void)
 
 	/* Release the bound variables memeory */
 	for (unsigned int i = 0; i < _columns.size(); ++i) {
-		if(_columns[i]->rtype == LCL_DTYPE_NONE)
-			delete (char*)(_columns[i]->row_valp);
-		else {
-			ub4 trtype = _columns[i]->rtype;
-			vector<OCILobLocator *> & tlobps = _columns[i]->loblps;
-			(void) OCIDescriptorFree(_columns[i]->row_valp, trtype);
-			for(size_t j = 0; j < tlobps.size(); ++j) {
-				(void) OCIDescriptorFree(tlobps[j], trtype);
+		if(_columns[i]->dtype == SQLT_NTY) {
+			checkerr(&r, OCIObjectFree((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, (dvoid*)(_columns[i]->row_valp), OCI_OBJECTFREE_FORCE | OCI_OBJECTFREE_NONULL));
+			if(r.fn_ret != SUCCESS)
+				REMOTE_LOG(ERR, "failed OCIObjectFree for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+		} else {
+			if(_columns[i]->rtype == LCL_DTYPE_NONE)
+				delete (char*)(_columns[i]->row_valp);
+			else {
+				ub4 trtype = _columns[i]->rtype;
+				vector<OCILobLocator *> & tlobps = _columns[i]->loblps;
+				(void) OCIDescriptorFree(_columns[i]->row_valp, trtype);
+				for(size_t j = 0; j < tlobps.size(); ++j) {
+					(void) OCIDescriptorFree(tlobps[j], trtype);
+				}
+				tlobps.clear();
 			}
-			tlobps.clear();
 		}
 		delete _columns[i];
 	}
