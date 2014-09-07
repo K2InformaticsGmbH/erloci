@@ -141,16 +141,17 @@ db_test_() ->
         fun teardown_conn/1,
         {with, [
             fun drop_create/1
-            , fun bad_sql_connection_reuse/1
-            , fun insert_select_update/1
-            , fun auto_rollback_test/1
-            , fun commit_rollback_test/1
-            , fun asc_desc_test/1
-            , fun lob_test/1
-            , fun describe_test/1
-            , fun function_test/1
-            , fun procedure_scalar_test/1
-            , fun procedure_cur_test/1
+            %, fun bad_sql_connection_reuse/1
+            %, fun insert_select_update/1
+            %, fun auto_rollback_test/1
+            %, fun commit_rollback_test/1
+            %, fun asc_desc_test/1
+            %, fun lob_test/1
+            %, fun describe_test/1
+            %, fun function_test/1
+            %, fun procedure_scalar_test/1
+            %, fun procedure_cur_test/1
+            , fun timestamp_interval_datatypes/1
         ]}
     }}.
 
@@ -771,4 +772,68 @@ procedure_cur_test({_, OciSession}) ->
     DropProcStmt = OciSession:prep_sql(<<"drop procedure "?TESTPROCEDURE>>),
     ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
     ?assertEqual(ok, DropProcStmt:close()).
+
+timestamp_interval_datatypes({_, OciSession}) ->
+    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("|                 timestamp_interval_datatypes                   |"),
+    ?ELog("+----------------------------------------------------------------+"),
+
+    CreateSql = <<
+        "create table "?TESTTABLE" ("
+            "name varchar(30), "
+            "dat DATE DEFAULT (sysdate), "
+            "ts TIMESTAMP DEFAULT (systimestamp), "
+            "tstz TIMESTAMP WITH TIME ZONE DEFAULT (systimestamp), "
+            "tsltz TIMESTAMP WITH LOCAL TIME ZONE DEFAULT (systimestamp), "
+            "iym INTERVAL YEAR(3) TO MONTH DEFAULT '234-2', "
+            "ids INTERVAL DAY TO SECOND(3) DEFAULT '4 5:12:10.222')"
+    >>,
+    InsertSql = <<"insert into "?TESTTABLE" (name) values (:name)">>,
+    SelectSql = <<"select * from "?TESTTABLE"">>,
+
+    DropStmt = OciSession:prep_sql(?DROP),
+    DropStmt:exec_stmt(),
+    DropStmt:close(),
+
+    CreateStmt = OciSession:prep_sql(CreateSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateStmt),
+    ?assertEqual({executed, 0}, CreateStmt:exec_stmt()),
+    ?assertEqual(ok, CreateStmt:close()),
+
+    BoundInsStmt = OciSession:prep_sql(InsertSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
+    ?assertMatch(ok, BoundInsStmt:bind_vars([{<<":name">>, 'SQLT_CHR'}])),
+    ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt(
+        [{list_to_binary(io_lib:format("'~s'", [D]))}
+         || D <- ["test1", "test2", "test3", "test4"]])),
+
+    SelectStmt = OciSession:prep_sql(SelectSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelectStmt),
+    ?assertEqual({cols, [{<<"NAME">>,'SQLT_CHR',30,0,0}
+                        ,{<<"DAT">>,'SQLT_DAT',8,0,0}
+                        ,{<<"TS">>,'SQLT_TIMESTAMP',11,0,6}
+                        ,{<<"TSTZ">>,'SQLT_TIMESTAMP_TZ',13,0,6}
+                        ,{<<"TSLTZ">>,'SQLT_TIMESTAMP_LTZ',11,0,6}
+                        ,{<<"IYM">>,'SQLT_INTERVAL_YM',5,3,0}
+                        ,{<<"IDS">>,'SQLT_INTERVAL_DS',11,2,3}]
+                }, SelectStmt:exec_stmt()),
+    RowRet = SelectStmt:fetch_rows(5), 
+    ?assertMatch({{rows, _}, true}, RowRet),
+    {{rows, Rows}, true} = RowRet,
+    ?debugFmt("Rows ~p", [
+        [[C1, C2
+         , oci_util:from_ts(C3)
+         , oci_util:from_ts(C4)
+         , oci_util:from_ts(C5)
+         , C6, C7]
+         || [C1, C2, C3, C4, C5, C6, C7] <- Rows]
+    ]),
+    ?assertEqual(ok, SelectStmt:close()),
+
+    DropStmtFinal = OciSession:prep_sql(?DROP),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmtFinal),
+    ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
+    ?assertEqual(ok, DropStmtFinal:close()),
+?debugHere,
+    ok.
 
