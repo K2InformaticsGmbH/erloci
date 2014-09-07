@@ -825,7 +825,8 @@ timestamp_interval_datatypes({_, OciSession}) ->
          , oci_util:from_ts(C3)
          , oci_util:from_ts(C4)
          , oci_util:from_ts(C5)
-         , C6, C7]
+         , oci_util:from_intv(C6)
+         , oci_util:from_intv(C7)]
          || [C1, C2, C3, C4, C5, C6, C7] <- Rows]
     ]),
     ?assertEqual(ok, SelectStmt:close()),

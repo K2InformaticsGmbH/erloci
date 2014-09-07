@@ -3,7 +3,8 @@
 -export([ edatetime_to_ora/1
         , oradate_to_str/1
         , oranumber_decode/1
-        , from_ts/1]).
+        , from_ts/1
+        , from_intv/1]).
 
 edatetime_to_ora({Meg,Mcr,Mil} = Now)
     when is_integer(Meg)
@@ -74,3 +75,10 @@ from_ts({C, Y, M, D, H, Min, S, Ns}) ->
      , S- 1}                       % Second
     , Ns                           % Nano second in second 
     }.
+
+from_intv(<<Y:4/integer-unit:8, M:1/integer-unit:8>>) ->
+    {Y - 2147483648, M - 60};
+from_intv(<<D:4/integer-unit:8, H:1/integer-unit:8
+          , M:1/integer-unit:8, S:1/integer-unit:8
+          , Ns:4/little-unsigned-integer-unit:8>>) ->
+    {D - 2147483648, H - 60, M - 60, S - 60, Ns}.
