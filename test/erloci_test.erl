@@ -141,16 +141,16 @@ db_test_() ->
         fun teardown_conn/1,
         {with, [
             fun drop_create/1
-            %, fun bad_sql_connection_reuse/1
-            %, fun insert_select_update/1
-            %, fun auto_rollback_test/1
-            %, fun commit_rollback_test/1
-            %, fun asc_desc_test/1
-            %, fun lob_test/1
-            %, fun describe_test/1
-            %, fun function_test/1
-            %, fun procedure_scalar_test/1
-            %, fun procedure_cur_test/1
+            , fun bad_sql_connection_reuse/1
+            , fun insert_select_update/1
+            , fun auto_rollback_test/1
+            , fun commit_rollback_test/1
+            , fun asc_desc_test/1
+            , fun lob_test/1
+            , fun describe_test/1
+            , fun function_test/1
+            , fun procedure_scalar_test/1
+            , fun procedure_cur_test/1
             , fun timestamp_interval_datatypes/1
         ]}
     }}.
