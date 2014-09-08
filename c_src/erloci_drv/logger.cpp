@@ -124,7 +124,7 @@ void logger::log(const char * filename, const char * funcname, unsigned int line
 	t.insert().strng(filename);
 	t.insert().strng(funcname);
 	t.insert().integer(linenumber);
-	t.insert().strng(log_str);
+	t.insert().binary(log_str);
 
 	vector<unsigned char> log = transcoder::instance().encode_with_header(t);
 

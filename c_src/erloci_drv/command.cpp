@@ -94,14 +94,14 @@ bool command::get_session(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
 			term & _t = resp.insert().tuple();
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
 			term & _t = resp.insert().tuple();
@@ -138,7 +138,7 @@ bool command::release_conn(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
@@ -146,7 +146,7 @@ bool command::release_conn(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -186,7 +186,7 @@ bool command::commit(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
@@ -194,7 +194,7 @@ bool command::commit(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -234,7 +234,7 @@ bool command::rollback(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
@@ -242,7 +242,7 @@ bool command::rollback(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -290,7 +290,7 @@ bool command::describe(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute DESCRIBE \"%.*s;\" -> %s\n",
@@ -304,7 +304,7 @@ bool command::describe(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -350,7 +350,7 @@ bool command::prep_sql(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n",
@@ -364,7 +364,7 @@ bool command::prep_sql(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -405,7 +405,7 @@ bool command::bind_args(term & t, term & resp)
 				term & _t = resp.insert().tuple();
 				_t.insert().atom("error");
 				_t.insert().integer(0);
-				_t.insert().strng("invalid statement handle");
+				_t.insert().binary("invalid statement handle");
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				map_schema_to_bind_args(bind_list, statement_handle->get_in_bind_args());
@@ -416,7 +416,7 @@ bool command::bind_args(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string & str) {
@@ -424,7 +424,7 @@ bool command::bind_args(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -470,7 +470,7 @@ bool command::exec_stmt(term & t, term & resp)
 				term & _t = resp.insert().tuple();
 				_t.insert().atom("error");
 				_t.insert().integer(0);
-				_t.insert().strng("invalid statement handle");
+				_t.insert().binary("invalid statement handle");
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				size_t bound_count = map_value_to_bind_args(bind_list, statement_handle->get_in_bind_args());
@@ -502,7 +502,7 @@ bool command::exec_stmt(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR Execute SQL \"%.*s;\" -> %s\n",
@@ -516,7 +516,7 @@ bool command::exec_stmt(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -560,7 +560,7 @@ bool command::fetch_rows(term & t, term & resp)
 				term & _t = resp.insert().tuple();
 				_t.insert().atom("error");
 				_t.insert().integer(0);
-				_t.insert().strng("invalid statement handle");
+				_t.insert().binary("invalid statement handle");
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				intf_ret r = statement_handle->rows(&rows, rowcount);
@@ -577,7 +577,7 @@ bool command::fetch_rows(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
@@ -590,7 +590,7 @@ bool command::fetch_rows(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -630,7 +630,7 @@ bool command::close_stmt(term & t, term & resp)
 				term & _t = resp.insert().tuple();
 				_t.insert().atom("error");
 				_t.insert().integer(0);
-				_t.insert().strng("invalid statement handle");
+				_t.insert().binary("invalid statement handle");
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				statement_handle->close();
@@ -641,7 +641,7 @@ bool command::close_stmt(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 		} catch (string str) {
@@ -649,7 +649,7 @@ bool command::close_stmt(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -693,7 +693,7 @@ bool command::get_lob_data(term & t, term & resp)
 				term & _t = resp.insert().tuple();
 				_t.insert().atom("error");
 				_t.insert().integer(0);
-				_t.insert().strng("invalid statement handle");
+				_t.insert().binary("invalid statement handle");
 				if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR invalid statement handle\n");
 			} else {
 				intf_ret r = statement_handle->lob(&lob, loblocator_handle, offset.v.ull, length.v.ull);
@@ -708,7 +708,7 @@ bool command::get_lob_data(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().strng(r.gerrbuf);
+			_t1.insert().binary(r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);
@@ -721,7 +721,7 @@ bool command::get_lob_data(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(0);
-			_t1.insert().strng(str.c_str());
+			_t1.insert().binary(str.c_str());
 			ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 		} catch (...) {
@@ -757,7 +757,7 @@ bool command::echo(term & t, term & resp)
 		_t.insert().atom("error");
 		term & _t1 = _t.insert().tuple();
 		_t1.insert().integer(r.gerrcode);
-		_t1.insert().strng(r.gerrbuf);
+		_t1.insert().binary(r.gerrbuf);
 		ret = true;
 			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
 	} catch (string str) {
@@ -765,7 +765,7 @@ bool command::echo(term & t, term & resp)
 		_t.insert().atom("error");
 		term & _t1 = _t.insert().tuple();
 		_t1.insert().integer(0);
-		_t1.insert().strng(str.c_str());
+		_t1.insert().binary(str.c_str());
 		ret = true;
 		if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
 	} catch (...) {

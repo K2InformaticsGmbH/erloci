@@ -200,9 +200,6 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				case SQLT_INT:
 					dat_len = sizeof(int);
 					break;
-				case SQLT_STR:
-				case SQLT_CHR:
-				case SQLT_DAT:
 				default:
 					dat_len = _argsin[i].value_sz;
 					break;
@@ -211,10 +208,21 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 			memcpy((char*)_argsin[i].datap + _argsin[i].datap_len, valueparr[j], _argsin[i].alen[j]);
 			_argsin[i].datap_len += (unsigned long)(dat_len);
 		}
-		if(_argsin[i].dty == SQLT_BFLOAT || _argsin[i].dty == SQLT_IBFLOAT)
-			_argsin[i].dty = SQLT_FLT;
-		else if(_argsin[i].dty == SQLT_BDOUBLE || _argsin[i].dty == SQLT_IBDOUBLE)
-			_argsin[i].dty = SQLT_BDOUBLE;
+		switch(_argsin[i].dty) {
+			case SQLT_BFLOAT:
+			case SQLT_IBFLOAT:
+				_argsin[i].dty = SQLT_FLT;
+				break;
+			case SQLT_BDOUBLE:
+			case SQLT_IBDOUBLE:
+				_argsin[i].dty = SQLT_BDOUBLE;
+				break;
+			case SQLT_TIMESTAMP:     _argsin[i].dty = INT_SQLT_TIMESTAMP;     break;
+			case SQLT_TIMESTAMP_TZ:  _argsin[i].dty = INT_SQLT_TIMESTAMP_TZ;  break;
+			case SQLT_TIMESTAMP_LTZ: _argsin[i].dty = INT_SQLT_TIMESTAMP_LTZ; break;
+			case SQLT_INTERVAL_YM:   _argsin[i].dty = INT_SQLT_INTERVAL_YM;   break;
+			case SQLT_INTERVAL_DS:   _argsin[i].dty = INT_SQLT_INTERVAL_DS;   break;
+		}		
 	}
 
 	if(_argsin.size() > 0)
@@ -467,25 +475,35 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
                 break;
-            case SQLT_DAT:
-				cur_clm.dlen = sizeof(OCIDate);
-				cur_clm.row_valp = new OCIDate;
-				memset(cur_clm.row_valp, 0, sizeof(OCIDate));
-				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(SQLT_ODT, "SQLT_ODT");
-                break;
 			case SQLT_BIN: // RAW
 				cur_clm.row_valp = new unsigned char[cur_clm.dlen + 1];
 				memset(cur_clm.row_valp, 0, (cur_clm.dlen + 1)*sizeof(unsigned char));
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_BIN, "SQLT_BIN");
 				break;
-            case SQLT_DATE:
-				cur_clm.dlen = sizeof(OCIDate);
-				cur_clm.row_valp = new OCIDate;
-				memset(cur_clm.row_valp, 0, sizeof(OCIDate));
+			// 5 bytes buffer
+            case SQLT_INTERVAL_YM:
+				cur_clm.dlen = (cur_clm.dlen < 5 ? 5 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
 				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(SQLT_ODT, "SQLT_ODT");
+				OCIDEF(INT_SQLT_INTERVAL_YM, "INT_SQLT_INTERVAL_YM");
+                break;
+			// 7 bytes buffer
+            case SQLT_DAT:
+				cur_clm.dlen = (cur_clm.dlen < 7 ? 7 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_DAT, "SQLT_DAT");
+                break;
+			// 11 bytes buffers
+            case SQLT_DATE:
+				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(SQLT_DATE, "SQLT_DATE");
                 break;
             case SQLT_TIMESTAMP:
 				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
@@ -494,26 +512,12 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(INT_SQLT_TIMESTAMP, "INT_SQLT_TIMESTAMP");
                 break;
-            case SQLT_TIMESTAMP_TZ:
-				cur_clm.dlen = (cur_clm.dlen < 13 ? 13 : cur_clm.dlen);
-				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
-				memset(cur_clm.row_valp, 0, cur_clm.dlen);
-				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(INT_SQLT_TIMESTAMP_TZ, "INT_SQLT_TIMESTAMP_TZ");
-                break;
             case SQLT_TIMESTAMP_LTZ:
 				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
 				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
 				memset(cur_clm.row_valp, 0, cur_clm.dlen);
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(INT_SQLT_TIMESTAMP_LTZ, "INT_SQLT_TIMESTAMP_LTZ");
-                break;
-            case SQLT_INTERVAL_YM:
-				cur_clm.dlen = (cur_clm.dlen < 5 ? 5 : cur_clm.dlen);
-				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
-				memset(cur_clm.row_valp, 0, cur_clm.dlen);
-				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(INT_SQLT_INTERVAL_YM, "INT_SQLT_INTERVAL_YM");
                 break;
             case SQLT_INTERVAL_DS:
 				cur_clm.dlen = (cur_clm.dlen < 11 ? 11 : cur_clm.dlen);
@@ -522,6 +526,15 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(INT_SQLT_INTERVAL_DS, "INT_SQLT_INTERVAL_DS");
                 break;
+			// 13 bytes buffer
+            case SQLT_TIMESTAMP_TZ:
+				cur_clm.dlen = (cur_clm.dlen < 13 ? 13 : cur_clm.dlen);
+				cur_clm.row_valp = new unsigned char[cur_clm.dlen];
+				memset(cur_clm.row_valp, 0, cur_clm.dlen);
+				cur_clm.rtype = LCL_DTYPE_NONE;
+				OCIDEF(INT_SQLT_TIMESTAMP_TZ, "INT_SQLT_TIMESTAMP_TZ");
+                break;
+			// 19 bytes buffer
 			case SQLT_RDD:
 			case SQLT_RID:
 				cur_clm.dlen = (cur_clm.dlen < 19 ? 19 : cur_clm.dlen);
@@ -839,6 +852,8 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
 						memset(_columns[i]->row_valp, 0, sizeof(OCINumber));
 						break;
+					case SQLT_DAT:
+					case SQLT_DATE:
 					case SQLT_TIMESTAMP:
 					case SQLT_TIMESTAMP_TZ:
 					case SQLT_TIMESTAMP_LTZ:
@@ -846,11 +861,6 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 					case SQLT_INTERVAL_DS:
 						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
 						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
-						break;
-					case SQLT_DAT:
-						((OCIDate*)_columns[i]->row_valp)->OCIDateYYYY = ntohs((ub2)((OCIDate*)(_columns[i]->row_valp))->OCIDateYYYY);
-						(*intf.append_string_to_list)((char*)(_columns[i]->row_valp), _columns[i]->dlen, row);
-						memset(_columns[i]->row_valp, 0, sizeof(OCIDate));
 						break;
 					case SQLT_BFILE: {
 							OCILobLocator *_tlob;

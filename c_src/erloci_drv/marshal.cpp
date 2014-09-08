@@ -414,8 +414,14 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						throw r;
 					}
 					break;
-				case SQLT_RDD:
+				case SQLT_INTERVAL_YM:
 				case SQLT_DAT:
+				case SQLT_DATE:
+				case SQLT_TIMESTAMP:
+				case SQLT_TIMESTAMP_LTZ:
+				case SQLT_INTERVAL_DS:
+				case SQLT_TIMESTAMP_TZ:
+				case SQLT_RDD:
 					if(t2.is_binary() && t2.str_len > 0) {
 						ind = 0;
 						arg_len = t2.str_len;

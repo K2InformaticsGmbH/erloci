@@ -788,7 +788,16 @@ timestamp_interval_datatypes({_, OciSession}) ->
             "iym INTERVAL YEAR(3) TO MONTH DEFAULT '234-2', "
             "ids INTERVAL DAY TO SECOND(3) DEFAULT '4 5:12:10.222')"
     >>,
-    InsertSql = <<"insert into "?TESTTABLE" (name) values (:name)">>,
+    InsertNameSql = <<"insert into "?TESTTABLE" (name) values (:name)">>,
+    InsertSql = <<"insert into "?TESTTABLE" (name, dat, ts, tstz, tsltz, iym, ids) "
+                  "values (:name, :dat, :ts, :tstz, :tsltz, :iym, :ids)">>,
+    InsertBindSpec = [ {<<":name">>, 'SQLT_CHR'}
+                     , {<<":dat">>, 'SQLT_DAT'}
+                     , {<<":ts">>, 'SQLT_TIMESTAMP'}
+                     , {<<":tstz">>, 'SQLT_TIMESTAMP_TZ'}
+                     , {<<":tsltz">>, 'SQLT_TIMESTAMP_LTZ'}
+                     , {<<":iym">>, 'SQLT_INTERVAL_YM'}
+                     , {<<":ids">>, 'SQLT_INTERVAL_DS'}],
     SelectSql = <<"select * from "?TESTTABLE"">>,
 
     DropStmt = OciSession:prep_sql(?DROP),
@@ -800,41 +809,58 @@ timestamp_interval_datatypes({_, OciSession}) ->
     ?assertEqual({executed, 0}, CreateStmt:exec_stmt()),
     ?assertEqual(ok, CreateStmt:close()),
 
-    BoundInsStmt = OciSession:prep_sql(InsertSql),
+    BoundInsStmt = OciSession:prep_sql(InsertNameSql),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
     ?assertMatch(ok, BoundInsStmt:bind_vars([{<<":name">>, 'SQLT_CHR'}])),
     ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt(
         [{list_to_binary(io_lib:format("'~s'", [D]))}
          || D <- ["test1", "test2", "test3", "test4"]])),
+    ?assertMatch(ok, BoundInsStmt:close()),
 
     SelectStmt = OciSession:prep_sql(SelectSql),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelectStmt),
     ?assertEqual({cols, [{<<"NAME">>,'SQLT_CHR',30,0,0}
-                        ,{<<"DAT">>,'SQLT_DAT',8,0,0}
+                        ,{<<"DAT">>,'SQLT_DAT',7,0,0}
                         ,{<<"TS">>,'SQLT_TIMESTAMP',11,0,6}
                         ,{<<"TSTZ">>,'SQLT_TIMESTAMP_TZ',13,0,6}
                         ,{<<"TSLTZ">>,'SQLT_TIMESTAMP_LTZ',11,0,6}
                         ,{<<"IYM">>,'SQLT_INTERVAL_YM',5,3,0}
-                        ,{<<"IDS">>,'SQLT_INTERVAL_DS',11,2,3}]
-                }, SelectStmt:exec_stmt()),
+                        ,{<<"IDS">>,'SQLT_INTERVAL_DS',11,2,3}]}
+                 , SelectStmt:exec_stmt()),
     RowRet = SelectStmt:fetch_rows(5), 
+    ?assertEqual(ok, SelectStmt:close()),
+
     ?assertMatch({{rows, _}, true}, RowRet),
     {{rows, Rows}, true} = RowRet,
-    ?debugFmt("Rows ~p", [
-        [[C1, C2
-         , oci_util:from_ts(C3)
-         , oci_util:from_ts(C4)
-         , oci_util:from_ts(C5)
-         , oci_util:from_intv(C6)
-         , oci_util:from_intv(C7)]
-         || [C1, C2, C3, C4, C5, C6, C7] <- Rows]
-    ]),
-    ?assertEqual(ok, SelectStmt:close()),
+    NewRows =
+    [begin
+         {{C2Y,C2M,C2D}, {C2H,C2Min,C2S}} = oci_util:from_dts(C2),
+         {{C3Y,C3M,C3D}, {C3H,C3Min,C3S}, C3Ns} = oci_util:from_dts(C3),
+         {{C4Y,C4M,C4D}, {C4H,C4Min,C4S}, C4Ns, {C4TzH,C4TzM}} = oci_util:from_dts(C4),
+         {{C5Y,C5M,C5D}, {C5H,C5Min,C5S}, C5Ns} = oci_util:from_dts(C5),
+         {C6Y,C6M} = oci_util:from_intv(C6),
+         {C7D,C7H,C7M,C7S,C7Ns} = oci_util:from_intv(C7),
+         {list_to_binary([C1, "_1"])
+          , oci_util:to_dts({{C2Y+1,C2M+1,C2D+1}, {C2H+1,C2Min+1,C2S+1}})
+          , oci_util:to_dts({{C3Y+1,C3M+1,C3D+1}, {C3H+1,C3Min+1,C3S+1}, C3Ns+1})
+          , oci_util:to_dts({{C4Y+1,C4M+1,C4D+1}, {C4H+1,C4Min+1,C4S+1}, C4Ns+1, {C4TzH+1,C4TzM+1}})
+          , oci_util:to_dts({{C5Y+1,C5M+1,C5D+1}, {C5H+1,C5Min+1,C5S+1}, C5Ns+1})
+          , oci_util:to_intv({C6Y+1,C6M+1})
+          , oci_util:to_intv({C7D+1,C7H+1,C7M+1,C7S+1,C7Ns+1})}
+     end
+     || [C1, C2, C3, C4, C5, C6, C7] <- Rows],
+    BoundAllInsStmt = OciSession:prep_sql(InsertSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundAllInsStmt),
+    ?assertMatch(ok, BoundAllInsStmt:bind_vars(InsertBindSpec)),
+    Inserted = BoundAllInsStmt:exec_stmt(NewRows),
+    ?assertMatch({rowids, _}, Inserted),
+    {rowids, RowIds} = Inserted,
+    ?assertEqual(length(NewRows), length(RowIds)),
+    ?assertMatch(ok, BoundAllInsStmt:close()),
 
     DropStmtFinal = OciSession:prep_sql(?DROP),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmtFinal),
     ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
     ?assertEqual(ok, DropStmtFinal:close()),
-?debugHere,
     ok.
 
