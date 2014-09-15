@@ -24,7 +24,7 @@ ERLOCI_OBJS = $(ERLOCI_SRCS:.cpp=.o)
 
 CXXFLAGS = -ggdb -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_PATH) -I$(ERLOCI_LIB_PATH) -I$(OCI_INCLUDE_PATH)
 LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(PRIV_DIR) -L$(OCI_LIB_PATH)
-LINKFLAGS = -levent -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12
+LINKFLAGS = -levent -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12 -lipc1 -lmql1
 
 all: $(PRIV_DIR)/$(EXE_TARGET)
 	@echo "erloci compiled!!!"
