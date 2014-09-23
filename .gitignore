@@ -45,3 +45,8 @@ Readme.txt
 *.so.*
 *.so
 tags
+c_src/*/Win32/
+logs/
+*.exports
+*.exports.txt
+support/

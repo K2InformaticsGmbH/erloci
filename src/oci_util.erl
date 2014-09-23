@@ -7,6 +7,7 @@
         , from_intv/1
         , to_dts/1
         , to_intv/1
+        , from_num/1
         ]).
 
 -type year()        :: pos_integer().
@@ -63,6 +64,98 @@ oraexp_to_imem_prec(Mantissa,Exponent,LengthMant,RemLength,0) ->
     {Mantissa div 10, (Exponent*-2) + LengthMant-3 + RemLength};
 oraexp_to_imem_prec(Mantissa,Exponent,LengthMant,RemLength,_) ->
     {Mantissa, (Exponent*-2) + LengthMant-2 + RemLength}.
+
+%% The high-order bit of the exponent byte is the sign bit;
+%% it is set for positive numbers and it is cleared for
+%% negative numbers. The lower 7 bits represent the exponent,
+%% which is a base-100 digit with an offset of 65.
+
+-ifdef(DEBUG).
+-define(TO_STR(_M, _E),
+(fun() ->
+         io:format(user, "M : ~p, E : ~p~n", [_M, _E]),
+         Ms = ins_dp(_M, _E),
+         io:format(user, "Ms : ~p~n", [Ms]),
+         FM = lists:flatten(Ms),
+         io:format(user, "FM : ~p~n", [FM]),
+         SM = strip(FM),
+         io:format(user, "SM : ~p~n", [SM]),
+         SM
+end)()).
+-else.
+-define(TO_STR(_M, _E), strip(lists:flatten(ins_dp(_M, _E)))).
+-endif.
+-spec from_num(binary()) -> list().
+from_num(<< Len:8/integer, 1:1/integer-unit:1, E:7/integer-unit:1, Rest/bytes >>) ->
+    MantissaLen = Len - 1,
+    if MantissaLen > 0 ->
+           << MantissaBytes:MantissaLen/bytes, _/bytes >> = Rest,
+           % Each mantissa byte is a base-100 digit, in the range 1..100. For positive numbers,
+           % the digit has 1 added to it.
+           Mantissa = [lists:flatten(io_lib:format("~2..0B", [MantissaDigit - 1]))
+                       || << MantissaDigit >> <= MantissaBytes],
+           % To calculate the decimal exponent, add 65 to the base-100 exponent
+           ?TO_STR(Mantissa, E - 65);
+       true -> "0"
+    end;
+from_num(<< Len:8/integer, 0:1/integer-unit:1, E:7/integer-unit:1, Rest/bytes >>) ->
+    MantissaLen = Len - 1,
+    << MantissaB:MantissaLen/bytes, _/bytes >> = Rest,
+    % Negative numbers have a byte containing 102 appended to the data bytes.
+    % However, negative numbers that have 20 mantissa bytes do not have the
+    % trailing 102 byte. Because the mantissa digits are stored in base 100,
+    % each byte can represent 2 decimal digits
+    MantissaBytes =
+        if 20 =:= MantissaLen ->
+               MantissaB;
+           true ->
+               NewMantissaLength = MantissaLen - 1,
+               << NewMantissaB:NewMantissaLength/bytes, 102 >> = MantissaB,
+               NewMantissaB
+        end,
+    % Each mantissa byte is a base-100 digit, in the range 1..100. For negative
+    % numbers, instead of adding 1, the digit is subtracted from 101.
+    Mantissa = [lists:flatten(io_lib:format("~2..0B", [101 - MantissaDigit]))
+                || << MantissaDigit >> <= MantissaBytes],
+    % If the number is negative, you do the same, but subsequently the bits are
+    % inverted.
+    << Exp/integer >> = << (bnot E)/integer >>,
+    [$- | ?TO_STR(Mantissa, Exp - 128 - 65)].
+
+strip(List) ->
+    case re:run(List, "\\.") of
+        % No decimal point
+        % no need to check for trailing zeros
+        nomatch ->
+            % removing only leading zero
+            case List of
+                [$0|Rest] -> Rest;
+                List -> List
+            end;
+        % Has decimal point
+        _ ->
+            % removing leading zero
+            % only if not < 1
+            List1 = case List of
+                [$0,$.|_] -> List;
+                [$0|Rest] -> Rest;
+                List -> List
+            end,
+            % removing tariling zeros
+            case lists:reverse(List1) of
+                [$0|Rest1] -> lists:reverse(Rest1);
+                _ -> List1
+            end
+    end.
+
+ins_dp([], 0) -> [];
+ins_dp([], DP) when DP > 0 -> ["00"|ins_dp([], DP-1)];
+ins_dp([H|[]], DP) when DP =:= 0 -> [H];
+ins_dp([H|T], DP) when DP =:= 0 -> [H, "." | T];
+ins_dp([H|[]], DP) when DP > 0 -> [H | ins_dp(["00"], DP-1)];
+ins_dp([H|T], DP) when DP > 0 -> [H | ins_dp(T, DP-1)];
+ins_dp(M, DP) when DP =:= -1 -> ins_dp(["0"|M], DP+1);
+ins_dp(M, DP) when DP < 0 -> ins_dp(["00"|M], DP+1).
 
 -spec from_dts(Date | TimeStamp | TimeStampWithZone) ->
         {{year(),month(),day()}, {hour(),minute(),second()}}
@@ -140,11 +233,11 @@ to_dts({{Year, Month, Day}, {Hour, Minute, Second}, Ns, {TimeZoneHour, TimeZoneM
     TzH = TimeZoneHour + 20,
     TzM = TimeZoneMinute + 60,
     % 13 bytes
-    <<DateTimeNsBin/binary, TzH:1/integer-unit:8, TzM:1/integer-unit:8>>;
+    <<DateTimeNsBin/bytes, TzH:1/integer-unit:8, TzM:1/integer-unit:8>>;
 to_dts({{Year, Month, Day}, {Hour, Minute, Second}, Ns}) ->
     DateTimeBin = to_dts({{Year, Month, Day}, {Hour, Minute, Second}}),
     % 11 bytes
-    <<DateTimeBin/binary, Ns:4/little-unsigned-integer-unit:8>>;
+    <<DateTimeBin/bytes, Ns:4/little-unsigned-integer-unit:8>>;
 to_dts({{Year, Month, Day}, {Hour, Minute, Second}}) ->
     C = (Year + 10100) div 100 - 1,
     Y = (Year + 10100) rem 100 + 100,
@@ -213,9 +306,68 @@ intv_conv_test_() ->
         || {P,O} <-
            [
               {<<128,0,0,234,62>>,                      {234,2}}
-            , {<<128,0,0,4,65,72,70,141,59,115,128>>,   {4,5,12,10,2155035533}}            
+            , {<<128,0,0,4,65,72,70,141,59,115,128>>,   {4,5,12,10,2155035533}}
            ]
        ]
     }.
 
+% Tests generated using:
+% select dump(0.999999999999999999999999999999999999999) from dual;
+num_conv_test_() ->
+    {inparallel
+     , [{T, fun() ->
+                    ?assertEqual(T, from_num(S)),
+                    %?assertEqual(S, to_num(T)),
+                    ok
+            end}
+        || {T,S} <-
+           [
+            % Simple numbers
+             {"0",             <<1,128>>}
+           , {"1",             <<2,193,2>>}
+           , {"0.1",           <<2,192,11>>}
+           , {"10",            <<2,193,11>>}
+           , {"1000",          <<2,194,11>>}
+           , {"789.564",       <<5,194,8,90,57,41>>}
+           , {"-1",            <<3,62,100,102>>}
+           , {"-0.1",          <<3,63,91,102>>}
+           , {"-0.01",         <<3,63,100,102>>}
+           , {"-5678",         <<4,61,45,23,102>>}
+           , {"-789.54",       <<5,61,94,12,47,102>>}
+           , {"0.001234",      <<3,191,13,35>>}
+           , {"0.0001234",     <<4,191,2,24,41>>}
+           , {"0.0000123",     <<3,190,13,31>>}
+           , {"-0.001234",     <<4,64,89,67,102>>}
+           , {"-0.0001234",    <<5,64,100,78,61,102>>}
+           , {"-0.0000123",    <<4,65,89,71,102>>}
+
+           % Largest(+/-) whole and decimal numbers
+           , {"9999999999999999999999999999999999999999"
+              , <<21,212,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100>>}
+           , {"99999999999999999999999999999999999999.9"
+              , <<21,211,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,91>>}
+           , {"9.99999999999999999999999999999999999999"
+              , <<21,193,10,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100>>}
+           , {"0.999999999999999999999999999999999999999"
+              , <<21,192,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,91>>}
+           , {"-9999999999999999999999999999999999999999"
+              , <<21,43,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2>>}
+           , {"-99999999999999999999999999999999999999.9"
+              , <<21,44,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,11>>}
+           , {"-9.99999999999999999999999999999999999999"
+              , <<21,62,92,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2>>}
+           , {"-0.999999999999999999999999999999999999999"
+              , <<21,63,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,11>>}
+           , {"1234567890123456789012345678901234567890"
+              , <<21, 212,13,35,57,79,91,13,35,57,79,91,13,35,57,79,91,13,35,57,79,91>>}
+
+           % Bigger than largest whole numbers
+           , {"100000000000000000000000000000000000000000",     <<2,213,11>>}
+           , {"1000000000000000000000000000000000000000000",    <<2,214,2>>}
+           , {"10000000000000000000000000000000000000000000",   <<2,214,11>>}
+           , {"-10000000000000000000000000000000000000000",     <<3,42,100,102>>}
+           , {"-100000000000000000000000000000000000000000",    <<3,42,91,102>>}
+           ]
+       ]
+    }.
 -endif.
