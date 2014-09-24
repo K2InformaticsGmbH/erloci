@@ -8,7 +8,7 @@
         , to_dts/1
         , to_intv/1
         , from_num/1
-        %, to_num/1
+        , to_num/1
         ]).
 
 -type year()        :: pos_integer().
@@ -96,7 +96,6 @@ from_num(<< Len:8/integer, 1:1/integer-unit:1, E:7/integer-unit:1, Rest/bytes >>
            Mantissa = [lists:flatten(io_lib:format("~2..0B", [MantissaDigit - 1]))
                        || << MantissaDigit >> <= MantissaBytes],
            % To calculate the decimal exponent, add 65 to the base-100 exponent
-%io:format(user, "MantissaBytes ~p~nMantissa ~p~n", [MantissaBytes, Mantissa]),
            ?TO_STR(Mantissa, E - 65);
        true -> "0"
     end;
@@ -121,7 +120,6 @@ from_num(<< Len:8/integer, 0:1/integer-unit:1, E:7/integer-unit:1, Rest/bytes >>
                 || << MantissaDigit >> <= MantissaBytes],
     % If the number is negative, you do the same, but subsequently the bits are
     % inverted.
-%io:format(user, "MantissaBytes ~p~nMantissa ~p~n", [MantissaBytes, Mantissa]),
     << Exp/integer >> = << (bnot E)/integer >>,
     [$- | ?TO_STR(Mantissa, Exp - 128 - 65)].
 
@@ -160,77 +158,44 @@ ins_dp([H|T], DP) when DP > 0 -> [H | ins_dp(T, DP-1)];
 ins_dp(M, DP) when DP =:= -1 -> ins_dp(["0"|M], DP+1);
 ins_dp(M, DP) when DP < 0 -> ins_dp(["00"|M], DP+1).
 
-%% - % strip all spaces from both ends
-%% - to_num([$ |_] = Num) -> to_num(string:strip(Num));
-%% - to_num("") -> exit(invalid_number);
-%% - to_num("-") -> exit(invalid_number);
-%% - to_num("0") -> <<1,128>>;
-%% - to_num(Num) ->
-%% -     case Num of
-%% -         % -ve number
-%% -         [$-|Rest] ->
-%% -             {E, Digits} = expo_digits(Rest),
-%% -             << length(Num) + 1
-%% -                , 0:1/integer-unit:1
-%% -                , bnot (E+128+65):7/integer-unit:1
-%% -                , list_to_binary(Digits)/bytes
-%% -             >>;
-%% -         % +ve number
-%% -         Num ->
-%% -             {E, Digits} = expo_digits(Num),
-%% -             << length(Num) + 1
-%% -                , 1:1/integer-unit:1
-%% -                , (E+128+65):7/integer-unit:1
-%% -                , list_to_binary(Digits)/bytes
-%% -             >>
-%% -     end.
-%% - 
-%% - tidy(Num) ->
-%% -     % leading and trailing spaces and and then leading zeros removed
-%% -     % except for < 1 numbers where 0. is added
-%% -     {Dot, Num2} =
-%% -         case string:strip(string:strip(Num), left, $0) of
-%% -             [$.|T] -> {true,[$0,$.|T]};
-%% -             Num1 -> {false,Num1}
-%% -         end,
-%% -     .
-%% - % trailing zero removed only if decimal
-%% - tidy(Dot,[],Tidy) ->
-%% -     if Dot -> string:strip(Tidy, right, $0);
-%% -        true -> Tidy
-%% -     end;
-%% - % 0.
-%% - tidy(_,[$0,$.|Num],Tidy) -> tidy(true,Num,[$0,$.|Tidy]);
-%% - % has dot
-%% - tidy(false,[$0|Num],Tidy) -> tidy(Dot,Num,[D|Tidy]);
-%% - tidy(false,[D|Num],Tidy) -> tidy(Num,[D|Tidy]);
-%% - 
-%% - 
-%% - expo_digits(Num) ->
-%% -     Num1 = 
-%% -     expo_digits({0,[]}, Num).
-%% - expo_digits({E,Num},[]) -> {E, Num};
-%% - % number with leading decimal and zeros (in pair)
-%% - expo_digits({E,Acc},[$0,$.,$0,$0|Rest]) ->
-%% -     expo_digits({E+1,Acc},[$0,$.|Rest]);
-%% - % number with leading decimal
-%% - expo_digits({E,Acc},[$0,$.|Rest]) ->
-%% -     expo_digits({E
-%% -                  , Acc ++
-%% -                  if (length(Rest) rem 2) /= 0 ->
-%% -                         Rest++[$0];
-%% -                     true -> Rest
-%% -                  end
-%% -                 },[]);
-%% - 
-%% - expo_digits({E,Acc},[$.|Rest]) -> {E,lists:reverse(Acc)++Rest};
-%% - expo_digits({E,Acc},[D|Num]) -> expo_digits({E+1,[D|Acc],Num).
-%% - 
-%% - % Digits
-%% - digits([]) -> [];
-%% - digits(Num)
-%% -   when (length(Num) rem 2) /= 0 -> digits([$0|Num]);
-%% - digits([N1,N2|Num]) -> [[N1,N2]|digits(Num)].
+to_num("0") -> <<1,128>>;
+to_num("-0") -> <<1,128>>;
+to_num("0.0") -> <<1,128>>;
+to_num("-0.0") -> <<1,128>>;
+to_num(Num) ->
+    {S,Ex,Dgt} = case string:tokens(Num, ".") of
+                  % Negative
+                  [[$-|W],F] ->
+                      {E,D} = ed(W,F),
+                      {$-,E,D};
+                  [[$-|W]] ->
+                      {E,D} = ed(W,""),
+                      {$-,E,D};
+                  % Positive
+                  [W,F] ->
+                      {E,D} = ed(W,F),
+                      {$+,E,D};
+                  [W] ->
+                      {E,D} = ed(W,""),
+                      {$+,E,D}
+              end,
+    L = length(D)+1,
+    case S of
+        $- ->
+            Digits = list_to_binary([Di+101||Di<-Dgt]),
+            Exp = bnot(Ex+128+65),
+            << L, 0:1, Exp:7, Digits/bytes
+               , if L < 21 -> <<102>>; true-> <<>> end/bytes >>;
+        _ ->
+            Digits = list_to_binary([Di+1||Di<-Dgt]),
+            Exp = Ex+65,
+            << L, 1:1, Exp:7, Digits/bytes >>
+    end.
+
+ed(_W, "") ->
+    {1,[1]};
+ed(_W, _F) ->
+    {1,[1]}.
 
 -spec from_dts(Date | TimeStamp | TimeStampWithZone) ->
         {{year(),month(),day()}, {hour(),minute(),second()}}
@@ -418,30 +383,48 @@ num_conv_test_() ->
 
            % Largest(+/-) whole and decimal numbers
            , {"9999999999999999999999999999999999999999"
-              , <<21,212,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100>>}
+              , <<21,212,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,100>>}
            , {"99999999999999999999999999999999999999.9"
-              , <<21,211,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,91>>}
+              , <<21,211,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,91>>}
            , {"9.99999999999999999999999999999999999999"
-              , <<21,193,10,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100>>}
+              , <<21,193,10,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,100>>}
            , {"0.999999999999999999999999999999999999999"
-              , <<21,192,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,100,91>>}
+              , <<21,192,100,100,100,100,100,100,100,100,
+                  100,100,100,100,100,100,100,100,100,100,
+                  100,91>>}
            , {"-9999999999999999999999999999999999999999"
-              , <<21,43,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2>>}
+              , <<21,43,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                  2,2,2>>}
            , {"-99999999999999999999999999999999999999.9"
-              , <<21,44,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,11>>}
+              , <<21,44,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                  2,2,11>>}
            , {"-9.99999999999999999999999999999999999999"
-              , <<21,62,92,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2>>}
+              , <<21,62,92,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                  2,2,2>>}
            , {"-0.999999999999999999999999999999999999999"
-              , <<21,63,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,11>>}
+              , <<21,63,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+                  2,2,11>>}
            , {"1234567890123456789012345678901234567890"
-              , <<21, 212,13,35,57,79,91,13,35,57,79,91,13,35,57,79,91,13,35,57,79,91>>}
+              , <<21, 212,13,35,57,79,91,13,35,57,79,91,13,
+                  35,57,79,91,13,35,57,79,91>>}
 
            % Bigger than largest whole numbers
-           , {"100000000000000000000000000000000000000000",     <<2,213,11>>}
-           , {"1000000000000000000000000000000000000000000",    <<2,214,2>>}
-           , {"10000000000000000000000000000000000000000000",   <<2,214,11>>}
-           , {"-10000000000000000000000000000000000000000",     <<3,42,100,102>>}
-           , {"-100000000000000000000000000000000000000000",    <<3,42,91,102>>}
+           , {"100000000000000000000000000000000000000000"
+              , <<2,213,11>>}
+           , {"1000000000000000000000000000000000000000000"
+              , <<2,214,2>>}
+           , {"10000000000000000000000000000000000000000000"
+              , <<2,214,11>>}
+           , {"-10000000000000000000000000000000000000000"
+              , <<3,42,100,102>>}
+           , {"-100000000000000000000000000000000000000000"
+              , <<3,42,91,102>>}
            ]
        ]
     }.
