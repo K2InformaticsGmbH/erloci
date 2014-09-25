@@ -66,11 +66,6 @@ oraexp_to_imem_prec(Mantissa,Exponent,LengthMant,RemLength,0) ->
 oraexp_to_imem_prec(Mantissa,Exponent,LengthMant,RemLength,_) ->
     {Mantissa, (Exponent*-2) + LengthMant-2 + RemLength}.
 
-%% The high-order bit of the exponent byte is the sign bit;
-%% it is set for positive numbers and it is cleared for
-%% negative numbers. The lower 7 bits represent the exponent,
-%% which is a base-100 digit with an offset of 65.
-
 -ifdef(DEBUG).
 -define(TO_STR(_M, _E),
 (fun() ->
@@ -86,6 +81,10 @@ end)()).
 -else.
 -define(TO_STR(_M, _E), strip(lists:flatten(ins_dp(_M, _E)))).
 -endif.
+%% The high-order bit of the exponent byte is the sign bit;
+%% it is set for positive numbers and it is cleared for
+%% negative numbers. The lower 7 bits represent the exponent,
+%% which is a base-100 digit with an offset of 65.
 -spec from_num(binary()) -> list().
 from_num(<< Len:8/integer, 1:1/integer-unit:1, E:7/integer-unit:1, Rest/bytes >>) ->
     MantissaLen = Len - 1,
@@ -192,10 +191,57 @@ to_num(Num) ->
             << L, 1:1, Exp:7, Digits/bytes >>
     end.
 
-ed(_W, "") ->
-    {1,[1]};
-ed(_W, _F) ->
-    {1,[1]}.
+% whole numbers (no decimal point)
+ed(W, "") ->
+    % counting and removing "00" from tail
+    % and increasing exponent like wise
+    F = fun
+            RW([], E) -> {[],E};
+            RW([$0,$0|N], E) -> RW(N, E+1);
+            RW([D|N], E) -> {lists:reverse([D|N]), E}
+        end,
+    {W1, E} = case F(lists:reverse(W), 0) of
+                  {[], Ei} -> {W, Ei};
+                  {Wi, Ei} -> {Wi, Ei}
+               end,
+    W2 = if length(W1) rem 2 /= 0 -> [$0|W1]; true -> W1 end,
+    % split W into digits pairs
+    F1 = fun
+            SD(N, P) when is_integer(P) -> SD(N, {[],P});
+            SD([], {Nw,Ei1}) -> {lists:reverse(Nw),Ei1};
+            SD([D1,D2|N], {Nw,Ei1}) ->
+                SD(N,{[list_to_integer([D1,D2])|Nw],Ei1+1})
+         end,
+    {W3,E1} = F1(W2,E),
+    % exponent adjustment for 1 ("01")
+    E2 = case W2 of [$0,_] -> E1-1; _ -> E1 end,
+    {E2,W3};
+% fractional numbers (no whole part)
+ed("0", F) ->
+    % counting and removing "00" from head
+    % and decreasing exponent like wise
+    {F1, E} =
+        (fun
+            RW([], E) -> {[],E};
+            RW([$0,$0|N], E) -> RW(N, E-1);
+            RW(N, E) -> {N,E}
+         end)(F, 0),
+    F2 = if length(F1) rem 2 /= 0 -> F1++[$0]; true -> F1 end,
+    % split F into digit pairs
+    Fn1 = fun
+            SD(P) when not is_tuple(P) -> SD({P,[]});
+            SD({[], Nw}) -> lists:reverse(Nw);
+            SD({[D1,D2|N], Nw}) ->
+                SD({N,[list_to_integer([D1,D2])|Nw]})
+         end,
+    F3 = Fn1(F2),
+    io:format("W ~p, E ~p~n", [F3, E]),
+    {E, F1};
+% numbers with non trivial fraction and whole part
+ed(W, _F) ->
+    {E, W1} = ed(W, ""),
+    io:format("W ~p, E ~p~n", [W1, E]),
+    {E,W1}.
 
 -spec from_dts(Date | TimeStamp | TimeStampWithZone) ->
         {{year(),month(),day()}, {hour(),minute(),second()}}
