@@ -17,6 +17,11 @@ E.g. - if your instant client library version is 12.1 and you have unzipped 'ins
 The include headers will be at C:\Oracle\instantclient\instantclient_12_1\sdk\include and static libraries at C:\Oracle\instantclient\instantclient_12_1\sdk\lib\msvc (note the path for VS project configuration later)
 
 ### Linux
+Required system libraries
+```
+libevent
+libevent-devel
+```
 Use rpms (recomended) to install basic and sdk. The default install path is usually (for x86_64 architecture)
 ```
 OCI Headers     : /usr/include/oracle/12.1/client64/
