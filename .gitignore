@@ -50,3 +50,5 @@ logs/
 *.exports
 *.exports.txt
 support/
+*.txt
+console_test.erl
