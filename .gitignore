@@ -33,7 +33,6 @@ c_src/*/x64/
 *.exe
 *.manifest
 *.swp
-*.config
 *.app
 priv/*.ilk
 priv/*.pdb
