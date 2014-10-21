@@ -1,3 +1,5 @@
+%%-*- erlang -*-
+
 %% Copyright 2012 K2Informatics GmbH, Root Längenbold, Switzerland
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,19 +23,6 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { oci_app, []}},
-  {env, [ {logging, debug}
-        , {default_connect_param, 
-            {<<"(DESCRIPTION="
-                "(ADDRESS_LIST="
-                    "(ADDRESS=(PROTOCOL=tcp)"
-                        "(HOST=80.67.144.206)"
-                        "(PORT=5437)"
-                    ")"
-                ")"
-                "(CONNECT_DATA=(SERVICE_NAME=XE))"
-               %")">>, <<"scott">>, <<"tiger">>}
-               ")">>, <<"scott">>, <<"regit">>}
-          }
-        ]}
+  {mod, {oci_app, []}},
+  {env, [{logging, debug}]}
  ]}.

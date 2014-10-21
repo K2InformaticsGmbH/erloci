@@ -3,6 +3,7 @@
 -export([load/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include("test_common.hrl").
 
 -define(value(Key,Config), proplists:get_value(Key,Config)).
 -define(TAB, "erloci_load").
@@ -19,8 +20,11 @@
 all() -> [load].
 
 init_per_suite(InitConfigData) ->
+io:format(user, "---~p---~n", [?LINE]),
     application:start(erloci),
-    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+io:format(user, "---~p---~n", [?LINE]),
+    {Tns,User,Pswd} = ?CONN_CONF,
+io:format(user, "---~p---~n", [?LINE]),
     Tables = [{C,
                 [lists:flatten([?TAB,"_",integer_to_list(C),"_", integer_to_list(S)])
                 || S <- ?STMTIDLIST]}

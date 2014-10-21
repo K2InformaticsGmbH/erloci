@@ -2,15 +2,9 @@
 -module(erloci_test).
 
 -include_lib("eunit/include/eunit.hrl").
--define(PORT_MODULE, oci_port).
+-include("test_common.hrl").
 
--define(ELog(__F), ?ELog(__F,[])).
--define(ELog(__Fmt,__Args),
-(fun(__F,__A) ->
-    {_,_,__McS} = __Now = erlang:now(),
-    {_,{_,__Min,__S}} = calendar:now_to_datetime(__Now),
-    ok = io:format(user, "~2..0B:~2..0B.~6..0B ~p "++__F++"~n", [__Min,__S,__McS rem 1000000,{?MODULE,?LINE} | __A])
-end)(__Fmt,__Args)).
+-define(PORT_MODULE, oci_port).
 
 -define(TESTTABLE, "erloci_test_1").
 -define(TESTFUNCTION, "ERLOCI_TEST_FUNCTION").
@@ -89,7 +83,6 @@ db_negative_test_() ->
 setup() ->
     application:start(erloci),
     OciPort = oci_port:start_link([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-    timer:sleep(1000),
     OciPort.
 
 teardown(OciPort) ->
@@ -97,17 +90,17 @@ teardown(OciPort) ->
     application:stop(erloci).
 
 bad_password(OciPort) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                       bad_password                             |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                 bad_password                |"),
+    ?ELog("+---------------------------------------------+"),
     ?ELog("get_session with wrong password", []),
-    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    {Tns,User,Pswd} = ?CONN_CONF,
     ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
 
 echo(OciPort) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                           echo                                 |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                     echo                    |"),
+    ?ELog("+---------------------------------------------+"),
     ?ELog("echo back erlang terms", []),
     ?assertEqual(1, OciPort:echo(1)),
     ?assertEqual(1.2, OciPort:echo(1.2)),
@@ -140,25 +133,25 @@ db_test_() ->
         fun setup_conn/0,
         fun teardown_conn/1,
         {with, [
-            fun drop_create/1
-            , fun bad_sql_connection_reuse/1
-            , fun insert_select_update/1
-            , fun auto_rollback_test/1
-            , fun commit_rollback_test/1
-            , fun asc_desc_test/1
-            , fun lob_test/1
-            , fun describe_test/1
-            , fun function_test/1
-            , fun procedure_scalar_test/1
-            , fun procedure_cur_test/1
-            , fun timestamp_interval_datatypes/1
+            fun drop_create/1,
+            fun bad_sql_connection_reuse/1,
+            fun insert_select_update/1,
+            fun auto_rollback_test/1,
+            fun commit_rollback_test/1,
+            fun asc_desc_test/1,
+            fun lob_test/1,
+            fun describe_test/1,
+            fun function_test/1,
+            fun procedure_scalar_test/1,
+            fun procedure_cur_test/1,
+            fun timestamp_interval_datatypes/1
         ]}
     }}.
 
 setup_conn() ->
     application:start(erloci),
     OciPort = oci_port:start_link([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-    {ok, {Tns,User,Pswd}} = application:get_env(erloci, default_connect_param),
+    {Tns,User,Pswd} = ?CONN_CONF,
     OciSession = OciPort:get_session(Tns, User, Pswd),
     {OciPort, OciSession}.
 
@@ -187,9 +180,9 @@ flush_table(OciSession) ->
     ?assertEqual(ok, StmtCreate:close()).
 
 lob_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                              lob_test                          |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                   lob_test                  |"),
+    ?ELog("+---------------------------------------------+"),
 
     RowCount = 5,
 
@@ -283,9 +276,9 @@ lob_test({_, OciSession}) ->
     ?assertEqual(ok, StmtDirDrop:close()).
 
 drop_create({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                            drop_create                         |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                   drop_create               |"),
+    ?ELog("+---------------------------------------------+"),
 
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     TmpDropStmt = OciSession:prep_sql(?DROP),
@@ -306,9 +299,9 @@ drop_create({_, OciSession}) ->
     ?assertEqual(ok, DropStmt:close()).
 
 bad_sql_connection_reuse({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                    bad_sql_connection_reuse                    |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|           bad_sql_connection_reuse          |"),
+    ?ELog("+---------------------------------------------+"),
     BadSelect = <<"select 'abc from dual">>,
     ?assertMatch({error, {1756, _}}, OciSession:prep_sql(BadSelect)),
     GoodSelect = <<"select 'abc' from dual">>,
@@ -320,9 +313,9 @@ bad_sql_connection_reuse({_, OciSession}) ->
 
 
 insert_select_update({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                      insert_select_update                      |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|            insert_select_update             |"),
+    ?ELog("+---------------------------------------------+"),
     RowCount = 5,
 
     flush_table(OciSession),
@@ -417,9 +410,9 @@ insert_select_update({_, OciSession}) ->
     ?assertEqual(ok, BoundUpdStmt:close()).
 
 auto_rollback_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                      auto_rollback_test                        |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|              auto_rollback_test             |"),
+    ?ELog("+---------------------------------------------+"),
     RowCount = 3,
 
     flush_table(OciSession),
@@ -484,9 +477,9 @@ auto_rollback_test({_, OciSession}) ->
     ?assertEqual(ok, SelStmt1:close()).
 
 commit_rollback_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                      commit_rollback_test                      |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|            commit_rollback_test             |"),
+    ?ELog("+---------------------------------------------+"),
     RowCount = 3,
 
     flush_table(OciSession),
@@ -556,9 +549,9 @@ commit_rollback_test({_, OciSession}) ->
     ?assertEqual(ok, SelStmt1:close()).
 
 asc_desc_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                          asc_desc_test                         |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                asc_desc_test                |"),
+    ?ELog("+---------------------------------------------+"),
     RowCount = 10,
 
     flush_table(OciSession),
@@ -609,9 +602,9 @@ asc_desc_test({_, OciSession}) ->
     ?assertEqual(ok, SelStmt2:close()).
 
 describe_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                         describe_test                          |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|               describe_test                 |"),
+    ?ELog("+---------------------------------------------+"),
 
     flush_table(OciSession),
 
@@ -621,9 +614,9 @@ describe_test({_, OciSession}) ->
     ?ELog("table ~s has ~p", [?TESTTABLE, Descs]).
 
 function_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                        function_test                           |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|              function_test                  |"),
+    ?ELog("+---------------------------------------------+"),
 
     CreateFunction = OciSession:prep_sql(<<"
         create or replace function "
@@ -661,9 +654,9 @@ function_test({_, OciSession}) ->
     ?assertEqual(ok, DropFunStmt:close()).
 
 procedure_scalar_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                     procedure_scalar_test                      |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|           procedure_scalar_test             |"),
+    ?ELog("+---------------------------------------------+"),
 
     CreateProcedure = OciSession:prep_sql(<<"
         create or replace procedure "
@@ -718,9 +711,9 @@ procedure_scalar_test({_, OciSession}) ->
     ?assertEqual(ok, DropProcStmt:close()).
 
 procedure_cur_test({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                       procedure_cur_test                       |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|             procedure_cur_test              |"),
+    ?ELog("+---------------------------------------------+"),
 
     RowCount = 10,
 
@@ -762,7 +755,7 @@ procedure_cur_test({_, OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt),
     ?assertMatch(ok, ExecStmt:bind_vars([{<<":cursor">>, out, 'SQLT_RSET'}])),
     {executed, 1, [{<<":cursor">>, CurStmt}]} = ExecStmt:exec_stmt(),
-    {cols, Cols} = CurStmt:exec_stmt(),
+    {cols, _Cols} = CurStmt:exec_stmt(),
     {{rows, Rows}, true} = CurStmt:fetch_rows(RowCount+1),
     ?assertEqual(RowCount, length(Rows)),
     ?assertEqual(ok, CurStmt:close()),
@@ -774,9 +767,9 @@ procedure_cur_test({_, OciSession}) ->
     ?assertEqual(ok, DropProcStmt:close()).
 
 timestamp_interval_datatypes({_, OciSession}) ->
-    ?ELog("+----------------------------------------------------------------+"),
-    ?ELog("|                 timestamp_interval_datatypes                   |"),
-    ?ELog("+----------------------------------------------------------------+"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|       timestamp_interval_datatypes          |"),
+    ?ELog("+---------------------------------------------+"),
 
     CreateSql = <<
         "create table "?TESTTABLE" ("
