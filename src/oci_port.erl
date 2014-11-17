@@ -262,8 +262,9 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
         OCIRuntimeLibraryPath ->
             case
                lists:any(fun(F) ->
-                            case filelib:is_file(filename:join([OCIRuntimeLibraryPath, F])) of
-                                false -> true;
+                            Fname = filename:join([OCIRuntimeLibraryPath, F]),
+                            case {file:read_link(Fname), filelib:is_file(Fname)} of
+                                {{error, _}, false} -> true;  %% not symlink not file
                                 _ -> false
                             end
                          end,

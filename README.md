@@ -1,8 +1,12 @@
 # erloci - An Erlang driver for the Oracle Call Interface
 
 ### Users
-![Provided by K2 Informatics GmbH](http://www.k2informatics.ch/logo.gif "K2 Informatics GmbH")
-![Ukraine](http://privatbank.ua/img/logo.png?v=2828 "Privat Bank")
+<a href="http://www.k2informatics.ch/">
+  <img src="http://www.k2informatics.ch/logo.gif" alt="K2 Informatics GmbH">
+</a>
+<a href="http://privatbank.ua/">
+  <img src="http://privatbank.ua/img/logo.png?v=2828" alt="Privat Bank, Ukraine">
+</a>
 
 ### Setup the development system
 Create a environment variable OTPROOT pointing to erlang installation directory,
