@@ -12,23 +12,46 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
--module(oci_app).
+-module(erloci).
 -behaviour(application).
 -behaviour(supervisor).
 
-%% Application callbacks
+-include("oci.hrl").
+
+% application start/stop interface
+-export([start/0, stop/0]).
+
+% Application callbacks
 -export([start/2, stop/1]).
 
-%% Supervisor callback
+% Supervisor callback
 -export([init/1]).
 
+% create port interface
+-export([new/1, new/2]).
+
+start() -> application:start(?MODULE).
 start(_Type, _Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
+stop() -> application:stop(?MODULE).
 stop(_State) ->
     ok.
 
 %% @doc Supervisor Callback
 %% @hidden
 init(_) ->
-    {ok, {{one_for_one,3, 10}, []}}.
+    {ok, {{one_for_one,3,10},[]}}.
+
+new(Options) -> new(Options, ?LOGFUN).
+new(Options, LogFun) ->
+    case supervisor:start_child(
+           ?MODULE,
+           {{oci_port, make_ref()}, {oci_port, start_link, [Options, LogFun]},
+            permanent, 5000, worker, [oci_port]}) of
+        {ok, undefined} -> error(port_start_failed);
+        {ok, undefined, _} -> error(port_start_failed);
+        {error, Error} -> error(Error);
+        {ok, ChildPid} -> {oci_port, ChildPid};
+        {ok, ChildPid, _} -> {oci_port, ChildPid}
+    end.

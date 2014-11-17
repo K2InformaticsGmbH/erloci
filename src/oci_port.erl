@@ -20,9 +20,6 @@
 
 %% API
 -export([
-    start/1,
-    start/2,
-    start_link/1,
     start_link/2,
     stop/1,
     logging/2,
@@ -69,58 +66,15 @@
 %-define(DriverSleep, timer:sleep(100)).
 -define(DriverSleep, ok).
 
--ifdef(TEST).
--define(LOGFUN,
-    fun
-        ({Lvl, File, Fun, Line, Msg}) -> io:format(user, ?T++"[~p] {~s,~s,~p} ~s~n", [Lvl, File, Fun, Line, Msg]);
-        ({Lvl, File, Fun, Line, Msg, Term}) ->
-            STerm = case Term of
-                "" -> "";
-                Term when is_list(Term) -> Term;
-                _ -> lists:flatten(io_lib:format("~p", [Term]))
-            end,
-            io:format(user, ?T++"[~p] {~s,~s,~p} ~s : ~s~n", [Lvl, File, Fun, Line, Msg, STerm]);
-        (Log) when is_list(Log) -> io:format(user, "~s", [Log]);
-        (Log) -> io:format(user, ?T++".... ~p~n", [Log])
-    end).
--else.
--define(LOGFUN,
-    fun
-        ({Lvl, File, Fun, Line, Msg}) -> io:format(user, ?T++"[~p] ["++?LOG_TAG++"] {~s,~s,~p} ~s~n", [Lvl, File, Fun, Line, Msg]);
-        ({Lvl, File, Fun, Line, Msg, Term}) ->
-            STerm = case Term of
-                "" -> "";
-                Term when is_list(Term) -> Term;
-                _ -> lists:flatten(io_lib:format("~p", [Term]))
-            end,
-            io:format(user, ?T++"[~p] ["++?LOG_TAG++"] {~s,~s,~p} ~s : ~s~n", [Lvl, File, Fun, Line, Msg, STerm]);
-        (Log) when is_list(Log) -> io:format(user, ?T++"["++?LOG_TAG++"] ~s~n", [Log]);
-        (Log) -> io:format(user, ?T++"["++?LOG_TAG++"] ~p~n", [Log])
-    end).
--endif.
-
-%% External API
-start(Options) -> start_link(Options, ?LOGFUN).
-start(Options,LogFun) ->
-    start(start,Options,LogFun).
-
-start_link(Options) -> start_link(Options, ?LOGFUN).
 start_link(Options,LogFun) ->
-    start(start_link,Options,LogFun).
-
-start(Type,Options,LogFun) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
-    StartRes = case Options of
+    case Options of
         undefined ->
-            gen_server:Type(?MODULE, [false, ListenPort, LSock, LogFun], []);
+            gen_server:start_link(?MODULE, [false, ListenPort, LSock, LogFun], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            gen_server:Type(?MODULE, [Logging, ListenPort, LSock, LogFun, Options], [])
-    end,
-    case StartRes of
-        {ok, Pid} -> {?MODULE, Pid};
-        Error -> throw({error, Error})
+            gen_server:start_link(?MODULE, [Logging, ListenPort, LSock, LogFun, Options], [])
     end.
 
 stop(PortPid) ->
