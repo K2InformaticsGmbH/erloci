@@ -12,6 +12,9 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
+-ifndef(LOG_HRL).
+-define(LOG_HRL, true).
+
 -ifdef(TEST).
 -define(T,
 (fun() ->
@@ -44,3 +47,5 @@ end)()).
     __LMod:log({?LLVL(__L), __T, atom_to_list(?MODULE), "", ?LINE, lists:flatten(io_lib:format(__F, __A))})
 end)()
 ).
+
+-endif. % LOG_HRL

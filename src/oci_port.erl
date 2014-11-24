@@ -71,7 +71,7 @@ start_link(Options,LogFun) ->
     {ok, ListenPort} = inet:port(LSock),
     case Options of
         undefined ->
-            gen_server:start_link(?MODULE, [false, ListenPort, LSock, LogFun], []);
+            gen_server:start_link(?MODULE, [false, ListenPort, LSock, LogFun, []], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
             gen_server:start_link(?MODULE, [Logging, ListenPort, LSock, LogFun, Options], [])

@@ -12,13 +12,15 @@
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
 
+-ifndef(OCI_HRL).
+-define(OCI_HRL, true).
+
 %% Process
 %-define(PORT_TIMEOUT, 			15000).
 -define(PORT_TIMEOUT, 			infinity).
 -define(WAIT_RESULT_TIMEOUT, 	15000).
 %-define(MAX_REQ_SIZE,           16#0FFFFFFF).
 -define(MAX_REQ_SIZE,           16#00040000).
-
 
 %% Exec name
 -define(EXE_NAME, "ocierl").
@@ -185,7 +187,9 @@ end).
 -type ora_error() :: string().            %% Oracle Error String
 
 -include("log.hrl").
+-ifndef(LOG_TAG).
 -define(LOG_TAG, "_OCI_").
+-endif.
 
 -define(Debug(_Lgr,__F,__A),        ?LOG(_Lgr,?LOG_TAG, 0, __F, __A)).
 -define(Debug(_Lgr,__F),            ?LOG(_Lgr,?LOG_TAG, 0, __F, [])).
@@ -226,3 +230,5 @@ end).
         (Log) -> io:format(user, ?T++"["++?LOG_TAG++"] ~p~n", [Log])
     end).
 -endif.
+
+-endif. % OCI_HRL

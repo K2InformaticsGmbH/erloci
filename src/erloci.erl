@@ -44,6 +44,7 @@ init(_) ->
     {ok, {{one_for_one,3,10},[]}}.
 
 new(Options) -> new(Options, ?LOGFUN).
+new(Options, undefined) -> new(Options, ?LOGFUN);
 new(Options, LogFun) ->
     case supervisor:start_child(
            ?MODULE,
