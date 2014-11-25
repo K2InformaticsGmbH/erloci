@@ -106,15 +106,20 @@ handle_info(Msg, State) ->
     io:format(user, "~p unsupported handle_info ~p", [{?MODULE, ?LINE}, Msg]),
     {noreply, State}.
 
-handle_call(accept, _From, #state{lsock = LSock} = State) ->
+handle_call(accept, _From, #state{lsock = LSock, logfun = LogFun} = State) ->
     {ok, {_,LPort}} = inet:sockname(LSock),
-    io:format(user, ?T++"[debug] [_OCI_] Waiting for peer to connect on ~p~n", [LPort]),
+    LogFun({debug, atom_to_list(?MODULE), "", ?LINE,
+            lists:flatten(io_lib:format(?T++"Waiting for peer to connect on ~p", [LPort]))
+           }),
     case gen_tcp:accept(LSock) of
         {ok, Sock} ->
             inet:setopts(Sock,[{active,once}]),
             {ok, {_,RemPort}} = inet:peername(Sock),
             {ok, {_,LclPort}} = inet:sockname(Sock),
-            io:format(user, ?T++"[debug] [_OCI_] Connection from ~p to ~p~n", [RemPort, LclPort]),
+            LogFun({debug, atom_to_list(?MODULE), "", ?LINE,
+                    lists:flatten(io_lib:format(?T++"Connection from ~p to ~p",
+                                                [RemPort, LclPort]))
+                   }),
             {reply, ok, State#state{sock = Sock}};
         {error, Error} ->
             {reply, {error, {accept_failed, Error}}, State}
