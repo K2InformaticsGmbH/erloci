@@ -26,6 +26,7 @@
     get_session/4,
     describe/3,
     prep_sql/2,
+    ping/1,
     commit/1,
     rollback/1,
     bind_vars/2,
@@ -137,6 +138,9 @@ bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_li
         ok -> ok;
         R -> R
     end.
+
+ping({?MODULE, PortPid, SessionId}) ->
+    gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]}, ?PORT_TIMEOUT).
 
 commit({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?CMT_SESSN, SessionId]}, ?PORT_TIMEOUT).
@@ -369,7 +373,7 @@ handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = Sta
             erloci:del(self()),
             {noreply, State};
         Other ->
-           ?Error(L, "~p abnormal termination ~p~s", [Port, signal_str(Other-128)]),
+           ?Error(L, "~p abnormal termination ~p", [Port, signal_str(Other-128)]),
             erloci:del(self()),
            {noreply, State}
     end;

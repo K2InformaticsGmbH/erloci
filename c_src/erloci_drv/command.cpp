@@ -170,6 +170,53 @@ bool command::release_conn(term & t, term & resp)
 	return ret;
 }
 
+bool command::ping(term & t, term & resp) {
+    bool ret = false;
+
+	// {{pid, ref}, CMT_SESSN, Connection Handle}
+	if(t[2].is_any_int()) {
+
+		ocisession * conn_handle = (ocisession *)(t[2].v.ll);
+		try {
+			conn_handle->ping();
+            resp.insert().atom("ok");
+		} catch (intf_ret r) {
+			term & _t = resp.insert().tuple();
+			_t.insert().atom("error");
+			term & _t1 = _t.insert().tuple();
+			_t1.insert().integer(r.gerrcode);
+			_t1.insert().binary(r.gerrbuf);
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", r.gerrbuf);
+		} catch (string str) {
+			term & _t = resp.insert().tuple();
+			_t.insert().atom("error");
+			term & _t1 = _t.insert().tuple();
+			_t1.insert().integer(0);
+			_t1.insert().binary(str.c_str());
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR %s\n", str.c_str());
+		} catch (...) {
+			term & _t = resp.insert().tuple();
+			_t.insert().atom("error");
+			term & _t1 = _t.insert().tuple();
+			_t1.insert().integer(0);
+			_t1.insert().atom("unknwon");
+			ret = true;
+			if(resp.is_undef()) REMOTE_LOG(ERR, "ERROR unknown\n");
+		}
+    } else {
+		// REMOTE_LOG_TERM(ERR, command, "argument type(s) missmatch\n");
+	}
+
+	if(resp.is_undef()) REMOTE_LOG(CRT, "driver error: no resp generated, shutting down port\n");
+    vector<unsigned char> respv = tc.encode(resp);
+    if(p.write_cmd(respv) <= 0)
+        ret = true;
+
+	return ret;
+}
+
 bool command::commit(term & t, term & resp)
 {
     bool ret = false;
@@ -830,6 +877,7 @@ bool command::process(term & t)
             case CLSE_STMT:	ret = close_stmt(t, resp);		break;
             case GET_LOBDA:	ret = get_lob_data(t, resp);	break;
             case CMD_ECHOT:	ret = echo(t, resp);			break;
+		    case SESN_PING:	ret = ping(t, resp);			break;
             default:
 		    	ret = true;
                 break;

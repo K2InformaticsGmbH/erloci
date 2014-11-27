@@ -44,6 +44,7 @@
 -define(CMD_DSCRB,  11).
 -define(GET_LOBDA,  12).
 -define(CMD_ECHOT,  13).
+-define(SESN_PING,  14).
 
 -define(CMDSTR(__CMD), (fun
                             (?RMOTE_MSG)    -> "RMOTE_MSG";
@@ -60,6 +61,7 @@
                             (?CMD_DSCRB)    -> "CMD_DSCRB";
                             (?GET_LOBDA)    -> "GET_LOBDA";
                             (?CMD_ECHOT)    -> "CMD_ECHOT";
+                            (?SESN_PING)    -> "SESN_PING";
                             (__C)           -> "UNKNOWN "++integer_to_list(__C)
                         end)(__CMD)).
 

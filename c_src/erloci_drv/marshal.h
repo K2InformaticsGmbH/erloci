@@ -67,7 +67,8 @@ typedef enum _ERL_CMD {
     RBK_SESSN	= 10,
 	CMD_DSCRB	= 11,
 	GET_LOBDA	= 12,
-	CMD_ECHOT	= 13
+	CMD_ECHOT	= 13,
+	SESN_PING	= 14
 } ERL_CMD;
 
 /*
@@ -89,11 +90,12 @@ extern const erlcmdtable cmdtbl[];
     {EXEC_STMT,	"EXEC_STMT",	5, "Execute a prepared statement"},\
     {FTCH_ROWS,	"FTCH_ROWS",	4, "Fetch rows from statements producing rows"},\
     {CLSE_STMT,	"CLSE_STMT",	3, "Close a statement"},\
-    {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session, starts a "},\
+    {CMT_SESSN,	"CMT_SESSN",	2, "Commit OCI session"},\
     {RBK_SESSN,	"RBK_SESSN",	2, "Remote debugging turning on/off"},\
     {CMD_DSCRB,	"CMD_DSCRB",	4, "Describe a DB object string"},\
     {GET_LOBDA,	"GET_LOBDA",	6, "Get data from a LOB object"},\
     {CMD_ECHOT,	"CMD_ECHOT",	2, "Echo back erlang term"},\
+    {SESN_PING,	"SESN_PING",	2, "Pings OCI session"},\
 }
 
 #include "lib_interface.h"

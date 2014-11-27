@@ -32,6 +32,7 @@ public:
 	ocisession(const char * connect_str, size_t connect_str_len,
 		const char * user_name, size_t user_name_len,
 		const char * password, size_t password_len);
+	void ping(void);
 	void commit(void);
 	void rollback(void);
 	void describe_object(void *objptr, size_t objptr_len, unsigned char objtyp, void *desc_list);

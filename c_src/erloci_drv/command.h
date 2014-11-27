@@ -34,6 +34,7 @@ private:
 	static bool change_log_flag(term &, term &);
 	static bool get_session(term &, term &);
 	static bool release_conn(term &, term &);
+	static bool ping(term &, term &);
 	static bool commit(term &, term &);
 	static bool rollback(term &, term &);
 	static bool describe(term &, term &);

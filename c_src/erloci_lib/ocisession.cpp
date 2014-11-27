@@ -125,6 +125,17 @@ ocisession::ocisession(const char * connect_str, size_t connect_str_len,
 	_sessions.push_back(this);
 }
 
+void ocisession::ping()
+{
+	intf_ret r;
+
+	checkerr(&r, OCIPing((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT));
+	if(r.fn_ret != SUCCESS) {
+		REMOTE_LOG(ERR, "failed OCIPing %s\n", r.gerrbuf);
+        throw r;
+	}
+}
+
 void ocisession::commit()
 {
 	intf_ret r;

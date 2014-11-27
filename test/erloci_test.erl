@@ -76,7 +76,8 @@ db_negative_test_() ->
         fun teardown/1,
         {with, [
             fun echo/1,
-            fun bad_password/1
+            fun bad_password/1,
+            fun session_ping/1
         ]}
     }}.
 
@@ -88,14 +89,6 @@ setup() ->
 teardown(OciPort) ->
     OciPort:close(),
     application:stop(erloci).
-
-bad_password(OciPort) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|                 bad_password                |"),
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("get_session with wrong password", []),
-    {Tns,User,Pswd} = ?CONN_CONF,
-    ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
 
 echo(OciPort) ->
     ?ELog("+---------------------------------------------+"),
@@ -123,6 +116,30 @@ echo(OciPort) ->
     ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
     ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
     ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
+
+
+bad_password(OciPort) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                 bad_password                |"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("get_session with wrong password", []),
+    {Tns,User,Pswd} = ?CONN_CONF,
+    ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
+
+session_ping(OciPort) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                 session_ping                |"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("ping oci session", []),
+    {Tns,User,Pswd} = ?CONN_CONF,
+    OciSession = OciPort:get_session(Tns, User, Pswd),
+    ?assertEqual(ok, OciSession:ping()),
+    SelStmt = OciSession:prep_sql("select * from dual"),
+    ?assertEqual(ok, OciSession:ping()),
+    ?assertEqual({cols,[{<<"DUMMY">>,'SQLT_CHR',1,0,0}]}, SelStmt:exec_stmt()),
+    ?assertEqual(ok, OciSession:ping()),
+    ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
+    ?assertEqual(ok, OciSession:ping()).
 
 %%-----------------------------------------------------------------------------
 %% db_test_
