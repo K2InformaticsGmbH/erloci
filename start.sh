@@ -29,6 +29,6 @@ case "$1" in
         ;;
     *)
         echo "To run throughput tests use 'test' option"
-        $exename -pa ebin
+        $exename -pa ebin -s erloci
         ;;
 esac
