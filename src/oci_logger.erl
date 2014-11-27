@@ -63,7 +63,7 @@ log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
 
 init([LSock, LogFun]) ->
     try
-        LogFun({info, atom_to_list(?MODULE), "", ?LINE, "---- ERLOCI PORT PROCESS LOGGER ----"})
+        LogFun({debug, atom_to_list(?MODULE), "", ?LINE, "---- ERLOCI PORT PROCESS LOGGER ----"})
     catch
         _:Reason -> io:format(user, "-- ~p --~n", [Reason])
     end,

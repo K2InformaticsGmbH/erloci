@@ -104,7 +104,6 @@ when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
 close({?MODULE, statement, _, _, _} = Ctx)  -> close(ignore_port, Ctx);
 close({?MODULE, _, _} = Ctx)                -> close(ignore_port, Ctx);
 close({?MODULE, PortPid}) ->
-    io:format(user, "port close ~n", []),
     gen_server:call(PortPid, close, ?PORT_TIMEOUT).
 
 close(port_close, {?MODULE, statement, PortPid, _SessionId, _StmtId}) ->
@@ -284,9 +283,9 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
     end ++ OciDir,
 
     LibPathVal = lists:last(re:split(re:replace(NewLibPath, "~", "~~", [global, {return, list}]), "["++PathSepStr++"]", [{return, list}])),
-    ?Info(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
+    ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
-    ?Info(PortLogger, "Extra Env :~p", [Envs]),
+    ?Debug(PortLogger, "Extra Env :~p", [Envs]),
     PortOptions = [ {packet, 4}
                   , binary
                   , exit_status
@@ -296,8 +295,8 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                            , integer_to_list(ListenPort)]}
                   , {env, [{LibPath, NewLibPath}|Envs]}
                   ],
-    ?Info(PortLogger, "Executable ~p", [Executable]),
-    ?Info(PortLogger, "Options :~p", [PortOptions]),
+    ?Debug(PortLogger, "Executable ~p", [Executable]),
+    ?Debug(PortLogger, "Options :~p", [PortOptions]),
     case (catch portstart(Executable, PortOptions)) of
         {'EXIT', Reason} ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
@@ -308,11 +307,11 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
-                    ?Info(PortLogger, "started log enabled new port:~n~p", [erlang:port_info(Port)]),
+                    ?Debug(PortLogger, "started log enabled new port:~n~p", [erlang:port_info(Port)]),
                     {ok, #state{port=Port, logging=?DBG_FLAG_ON, logger=PortLogger}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_OFF})),
-                    ?Info(PortLogger, "started log disabled new port:~n~p", [erlang:port_info(Port)]),
+                    ?Debug(PortLogger, "started log disabled new port:~n~p", [erlang:port_info(Port)]),
                     {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger}}
             end
     end.
@@ -336,7 +335,8 @@ handle_call(close, _From, #state{port=Port} = State) ->
     catch
         _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
     end,
-    {stop, normal, ok, State};
+    erloci:del(self()),
+    {reply, ok, State};
 handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger} = State) ->
     Cmd = [if From /= undefined -> term_to_binary(From); true -> From end | Msg],
     CmdTuple = list_to_tuple(Cmd),
@@ -355,20 +355,23 @@ handle_cast(Msg, State) ->
 handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
     Resp = binary_to_term(Data),
     case handle_result(State#state.logging, Resp, L) of
-        {undefined, Result} -> ?Info(L,"no reply for ~p", [Result]);
+        {undefined, Result} -> ?Debug(L,"no reply for ~p", [Result]);
         {From, {error, Reason}} ->
             gen_server:reply(binary_to_term(From), {error, Reason});
         {From, Result} ->
             gen_server:reply(binary_to_term(From), Result) % regular reply
     end,
     {noreply, State#state{waiting_resp=false, lastcmd=undefined}};
-handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = Logger} = State) ->
-    ?log(Logger, State#state.logging, "port ~p exited with status ~p", [Port, Status]),
+handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = State) ->
     case Status of
         0 ->
-            {stop, normal, State};
+            ?log(L, State#state.logging, "port ~p exited with status ~p", [Port, Status]),
+            erloci:del(self()),
+            {noreply, State};
         Other ->
-            {stop, {port_exit, signal_str(Other-128)}, State}
+           ?Error(L, "~p abnormal termination ~p~s", [Port, signal_str(Other-128)]),
+            erloci:del(self()),
+           {noreply, State}
     end;
 %% Catch all - throws away unknown messages (This could happen by "accident"
 %% so we do not want to crash, but we make a log entry as it is an
@@ -382,9 +385,10 @@ terminate(Reason, #state{port=Port, logger=L, lastcmd=LastCmd}) ->
         LastCmd /= undefined -> io_lib:format(" with Command on flight ~p", [LastCmd]);
         true -> ""
     end),
-    case Reason of        
-        normal ->   ?Info(L, "Normal termination of ~p~s", [Port, Cmd]);
-        _ ->        ?Error(L, "Abnormal termination of ~p~s", [Reason, Cmd])
+    if Reason == normal orelse Reason == shutdown ->
+           ?Info(L, "~p terminate ~p with COF ~s", [Port, Reason, Cmd]);
+       true ->
+           ?Error(L, "Abnormal termination of ~p~s", [Reason, Cmd])
     end,
     catch port_close(Port),
     ok.

@@ -28,7 +28,7 @@
 -export([init/1]).
 
 % create port interface
--export([new/1, new/2]).
+-export([new/1, new/2, del/1]).
 
 start() -> application:start(?MODULE).
 start(_Type, _Args) ->
@@ -41,18 +41,20 @@ stop(_State) ->
 %% @doc Supervisor Callback
 %% @hidden
 init(_) ->
-    {ok, {{one_for_one,3,10},[]}}.
+    {ok, {{simple_one_for_one,5,10},
+          [{oci_port,{oci_port,start_link,[]},
+            permanent, 5000, worker, [oci_port]}]}}.
 
 new(Options) -> new(Options, ?LOGFUN).
 new(Options, undefined) -> new(Options, ?LOGFUN);
 new(Options, LogFun) ->
-    case supervisor:start_child(
-           ?MODULE,
-           {{oci_port, make_ref()}, {oci_port, start_link, [Options, LogFun]},
-            permanent, 5000, worker, [oci_port]}) of
+    case supervisor:start_child(?MODULE, [Options, LogFun]) of
         {ok, undefined} -> error(port_start_failed);
-        {ok, undefined, _} -> error(port_start_failed);
         {error, Error} -> error(Error);
-        {ok, ChildPid} -> {oci_port, ChildPid};
-        {ok, ChildPid, _} -> {oci_port, ChildPid}
+        {ok, ChildPid} -> {oci_port, ChildPid}
     end.
+
+del(Child) ->
+    spawn(fun() ->
+                  supervisor:terminate_child(?MODULE, Child)
+          end).
