@@ -28,7 +28,7 @@
 -export([init/1]).
 
 % create port interface
--export([new/1, new/2, del/1]).
+-export([new/1, new/2, del/1, bind_arg_types/0]).
 
 start() -> application:start(?MODULE).
 start(_Type, _Args) ->
@@ -58,3 +58,6 @@ del(Child) ->
     spawn(fun() ->
                   supervisor:terminate_child(?MODULE, Child)
           end).
+
+bind_arg_types() ->
+    [atom_to_binary(T,utf8) || {T,_} <- ?CLM_TYPES].
