@@ -159,13 +159,22 @@ ProcessCommandCb (
 #endif
 
 	vector<unsigned char> rxpkt;
+	DWORD start, end;	
 	while (threads::run_threads) {
 		rxpkt = cmd_queue::pop();
 		if (rxpkt.size() > 0)
 			break;
 #ifdef __WIN32__
+		start = GetTickCount();
 		if(!SwitchToThread())
 			Sleep(50);
+		end = GetTickCount();
+		if (end - start < 50) {
+			rxpkt = cmd_queue::pop();
+			if (rxpkt.size() > 0)
+				break;
+			Sleep(end - start);
+		}
 #else
 		pthread_yield();
 		usleep(50000);
