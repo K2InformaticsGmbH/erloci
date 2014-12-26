@@ -159,7 +159,9 @@ ProcessCommandCb (
 #endif
 
 	vector<unsigned char> rxpkt;
+#ifdef __WIN32__
 	DWORD start, end;	
+#endif
 	while (threads::run_threads) {
 		rxpkt = cmd_queue::pop();
 		if (rxpkt.size() > 0)
