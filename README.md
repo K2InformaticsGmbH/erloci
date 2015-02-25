@@ -52,6 +52,21 @@ INSTANT_CLIENT_LIB_PATH     = C:\Oracle\instantclient\instantclient_12_1\
 ERL_INTERFACE_DIR           = C:\Program Files\erlang\erl5.10.4\lib\erl_interface-3.7.15
 ```
 
+### Ubuntu (14.04.2 LTS 'trusty')
+```
+sudo apt-get install libevent-dev
+sudo apt-get install alien dpkg-dev debhelper build-essential
+sudo alien oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
+sudo alien oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
+sudo dpkg -i oracle-instantclient12.1-basic_12.1.0.2.0-2_amd64.deb 
+sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
+
+/etc/environment
+INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
+INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
+ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.20"
+```
+
 ### Compiling
 We assume you have [rebar](https://github.com/basho/rebar) somewhere on your path. Rebar will take care of the Erlang and C++ sources.
 <code>rebar compile</code>
