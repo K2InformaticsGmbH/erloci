@@ -20,7 +20,8 @@
                   "chapters binary_float,"
                   "votes_first_rank number)">>).
 -define(INSERT, <<"insert into "?TESTTABLE
-                  " (pkey,publisher,rank,hero,reality,votes,createdate,chapters,votes_first_rank) values ("
+                  " (pkey,publisher,rank,hero,reality,votes,createdate,"
+                  "  chapters,votes_first_rank) values ("
                   ":pkey"
                   ", :publisher"
                   ", :rank"
@@ -30,9 +31,11 @@
                   ", :createdate"
                   ", :chapters"
                   ", :votes_first_rank)">>).
--define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE".* from "?TESTTABLE>>).
--define(SELECT_ROWID_ASC, <<"select rowid from ", ?TESTTABLE, " order by pkey">>).
--define(SELECT_ROWID_DESC, <<"select rowid from ", ?TESTTABLE, " order by pkey desc">>).
+-define(SELECT_WITH_ROWID, <<"select "?TESTTABLE".rowid, "?TESTTABLE
+                             ".* from "?TESTTABLE>>).
+-define(SELECT_ROWID_ASC, <<"select rowid from "?TESTTABLE" order by pkey">>).
+-define(SELECT_ROWID_DESC, <<"select rowid from "?TESTTABLE
+                             " order by pkey desc">>).
 -define(BIND_LIST, [ {<<":pkey">>, 'SQLT_INT'}
                    , {<<":publisher">>, 'SQLT_CHR'}
                    , {<<":rank">>, 'SQLT_FLT'}
@@ -66,29 +69,30 @@
                           , {<<":pri_rowid1">>, 'SQLT_STR'}
                           ]).
 
-%%-----------------------------------------------------------------------------
+%%------------------------------------------------------------------------------
 %% db_negative_test_
-%%-----------------------------------------------------------------------------
+%%------------------------------------------------------------------------------
 db_negative_test_() ->
     {timeout, 60, {
         setup,
-        fun setup/0,
-        fun teardown/1,
+        fun() ->
+                application:start(erloci),
+                OciPort = erloci:new(
+                            [{logging, true},
+                             {env, [{"NLS_LANG",
+                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+                OciPort
+        end,
+        fun(OciPort) ->
+                OciPort:close(),
+                application:stop(erloci)
+        end,
         {with, [
             fun echo/1,
             fun bad_password/1,
             fun session_ping/1
         ]}
     }}.
-
-setup() ->
-    application:start(erloci),
-    OciPort = erloci:new([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-    OciPort.
-
-teardown(OciPort) ->
-    OciPort:close(),
-    application:stop(erloci).
 
 echo(OciPort) ->
     ?ELog("+---------------------------------------------+"),
@@ -124,7 +128,9 @@ bad_password(OciPort) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("get_session with wrong password", []),
     {Tns,User,Pswd} = ?CONN_CONF,
-    ?assertMatch({error, {1017,_}}, OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
+    ?assertMatch(
+       {error, {1017,_}},
+       OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
 
 session_ping(OciPort) ->
     ?ELog("+---------------------------------------------+"),
@@ -141,44 +147,42 @@ session_ping(OciPort) ->
     ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
     ?assertEqual(ok, OciSession:ping()).
 
-%%-----------------------------------------------------------------------------
+%%------------------------------------------------------------------------------
 %% db_test_
-%%-----------------------------------------------------------------------------
+%%------------------------------------------------------------------------------
 db_test_() ->
     {timeout, 60, {
-        setup,
-        fun setup_conn/0,
-        fun teardown_conn/1,
-        {with, [
-            fun drop_create/1,
-            fun bad_sql_connection_reuse/1,
-            fun insert_select_update/1,
-            fun auto_rollback_test/1,
-            fun commit_rollback_test/1,
-            fun asc_desc_test/1,
-            fun lob_test/1,
-            fun describe_test/1,
-            fun function_test/1,
-            fun procedure_scalar_test/1,
-            fun procedure_cur_test/1,
-            fun timestamp_interval_datatypes/1
+       setup,
+       fun() ->
+               application:start(erloci),
+               OciPort = erloci:new([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+               {Tns,User,Pswd} = ?CONN_CONF,
+               OciSession = OciPort:get_session(Tns, User, Pswd),
+               {OciPort, OciSession}
+       end,
+       fun({OciPort, OciSession}) ->
+               DropStmt = OciSession:prep_sql(?DROP),
+               DropStmt:exec_stmt(),
+               DropStmt:close(),
+               OciSession:close(),
+               OciPort:close(),
+               application:stop(erloci)
+       end,
+       {with,
+        [fun drop_create/1,
+         fun bad_sql_connection_reuse/1,
+         fun insert_select_update/1,
+         fun auto_rollback_test/1,
+         fun commit_rollback_test/1,
+         fun asc_desc_test/1,
+         fun lob_test/1,
+         fun describe_test/1,
+         fun function_test/1,
+         fun procedure_scalar_test/1,
+         fun procedure_cur_test/1,
+         fun timestamp_interval_datatypes/1
         ]}
-    }}.
-
-setup_conn() ->
-    application:start(erloci),
-    OciPort = erloci:new([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-    {Tns,User,Pswd} = ?CONN_CONF,
-    OciSession = OciPort:get_session(Tns, User, Pswd),
-    {OciPort, OciSession}.
-
-teardown_conn({OciPort, OciSession}) ->
-    DropStmt = OciSession:prep_sql(?DROP),
-    DropStmt:exec_stmt(),
-    DropStmt:close(),
-    OciSession:close(),
-    OciPort:close(),
-    application:stop(erloci).
+      }}.
 
 flush_table(OciSession) ->
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
@@ -333,7 +337,7 @@ insert_select_update({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|            insert_select_update             |"),
     ?ELog("+---------------------------------------------+"),
-    RowCount = 5,
+    RowCount = 6,
 
     flush_table(OciSession),
 
@@ -343,7 +347,7 @@ insert_select_update({_, OciSession}) ->
     BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
     ?assertMatch(ok, BoundInsStmtRes),
     %pkey,publisher,rank,hero,reality,votes,createdate,chapters,votes_first_rank
-    {rowids, RowIds} = BoundInsStmt:exec_stmt(
+    {rowids, RowIds1} = BoundInsStmt:exec_stmt(
         [{ I                                                                                % pkey
          , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                  % publisher
          , I+I/2                                                                            % rank
@@ -353,8 +357,22 @@ insert_select_update({_, OciSession}) ->
          , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
          , 9.999999350456404e-39                                                            % chapters
          , I                                                                                % votes_first_rank
-         } || I <- lists:seq(1, RowCount)]
+         } || I <- lists:seq(1, RowCount div 2)]
     ),
+    ?ELog("Bound insert statement reuse"),
+    {rowids, RowIds2} = BoundInsStmt:exec_stmt(
+        [{ I                                                                                % pkey
+         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                  % publisher
+         , I+I/2                                                                            % rank
+         , 1.0e-307                                                                         % hero
+         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , I                                                                                % votes
+         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , 9.999999350456404e-39                                                            % chapters
+         , I                                                                                % votes_first_rank
+         } || I <- lists:seq((RowCount div 2) + 1, RowCount)]
+    ),
+    RowIds = RowIds1 ++ RowIds2,
     ?assertMatch(RowCount, length(RowIds)),
     ?assertEqual(ok, BoundInsStmt:close()),
 
@@ -366,7 +384,7 @@ insert_select_update({_, OciSession}) ->
     ?assertEqual(10, length(Cols)),
     {{rows, Rows0}, false} = SelStmt:fetch_rows(2),
     {{rows, Rows1}, false} = SelStmt:fetch_rows(2),
-    {{rows, Rows2}, true} = SelStmt:fetch_rows(2),
+    {{rows, Rows2}, true} = SelStmt:fetch_rows(3),
     ?assertEqual(ok, SelStmt:close()),
 
     Rows = lists:merge([Rows0, Rows1, Rows2]),
@@ -422,7 +440,21 @@ insert_select_update({_, OciSession}) ->
          , I*2+I/1000                                                        % chapters
          , I+1                                                               % votes_first_rank
          , Key
-         } || {Key, I} <- lists:zip(RowIDs, lists:seq(1, length(RowIDs)))]
+         } || {Key, I} <- lists:zip(RowIds1, lists:seq(1, RowCount div 2))]
+    )),
+    ?ELog("Bound update statement reuse"),
+    ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt(
+        [{ I                                                                 % pkey 
+         , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"])   % publisher
+         , I+I/3                                                             % rank
+         , I+I/50                                                            % hero
+         , <<>> % deleting                                                   % reality
+         , I+1                                                               % votes
+         , oci_util:edatetime_to_ora(erlang:now())                           % createdate
+         , I*2+I/1000                                                        % chapters
+         , I+1                                                               % votes_first_rank
+         , Key
+         } || {Key, I} <- lists:zip(RowIds2, lists:seq((RowCount div 2) + 1, RowCount))]
     )),
     ?assertEqual(ok, BoundUpdStmt:close()).
 
@@ -461,7 +493,6 @@ auto_rollback_test({_, OciSession}) ->
     {cols, Cols} = SelStmt:exec_stmt(),
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
-    ?assertEqual(ok, SelStmt:close()),
 
     ?ELog("update in table ~s", [?TESTTABLE]),
     RowIDs = [R || [R|_] <- Rows],
@@ -487,11 +518,9 @@ auto_rollback_test({_, OciSession}) ->
     )),
 
     ?ELog("testing rollback table ~s", [?TESTTABLE]),
-    SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelStmt1),
-    ?assertEqual({cols, Cols}, SelStmt1:exec_stmt()),
-    ?assertEqual({{rows, Rows}, false}, SelStmt1:fetch_rows(RowCount)),
-    ?assertEqual(ok, SelStmt1:close()).
+    ?assertEqual({cols, Cols}, SelStmt:exec_stmt()),
+    ?assertEqual({{rows, Rows}, false}, SelStmt:fetch_rows(RowCount)),
+    ?assertEqual(ok, SelStmt:close()).
 
 commit_rollback_test({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),
@@ -529,7 +558,6 @@ commit_rollback_test({_, OciSession}) ->
     ?assertEqual(10, length(Cols)),
     {{rows, Rows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(RowCount, length(Rows)),
-    ?assertEqual(ok, SelStmt:close()),
 
     ?ELog("update in table ~s", [?TESTTABLE]),
     RowIDs = [R || [R|_] <- Rows],
@@ -558,12 +586,10 @@ commit_rollback_test({_, OciSession}) ->
 
     ?ELog("testing rollback table ~s", [?TESTTABLE]),
     ?assertEqual(ok, OciSession:rollback()),
-    SelStmt1 = OciSession:prep_sql(?SELECT_WITH_ROWID),
-    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelStmt1),
-    ?assertEqual({cols, Cols}, SelStmt1:exec_stmt()),
-    {{rows, NewRows}, false} = SelStmt1:fetch_rows(RowCount),
+    ?assertEqual({cols, Cols}, SelStmt:exec_stmt()),
+    {{rows, NewRows}, false} = SelStmt:fetch_rows(RowCount),
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
-    ?assertEqual(ok, SelStmt1:close()).
+    ?assertEqual(ok, SelStmt:close()).
 
 asc_desc_test({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),

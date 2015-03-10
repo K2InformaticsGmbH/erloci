@@ -50,4 +50,5 @@ logs/
 *.exports.txt
 support/
 *.txt
+.rebar/
 console_test.erl
