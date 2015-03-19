@@ -92,6 +92,25 @@ OCI provides a high performance, native 'C' language based interface to the Orac
 #### Compile ERLOCI in Windows
 Make sure you have <code>vcbuild.exe</code> in path. After that <code>rebar compile</code> will take care the rest. Currently erloci can only be build with VS2008.
 
+### Erlang to/from Oracle datatype mapping (currently)
+
+```
+oracle erlang
+--------------
+SQLT_INT            integer()
+SQLT_CHR,SQLT_AFC   binary()
+SQLT_FLT            float()
+SQLT_IBDOUBLE       float()
+SQLT_BIN            binary()
+SQLT_DAT            binary()
+SQLT_TIMESTAMP      binary()
+SQLT_TIMESTAMP_LTZ  binary()
+SQLT_INTERVAL_YM    binary()
+SQLT_INTERVAL_DS    binary()
+SQLT_IBFLOAT        float()
+--------------
+```
+
 ### Eunit test
 The Oracle connection information are taken from erloci.app.src. Please change it to point to your database before executing the steps below:
   1. <code>rebar compile</code>
