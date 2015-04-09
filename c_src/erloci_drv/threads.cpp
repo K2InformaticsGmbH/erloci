@@ -177,12 +177,12 @@ ProcessCommandCb (
 				break;
 			Sleep(end - start);
 		}
+#else
 #ifdef __APPLE__
         pthread_yield_np();
 #else
 		pthread_yield();
 #endif
-#else
 		usleep(50000);
 #endif
 	}
