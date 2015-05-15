@@ -118,10 +118,12 @@
       <Message>del """$(SolutionDir)..\priv\ocierl.exe"""</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Command>
+      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""
+copy """$(INSTANT_CLIENT_LIB_PATH)oci.dll""" """$(SolutionDir)..\priv\"""
+copy  """$(VCInstallDir)redist\$(PlatformName)\Microsoft.VC100.CRT\*.dll""" """$(SolutionDir)..\priv\"""</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Message>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Message>
+      <Message>copy ocierl.exe and oci.dll</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
