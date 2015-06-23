@@ -81,8 +81,9 @@
       <TargetMachine>MachineX64</TargetMachine>
     </Link>
     <PostBuildEvent>
-      <Message>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Message>
-      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Command>
+      <Message>copy ocierl.exe msvcr100.dll msvcp100.dll</Message>
+      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""
+copy  """$(VCInstallDir)redist\$(PlatformName)\Microsoft.VC100.CRT\*.dll""" """$(SolutionDir)..\priv\"""</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -118,12 +119,10 @@
       <Message>del """$(SolutionDir)..\priv\ocierl.exe"""</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""
-copy """$(INSTANT_CLIENT_LIB_PATH)oci.dll""" """$(SolutionDir)..\priv\"""
-copy  """$(VCInstallDir)redist\$(PlatformName)\Microsoft.VC100.CRT\*.dll""" """$(SolutionDir)..\priv\"""</Command>
+      <Command>copy """$(OutDir)$(ProjectName).exe""" """$(SolutionDir)..\priv\ocierl.exe"""</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Message>copy ocierl.exe and oci.dll</Message>
+      <Message>copy ocierl.exe</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

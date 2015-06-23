@@ -47,7 +47,10 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <PreBuildEvent>
       <Message>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
-      <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
+      <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""
+del """$(SolutionDir)..\priv\oci.dll"""
+del """$(SolutionDir)..\priv\oraons.dll"""
+del """$(SolutionDir)..\priv\oraociei12.dll"""</Command>
     </PreBuildEvent>
     <Midl>
       <TargetEnvironment>X64</TargetEnvironment>
@@ -74,7 +77,7 @@
       <IgnoreSpecificDefaultLibraries>libcmt.lib;msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
     </Lib>
     <PostBuildEvent>
-      <Message>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
+      <Message>copy erloci_lib.lib oci.dll oraons.dll oraociei12.dll</Message>
       <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""
 copy """$(INSTANT_CLIENT_LIB_PATH)\oci.dll""" """$(SolutionDir)..\priv\oci.dll"""
 copy """$(INSTANT_CLIENT_LIB_PATH)\oraons.dll""" """$(SolutionDir)..\priv\oraons.dll"""
@@ -104,17 +107,22 @@ copy """$(INSTANT_CLIENT_LIB_PATH)\oraociei12.dll""" """$(SolutionDir)..\priv\or
       <Verbose>false</Verbose>
     </Lib>
     <PreBuildEvent>
-      <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
+      <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""
+del """$(SolutionDir)..\priv\oci.dll"""
+del """$(SolutionDir)..\priv\oraons.dll"""
+del """$(SolutionDir)..\priv\oraociei12.dll"""</Command>
     </PreBuildEvent>
     <PreBuildEvent>
       <Message>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
     </PreBuildEvent>
     <PostBuildEvent>
       <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""
-copy """$(INSTANT_CLIENT_LIB_PATH)\oci.dll""" """$(SolutionDir)..\priv\oci.dll"""</Command>
+copy """$(INSTANT_CLIENT_LIB_PATH)\oci.dll""" """$(SolutionDir)..\priv\oci.dll"""
+copy """$(INSTANT_CLIENT_LIB_PATH)\oraons.dll""" """$(SolutionDir)..\priv\oraons.dll"""
+copy """$(INSTANT_CLIENT_LIB_PATH)\oraociei12.dll""" """$(SolutionDir)..\priv\oraociei12.dll"""</Command>
     </PostBuildEvent>
     <PostBuildEvent>
-      <Message>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
+      <Message>copy erloci_lib.lib oci.dll oraons.dll oraociei12.dll</Message>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
