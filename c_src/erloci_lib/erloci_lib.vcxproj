@@ -75,7 +75,10 @@
     </Lib>
     <PostBuildEvent>
       <Message>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
-      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
+      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""
+copy """$(INSTANT_CLIENT_LIB_PATH)\oci.dll""" """$(SolutionDir)..\priv\oci.dll"""
+copy """$(INSTANT_CLIENT_LIB_PATH)\oraons.dll""" """$(SolutionDir)..\priv\oraons.dll"""
+copy """$(INSTANT_CLIENT_LIB_PATH)\oraociei12.dll""" """$(SolutionDir)..\priv\oraociei12.dll"""</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -107,7 +110,8 @@
       <Message>del """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>
     </PreBuildEvent>
     <PostBuildEvent>
-      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Command>
+      <Command>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""
+copy """$(INSTANT_CLIENT_LIB_PATH)\oci.dll""" """$(SolutionDir)..\priv\oci.dll"""</Command>
     </PostBuildEvent>
     <PostBuildEvent>
       <Message>copy """$(OutDir)$(ProjectName).lib""" """$(SolutionDir)..\priv\$(ProjectName).lib"""</Message>

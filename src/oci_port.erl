@@ -254,39 +254,54 @@ init([Logging, ListenPort, LSock, LogFun, Options]) ->
             Ret
     end.
 
+verify_runtime_lib_path([],_OciLibs) ->
+    error("Some required runtime libraries not found");
+verify_runtime_lib_path([Path|Paths],OciLibs) ->
+    case
+        lists:any(
+          fun(F) ->
+                  Fname = filename:join([Path, F]),
+                  case {file:read_link(Fname), filelib:is_file(Fname)} of
+                      {{error, _}, false} -> true;  %% not symlink not file
+                      _ -> false
+                  end
+          end,
+          OciLibs) of
+        true ->
+            verify_runtime_lib_path(Paths,OciLibs);
+        _ ->
+            {ok, Path}
+    end.
+
 start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
     OciLibs = case os:type() of
 	    {unix,darwin}   -> ["libocci.dylib"];
-        {win32,nt}      -> ["oci.dll"];
+        {win32,nt}      -> ["oci.dll","oraons.dll","oraociei12.dll"];
 	    _               -> ["libocci.so"]
     end,
-    {ok, OciDir} = case os:getenv("INSTANT_CLIENT_LIB_PATH") of
-        false -> {error, "INSTANT_CLIENT_LIB_PATH not defined"};
-        OCIRuntimeLibraryPath ->
-            case
-               lists:any(fun(F) ->
-                            Fname = filename:join([OCIRuntimeLibraryPath, F]),
-                            case {file:read_link(Fname), filelib:is_file(Fname)} of
-                                {{error, _}, false} -> true;  %% not symlink not file
-                                _ -> false
-                            end
-                         end,
-                        OciLibs) of
-                true -> {error, "Some required runtime libraries missing at "++OCIRuntimeLibraryPath};
-                _ -> {ok, OCIRuntimeLibraryPath}
-            end
-    end,
+    ExePath = filename:dirname(Executable),
+    {ok, OciDir} = verify_runtime_lib_path(
+                     [ExePath | case os:getenv("INSTANT_CLIENT_LIB_PATH") of
+                                    false -> [];
+                                    InstClientLibPath -> [InstClientLibPath]
+                                end], OciLibs),
     {LibPath, PathSepStr} = case os:type() of
 	    {unix,darwin}   -> {"DYLD_LIBRARY_PATH", ":"};
         {win32,nt}      -> {"PATH", ";"};
 	    _               -> {"LD_LIBRARY_PATH", ":"}
     end,
-    NewLibPath = case os:getenv(LibPath) of
-        false -> "";
-        LdLibPath -> LdLibPath ++ PathSepStr
-    end ++ OciDir,
-
-    LibPathVal = lists:last(re:split(re:replace(NewLibPath, "~", "~~", [global, {return, list}]), "["++PathSepStr++"]", [{return, list}])),
+    NewLibPath = case OciDir of
+                     ExePath -> "";
+                     OciDir ->
+                         case os:getenv(LibPath) of
+                             false -> "";
+                             LdLibPath -> LdLibPath ++ PathSepStr
+                         end ++ OciDir
+                 end,
+    LibPathVal = lists:last(
+                   re:split(
+                     re:replace(NewLibPath, "~", "~~", [global, {return, list}]),
+                     "["++PathSepStr++"]", [{return, list}])),
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
     ?Debug(PortLogger, "Extra Env :~p", [Envs]),
