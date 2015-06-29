@@ -290,9 +290,9 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
         {win32,nt}      -> {"PATH", ";"};
 	    _               -> {"LD_LIBRARY_PATH", ":"}
     end,
-    NewLibPath = case OciDir of
-                     ExePath -> "";
-                     OciDir ->
+    NewLibPath = case {OciDir, os:type()} of
+                     {ExePath, {win32,nt}}  -> "";
+                     {OciDir, _} ->
                          case os:getenv(LibPath) of
                              false -> "";
                              LdLibPath -> LdLibPath ++ PathSepStr
