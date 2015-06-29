@@ -27,6 +27,7 @@ LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(PRIV_DIR) -L$(OCI_LIB_PATH)
 LINKFLAGS = -levent -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12 -lipc1 -lmql1
 
 all: $(PRIV_DIR)/$(EXE_TARGET)
+	cp -L $(OCI_LIB_PATH)*.so* $(PRIV_DIR)/
 	@echo "erloci compiled!!!"
 
 $(PRIV_DIR)/$(EXE_TARGET): $(PRIV_DIR)/$(LIB_TARGET) $(ERLOCI_OBJS)
