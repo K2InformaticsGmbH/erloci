@@ -471,6 +471,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
             case SQLT_CHR:
             case SQLT_STR:
             case SQLT_VCS:
+				cur_clm.dlen = cur_clm.dlen*2;
 				cur_clm.row_valp = new text[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(SQLT_STR, "SQLT_STR");
