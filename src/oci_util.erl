@@ -165,25 +165,26 @@ to_num(Num) ->
     {S,Ex,Dgt} = case string:tokens(Num, ".") of
                   % Negative
                   [[$-|W],F] ->
-                      {E,D} = ed(W,F),
+                      {E,D} = ed(wf, {W,F}),
                       {$-,E,D};
                   [[$-|W]] ->
-                      {E,D} = ed(W,""),
+                      {E,D} = ed(w, W),
                       {$-,E,D};
                   % Positive
                   [W,F] ->
-                      {E,D} = ed(W,F),
+                      {E,D} = ed(wf, {W,F}),
                       {$+,E,D};
                   [W] ->
-                      {E,D} = ed(W,""),
+                      {E,D} = ed(w, W),
                       {$+,E,D}
               end,
-    L = length(D)+1,
+    L = length(Dgt)+1,
     case S of
         $- ->
-            Digits = list_to_binary([Di+101||Di<-Dgt]),
+            Digits = list_to_binary([-Di+101||Di<-Dgt]),
             Exp = bnot(Ex+128+65),
-            << L, 0:1, Exp:7, Digits/bytes
+            L2 = if L < 21 -> L + 1; true -> L end,
+            << L2, 0:1, Exp:7, Digits/bytes
                , if L < 21 -> <<102>>; true-> <<>> end/bytes >>;
         _ ->
             Digits = list_to_binary([Di+1||Di<-Dgt]),
@@ -191,57 +192,73 @@ to_num(Num) ->
             << L, 1:1, Exp:7, Digits/bytes >>
     end.
 
+% counting and removing "00" from tail and increasing exponent like wise
+exp_tail([], E) ->
+    {[], E};
+exp_tail([$0, $0|N], E) ->
+    exp_tail(N, E+1);
+exp_tail([D|N], E) ->
+    {lists:reverse([D|N]), E}.
+
+% counting and removing "00" from head and decreasing exponent like wise
+exp_head([], E) ->
+    {[], E};
+exp_head([$0, $0|N], E) ->
+    exp_head(N, E-1);
+exp_head(N, E) ->
+    {N, E}.
+
+% split into digits pairs
+split_tail(N, P) when is_integer(P) ->
+    split_tail(N, {[],P});
+split_tail([], {Nw, Ei1}) ->
+    {lists:reverse(Nw),Ei1};
+split_tail([D1, D2|N], {Nw, Ei1}) ->
+    split_tail(N,{[list_to_integer([D1, D2])|Nw], Ei1+1}).
+
+split_head(P) when not is_tuple(P) ->
+    split_head({P, []});
+split_head({[], Nw}) ->
+    lists:reverse(Nw);
+split_head({[D1,D2|N], Nw}) ->
+    split_head({N, [list_to_integer([D1, D2])|Nw]}).
+
+ed(w, W, E) ->
+    % pairs adjustment
+    W2 = if length(W) rem 2 /= 0 -> [$0|W]; true -> W end,
+    % split W into digits pairs
+    {W3, E1} = split_tail(W2, E),
+    {E1, W3};
+
+ed(f, F, E) ->
+    % pairs adjustment
+    F2 = if length(F) rem 2 /= 0 -> F++[$0]; true -> F end,
+    % split F into digit pairs
+    F3 = split_head(F2),
+    {E, F3}.
+
 % whole numbers (no decimal point)
-ed(W, "") ->
-    % counting and removing "00" from tail
-    % and increasing exponent like wise
-    F = fun
-            RW([], E) -> {[],E};
-            RW([$0,$0|N], E) -> RW(N, E+1);
-            RW([D|N], E) -> {lists:reverse([D|N]), E}
-        end,
-    {W1, E} = case F(lists:reverse(W), 0) of
+ed(w, W) ->
+    {W1, E} = case exp_tail(lists:reverse(W), 0) of
                   {[], Ei} -> {W, Ei};
                   {Wi, Ei} -> {Wi, Ei}
                end,
-    W2 = if length(W1) rem 2 /= 0 -> [$0|W1]; true -> W1 end,
-    % split W into digits pairs
-    F1 = fun
-            SD(N, P) when is_integer(P) -> SD(N, {[],P});
-            SD([], {Nw,Ei1}) -> {lists:reverse(Nw),Ei1};
-            SD([D1,D2|N], {Nw,Ei1}) ->
-                SD(N,{[list_to_integer([D1,D2])|Nw],Ei1+1})
-         end,
-    {W3,E1} = F1(W2,E),
-    % exponent adjustment for 1 ("01")
-    E2 = case W2 of [$0,_] -> E1-1; _ -> E1 end,
-    {E2,W3};
+    % -1 for exponent adjustment
+    ed(w, W1, E-1);
+
 % fractional numbers (no whole part)
-ed("0", F) ->
-    % counting and removing "00" from head
-    % and decreasing exponent like wise
-    {F1, E} =
-        (fun
-            RW([], E) -> {[],E};
-            RW([$0,$0|N], E) -> RW(N, E-1);
-            RW(N, E) -> {N,E}
-         end)(F, 0),
-    F2 = if length(F1) rem 2 /= 0 -> F1++[$0]; true -> F1 end,
-    % split F into digit pairs
-    Fn1 = fun
-            SD(P) when not is_tuple(P) -> SD({P,[]});
-            SD({[], Nw}) -> lists:reverse(Nw);
-            SD({[D1,D2|N], Nw}) ->
-                SD({N,[list_to_integer([D1,D2])|Nw]})
-         end,
-    F3 = Fn1(F2),
-    io:format("W ~p, E ~p~n", [F3, E]),
-    {E, F1};
+ed(f, F) ->
+    {F1, E} = exp_head(F, 0),
+    % -1 for exponent adjustment
+    ed(f, F1, E-1);
+
 % numbers with non trivial fraction and whole part
-ed(W, _F) ->
-    {E, W1} = ed(W, ""),
-    io:format("W ~p, E ~p~n", [W1, E]),
-    {E,W1}.
+ed(wf, {W, ""}) -> ed(w, W);
+ed(wf, {"0", F}) -> ed(f, F);
+ed(wf, {W, F}) ->
+    {E1, W1} = ed(w, W, -1),
+    {E2, F2} = ed(f, F, 0),
+    {E1+E2, W1++F2}.
 
 -spec from_dts(Date | TimeStamp | TimeStampWithZone) ->
         {{year(),month(),day()}, {hour(),minute(),second()}}
@@ -403,7 +420,7 @@ num_conv_test_() ->
     {inparallel
      , [{T, fun() ->
                     ?assertEqual(T, from_num(S)),
-                    %?assertEqual(S, to_num(T)),
+                    ?assertEqual(S, to_num(T)),
                     ok
             end}
         || {T,S} <-
