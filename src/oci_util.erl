@@ -157,6 +157,7 @@ ins_dp([H|T], DP) when DP > 0 -> [H | ins_dp(T, DP-1)];
 ins_dp(M, DP) when DP =:= -1 -> ins_dp(["0"|M], DP+1);
 ins_dp(M, DP) when DP < 0 -> ins_dp(["00"|M], DP+1).
 
+-spec to_num(list()) -> binary().
 to_num("0") -> <<1,128>>;
 to_num("-0") -> <<1,128>>;
 to_num("0.0") -> <<1,128>>;
@@ -183,8 +184,7 @@ to_num(Num) ->
         $- ->
             Digits = list_to_binary([-Di+101||Di<-Dgt]),
             Exp = bnot(Ex+128+65),
-            L2 = if L < 21 -> L + 1; true -> L end,
-            << L2, 0:1, Exp:7, Digits/bytes
+            << if L < 21 -> L + 1; true -> L end, 0:1, Exp:7, Digits/bytes
                , if L < 21 -> <<102>>; true-> <<>> end/bytes >>;
         _ ->
             Digits = list_to_binary([Di+1||Di<-Dgt]),
@@ -192,44 +192,14 @@ to_num(Num) ->
             << L, 1:1, Exp:7, Digits/bytes >>
     end.
 
-% counting and removing "00" from tail and increasing exponent like wise
-exp_tail([], E) ->
-    {[], E};
-exp_tail([$0, $0|N], E) ->
-    exp_tail(N, E+1);
-exp_tail([D|N], E) ->
-    {lists:reverse([D|N]), E}.
-
-% counting and removing "00" from head and decreasing exponent like wise
-exp_head([], E) ->
-    {[], E};
-exp_head([$0, $0|N], E) ->
-    exp_head(N, E-1);
-exp_head(N, E) ->
-    {N, E}.
-
-% split into digits pairs
-split_tail(N, P) when is_integer(P) ->
-    split_tail(N, {[],P});
-split_tail([], {Nw, Ei1}) ->
-    {lists:reverse(Nw),Ei1};
-split_tail([D1, D2|N], {Nw, Ei1}) ->
-    split_tail(N,{[list_to_integer([D1, D2])|Nw], Ei1+1}).
-
-split_head(P) when not is_tuple(P) ->
-    split_head({P, []});
-split_head({[], Nw}) ->
-    lists:reverse(Nw);
-split_head({[D1,D2|N], Nw}) ->
-    split_head({N, [list_to_integer([D1, D2])|Nw]}).
-
+-spec ed(Type, string(), integer()) -> {integer(), [integer()]}
+      when Type :: w | f.
 ed(w, W, E) ->
     % pairs adjustment
     W2 = if length(W) rem 2 /= 0 -> [$0|W]; true -> W end,
     % split W into digits pairs
     {W3, E1} = split_tail(W2, E),
     {E1, W3};
-
 ed(f, F, E) ->
     % pairs adjustment
     F2 = if length(F) rem 2 /= 0 -> F++[$0]; true -> F end,
@@ -237,6 +207,8 @@ ed(f, F, E) ->
     F3 = split_head(F2),
     {E, F3}.
 
+-spec ed(Type, string()|{string(), string()}) -> {integer(), [integer()]}
+      when Type :: w | f | wf.
 % whole numbers (no decimal point)
 ed(w, W) ->
     {W1, E} = case exp_tail(lists:reverse(W), 0) of
@@ -245,13 +217,11 @@ ed(w, W) ->
                end,
     % -1 for exponent adjustment
     ed(w, W1, E-1);
-
 % fractional numbers (no whole part)
 ed(f, F) ->
     {F1, E} = exp_head(F, 0),
     % -1 for exponent adjustment
     ed(f, F1, E-1);
-
 % numbers with non trivial fraction and whole part
 ed(wf, {W, ""}) -> ed(w, W);
 ed(wf, {"0", F}) -> ed(f, F);
@@ -259,6 +229,41 @@ ed(wf, {W, F}) ->
     {E1, W1} = ed(w, W, -1),
     {E2, F2} = ed(f, F, 0),
     {E1+E2, W1++F2}.
+
+% counting and removing "00" from tail and increasing exponent like wise
+-spec exp_tail(string(), integer()) -> {string(), integer()}.
+exp_tail([], E) ->
+    {[], E};
+exp_tail([$0, $0|N], E) ->
+    exp_tail(N, E+1);
+exp_tail([D|N], E) ->
+    {lists:reverse([D|N]), E}.
+
+% counting and removing "00" from head and decreasing exponent like wise
+-spec exp_head(string(), integer()) -> {string(), integer()}.
+exp_head([], E) ->
+    {[], E};
+exp_head([$0, $0|N], E) ->
+    exp_head(N, E-1);
+exp_head(N, E) ->
+    {N, E}.
+
+% split into digits pairs
+-spec split_tail(string(), integer()|{[integer()], integer()}) -> {[integer()], integer()}.
+split_tail(N, P) when is_integer(P) ->
+    split_tail(N, {[],P});
+split_tail([], {Nw, Ei1}) ->
+    {lists:reverse(Nw),Ei1};
+split_tail([D1, D2|N], {Nw, Ei1}) ->
+    split_tail(N,{[list_to_integer([D1, D2])|Nw], Ei1+1}).
+
+-spec split_head(string()|{string(),[integer()]}) -> [integer()].
+split_head(P) when not is_tuple(P) ->
+    split_head({P, []});
+split_head({[], Nw}) ->
+    lists:reverse(Nw);
+split_head({[D1,D2|N], Nw}) ->
+    split_head({N, [list_to_integer([D1, D2])|Nw]}).
 
 -spec from_dts(Date | TimeStamp | TimeStampWithZone) ->
         {{year(),month(),day()}, {hour(),minute(),second()}}
