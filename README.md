@@ -20,13 +20,14 @@ Unzip both into a directory and create the following enviroment variable
 E.g. - if your instant client library version is 12.1 and you have unzipped 'instantclient-basic-windows*.zip' to C:\Oracle\instantclient\instantclient_12_1 then the sdk should be at C:\Oracle\instantclient\instantclient_12_1\sdk\
 The include headers will be at C:\Oracle\instantclient\instantclient_12_1\sdk\include and static libraries at C:\Oracle\instantclient\instantclient_12_1\sdk\lib\msvc (note the path for VS project configuration later)
 
-### Linux
+### Linux / Mac OS X
 Required system libraries
 ```
 libevent
 libevent-devel
 ```
 Use rpms (recomended) to install basic and sdk. The default install path is usually (for x86_64 architecture)
+For Mac you may use Homebrew (http://brew.sh) as package manager to install it.
 ```
 OCI Headers     : /usr/include/oracle/12.1/client64/
 OCI Libraries   : /usr/lib/oracle/12.1/client64/lib/
