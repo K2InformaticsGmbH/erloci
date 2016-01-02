@@ -142,7 +142,7 @@ session_ping(OciPort) ->
     ?assertEqual(ok, OciSession:ping()),
     SelStmt = OciSession:prep_sql("select * from dual"),
     ?assertEqual(ok, OciSession:ping()),
-    ?assertEqual({cols,[{<<"DUMMY">>,'SQLT_CHR',1,0,0}]}, SelStmt:exec_stmt()),
+    ?assertMatch({cols,[{<<"DUMMY">>,'SQLT_CHR',_,0,0}]}, SelStmt:exec_stmt()),
     ?assertEqual(ok, OciSession:ping()),
     ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
     ?assertEqual(ok, OciSession:ping()).
@@ -328,7 +328,7 @@ bad_sql_connection_reuse({_, OciSession}) ->
     GoodSelect = <<"select 'abc' from dual">>,
     SelStmt = OciSession:prep_sql(GoodSelect),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelStmt),
-    ?assertEqual({cols, [{<<"'ABC'">>,'SQLT_AFC',3,0,0}]}, SelStmt:exec_stmt()),
+    ?assertMatch({cols, [{<<"'ABC'">>,'SQLT_AFC',_,0,0}]}, SelStmt:exec_stmt()),
     ?assertEqual({{rows, [[<<"abc">>]]}, true}, SelStmt:fetch_rows(2)),
     ?assertEqual(ok, SelStmt:close()).
 
@@ -855,7 +855,7 @@ timestamp_interval_datatypes({_, OciSession}) ->
 
     SelectStmt = OciSession:prep_sql(SelectSql),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelectStmt),
-    ?assertEqual({cols, [{<<"NAME">>,'SQLT_CHR',30,0,0}
+    ?assertMatch({cols, [{<<"NAME">>,'SQLT_CHR',_,0,0}
                         ,{<<"DAT">>,'SQLT_DAT',7,0,0}
                         ,{<<"TS">>,'SQLT_TIMESTAMP',11,0,6}
                         ,{<<"TSTZ">>,'SQLT_TIMESTAMP_TZ',13,0,6}
