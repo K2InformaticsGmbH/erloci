@@ -349,12 +349,12 @@ insert_select_update({_, OciSession}) ->
     %pkey,publisher,rank,hero,reality,votes,createdate,chapters,votes_first_rank
     {rowids, RowIds1} = BoundInsStmt:exec_stmt(
         [{ I                                                                                % pkey
-         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                  % publisher
+         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                % publisher
          , I+I/2                                                                            % rank
          , 1.0e-307                                                                         % hero
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
          , I                                                                                % votes
-         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , 9.999999350456404e-39                                                            % chapters
          , I                                                                                % votes_first_rank
          } || I <- lists:seq(1, RowCount div 2)]
@@ -362,12 +362,12 @@ insert_select_update({_, OciSession}) ->
     ?ELog("Bound insert statement reuse"),
     {rowids, RowIds2} = BoundInsStmt:exec_stmt(
         [{ I                                                                                % pkey
-         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                  % publisher
+         , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                % publisher
          , I+I/2                                                                            % rank
          , 1.0e-307                                                                         % hero
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
          , I                                                                                % votes
-         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , 9.999999350456404e-39                                                            % chapters
          , I                                                                                % votes_first_rank
          } || I <- lists:seq((RowCount div 2) + 1, RowCount)]
@@ -431,12 +431,12 @@ insert_select_update({_, OciSession}) ->
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt(
         [{ I                                                                 % pkey 
-         , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"])   % publisher
+         , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"]) % publisher
          , I+I/3                                                             % rank
          , I+I/50                                                            % hero
          , <<>> % deleting                                                   % reality
          , I+1                                                               % votes
-         , oci_util:edatetime_to_ora(erlang:now())                           % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                         % createdate
          , I*2+I/1000                                                        % chapters
          , I+1                                                               % votes_first_rank
          , Key
@@ -445,12 +445,12 @@ insert_select_update({_, OciSession}) ->
     ?ELog("Bound update statement reuse"),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt(
         [{ I                                                                 % pkey 
-         , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"])   % publisher
+         , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"]) % publisher
          , I+I/3                                                             % rank
          , I+I/50                                                            % hero
          , <<>> % deleting                                                   % reality
          , I+1                                                               % votes
-         , oci_util:edatetime_to_ora(erlang:now())                           % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                         % createdate
          , I*2+I/1000                                                        % chapters
          , I+1                                                               % votes_first_rank
          , Key
@@ -479,7 +479,7 @@ auto_rollback_test({_, OciSession}) ->
          , I+I/3                                                                            % hero
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
          , I                                                                                % votes
-         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I                                                                                % chapters
          , I                                                                                % votes_first_rank
          } || I <- lists:seq(1, RowCount)]
@@ -509,7 +509,7 @@ auto_rollback_test({_, OciSession}) ->
          , I+I/2                                                                            % hero
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
          , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end           % votes
-         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I+2                                                                              % chapters
          , I+1                                                                              % votes_first_rank
          , Key
@@ -543,7 +543,7 @@ commit_rollback_test({_, OciSession}) ->
            , I+I/3                                                                              % hero
            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
            , I                                                                                  % votes
-           , oci_util:edatetime_to_ora(erlang:now())                                            % createdate
+           , oci_util:edatetime_to_ora(os:timestamp())                                          % createdate
            , I*2+I/1000                                                                         % chapters
            , I                                                                                  % votes_first_rank
            } || I <- lists:seq(1, RowCount)]
@@ -574,7 +574,7 @@ commit_rollback_test({_, OciSession}) ->
            , I+I/2                                                                              % hero
            , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
            , integer_to_binary(I+1)                                                             % votes
-           , oci_util:edatetime_to_ora(erlang:now())                                            % createdate
+           , oci_util:edatetime_to_ora(os:timestamp())                                          % createdate
            , I+2                                                                                % chapters
            , I+1                                                                                % votes_first_rank
            , Key
@@ -610,7 +610,7 @@ asc_desc_test({_, OciSession}) ->
          , I+I/3                                                                            % hero
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
          , I                                                                                % votes
-         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I*2+I/1000                                                                       % chapters
          , I                                                                                % votes_first_rank
          } || I <- lists:seq(1, RowCount)]
@@ -773,7 +773,7 @@ procedure_cur_test({_, OciSession}) ->
          , I+I/3                                                                            % hero
          , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
          , I                                                                                % votes
-         , oci_util:edatetime_to_ora(erlang:now())                                          % createdate
+         , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I*2+I/1000                                                                       % chapters
          , I                                                                                % votes_first_rank
          } || I <- lists:seq(1, RowCount)]

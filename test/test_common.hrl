@@ -31,14 +31,14 @@
 -ifdef(debugFmt).
     -define(ELog(__Fmt,__Args),
     (fun(__F,__A) ->
-        {_,_,__McS} = __Now = erlang:now(),
+        {_,_,__McS} = __Now = os:timestamp(),
         {_,{_,__Min,__S}} = calendar:now_to_datetime(__Now),
         ok = ?debugFmt("~2..0B:~2..0B.~6..0B "++__F, [__Min,__S,__McS rem 1000000 | __A])
     end)(__Fmt,__Args)).
 -else.
     -define(ELog(__Fmt,__Args),
     (fun(__A) ->
-        {_,_,__McS} = __Now = erlang:now(),
+        {_,_,__McS} = __Now = os:timestamp(),
         {_,{_,__Min,__S}} = calendar:now_to_datetime(__Now),
         io:format(user, "~2..0B:~2..0B.~6..0B "__Fmt"~n", [__Min,__S,__McS rem 1000000 | __A])
     end)(__Args)).
