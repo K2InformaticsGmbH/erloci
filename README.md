@@ -82,6 +82,16 @@ Change/Add the following:
     * Configuration Properties -> Librarian -> General -> Additional Library Directories: path-to-instant-client\sdk\lib\msvc
     * Configuration Properties -> Librarian -> General -> Additional Dependencies: oraocciXX.lib (replace XX with matching file in path)
 
+#### Compiling C++ port in visual studio (2013)
+
+This is experimental at the moment, a patch need to be applied to update the VS project files in order to make them use the 2013 toolchain:
+
+```
+~/erloci $ git apply misc/vs2013.patch
+```
+
+Issue `rebar co` as usual; then don't forget to revert temporarily changed vcxproj files: `git reset --hard`.
+
 ### 3rd party dependencies
 #### Threadpool 
 The threadpool code (threadpool.cpp/h) is developed by Mathias Brossard mathias@brossard.org. His threadpool library is hosted at https://github.com/mbrossard/threadpool.
