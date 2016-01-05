@@ -87,7 +87,7 @@ Change/Add the following:
 This is experimental at the moment, a patch need to be applied to update the VS project files in order to make them use the 2013 toolchain:
 
 ```
-~/erloci $ git apply misc/vs2013.patch
+git apply misc/vs2013.patch
 ```
 
 Issue `rebar co` as usual; then don't forget to revert temporarily changed vcxproj files: `git reset --hard`.
