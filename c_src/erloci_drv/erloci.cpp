@@ -25,6 +25,8 @@ bool log_flag;
 
 int main(int argc, char * argv[])
 {
+    char *nls_lang;
+    nls_lang = getenv("NLS_LANG");
 #ifdef __WIN32__
     _setmode( _fileno( stdout ), _O_BINARY );
     _setmode( _fileno( stdin  ), _O_BINARY );
@@ -69,8 +71,13 @@ int main(int argc, char * argv[])
 		}
 	}
 
-	REMOTE_LOG(INF, "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d"
-		, max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port);
+    if(nls_lang == NULL)
+        nls_lang = "";
+	REMOTE_LOG(
+        INF,
+        "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d,"
+        " NLS_LANG %s",
+        max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port, nls_lang);
 	threads::init();
 	port& prt = port::instance();
 	vector<unsigned char> read_buf;
