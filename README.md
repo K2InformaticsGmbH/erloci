@@ -62,10 +62,10 @@ sudo alien oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
 sudo dpkg -i oracle-instantclient12.1-basic_12.1.0.2.0-2_amd64.deb 
 sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
-/etc/environment
-INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
-INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
-ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.20"
+~/.profile
+export INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
+export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
+export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.8.2"
 ```
 
 ### Compiling
