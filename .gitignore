@@ -16,6 +16,7 @@ c_src/lib/instantclient/lib*.*
 *.pdb
 *.idb
 *.pch
+*.db
 *.o
 *.log
 *.obj
@@ -32,7 +33,7 @@ c_src/*/x64/
 *.beam
 *.exe
 *.manifest
-*.swp
+*.sw*
 *.app
 priv/*.ilk
 priv/*.pdb
@@ -52,3 +53,4 @@ support/
 *.txt
 .rebar/
 console_test.erl
+doc/
