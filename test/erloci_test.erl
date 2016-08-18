@@ -72,27 +72,27 @@
 %%------------------------------------------------------------------------------
 %% db_negative_test_
 %%------------------------------------------------------------------------------
-db_negative_test_() ->
-    {timeout, 60, {
-        setup,
-        fun() ->
-                application:start(erloci),
-                OciPort = erloci:new(
-                            [{logging, true},
-                             {env, [{"NLS_LANG",
-                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-                OciPort
-        end,
-        fun(OciPort) ->
-                OciPort:close(),
-                application:stop(erloci)
-        end,
-        {with, [
-            fun echo/1,
-            fun bad_password/1,
-            fun session_ping/1
-        ]}
-    }}.
+%db_negative_test_() ->
+%    {timeout, 60, {
+%        setup,
+%        fun() ->
+%                application:start(erloci),
+%                OciPort = erloci:new(
+%                            [{logging, true},
+%                             {env, [{"NLS_LANG",
+%                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+%                OciPort
+%        end,
+%        fun(OciPort) ->
+%                OciPort:close(),
+%                application:stop(erloci)
+%        end,
+%        {with, [
+%            fun echo/1,
+%            fun bad_password/1,
+%            fun session_ping/1
+%        ]}
+%    }}.
 
 echo(OciPort) ->
     ?ELog("+---------------------------------------------+"),
@@ -169,19 +169,20 @@ db_test_() ->
                application:stop(erloci)
        end,
        {with,
-        [fun drop_create/1,
-         fun bad_sql_connection_reuse/1,
-         fun insert_select_update/1,
-         fun auto_rollback_test/1,
-         fun commit_rollback_test/1,
-         fun asc_desc_test/1,
-         fun lob_test/1,
-         fun describe_test/1,
-         fun function_test/1,
-         fun procedure_scalar_test/1,
-         fun procedure_cur_test/1,
-         fun timestamp_interval_datatypes/1,
-         fun stmt_reuse_onerror/1
+        [%fun drop_create/1,
+         %fun bad_sql_connection_reuse/1,
+         %fun insert_select_update/1,
+         %fun auto_rollback_test/1,
+         %fun commit_rollback_test/1,
+         %fun asc_desc_test/1,
+         %fun lob_test/1,
+         %fun describe_test/1,
+         %fun function_test/1,
+         %fun procedure_scalar_test/1,
+         %fun procedure_cur_test/1,
+         %fun timestamp_interval_datatypes/1,
+         %fun stmt_reuse_onerror/1,
+         fun multiple_bind_reuse/1
         ]}
       }}.
 
@@ -925,6 +926,73 @@ stmt_reuse_onerror({_, OciSession}) ->
     ?assertMatch({error,{1,<<"ORA-00001",_/binary>>}}, BoundInsStmt:exec_stmt([{1}])),
     ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt([{2}])),
     ?assertMatch({error,{1,<<"ORA-00001",_/binary>>}}, BoundInsStmt:exec_stmt([{2}])),
+    ?assertMatch(ok, BoundInsStmt:close()),
+
+    DropStmtFinal = OciSession:prep_sql(?DROP),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmtFinal),
+    ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
+    ?assertEqual(ok, DropStmtFinal:close()),
+    ok.
+
+multiple_bind_reuse({_, OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|             multiple_bind_reuse             |"),
+    ?ELog("+---------------------------------------------+"),
+
+    Cols = [lists:flatten(io_lib:format("col~p", [I]))
+            || I <- lists:seq(1, 5)],
+    BindVarCols = [io_lib:format(":P_~s", [C]) || C <- Cols],
+    CreateSql = <<"create table "?TESTTABLE" (",
+                  (list_to_binary(
+                     string:join(
+                       [io_lib:format("~s varchar(30)", [C]) || C <- Cols],
+                       ", ")))/binary,
+                  ")">>,
+    InsertSql = <<"insert into "?TESTTABLE" (",
+                    (list_to_binary(
+                     string:join(
+                       [io_lib:format("~s", [C]) || C <- Cols],
+                       ", ")))/binary,
+                  ") values (",
+                  (list_to_binary(string:join(BindVarCols,", ")))/binary,")">>,
+    SelectSql = <<"select * from "?TESTTABLE"">>,
+    InsertBindVars = [{list_to_binary(BC), 'SQLT_CHR'} || BC <- BindVarCols],
+
+    DropStmt = OciSession:prep_sql(?DROP),
+    DropStmt:exec_stmt(),
+    DropStmt:close(),
+
+    Data = [list_to_tuple([lists:nth(random:uniform(3),
+                                     [<<"">>, <<"big">>, <<"small">>])
+                           || _ <- Cols]) || _ <- lists:seq(1, 2)],
+
+    CreateStmt = OciSession:prep_sql(CreateSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateStmt),
+    ?assertEqual({executed, 0}, CreateStmt:exec_stmt()),
+    ?assertEqual(ok, CreateStmt:close()),
+
+    BoundInsStmt = OciSession:prep_sql(InsertSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
+    ?assertMatch(ok, BoundInsStmt:bind_vars(InsertBindVars)),
+    [?assertMatch({rowids, _}, BoundInsStmt:exec_stmt([R])) || R <- Data],
+
+    SelectStmt = OciSession:prep_sql(SelectSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelectStmt),
+    ?assertEqual({cols, [{list_to_binary(string:to_upper(C)),'SQLT_CHR',60,0,0}
+                        || C <- Cols]},
+                 SelectStmt:exec_stmt()),
+    {{rows, Rows}, true} = SelectStmt:fetch_rows(length(Data)+1),
+    {Error, _, _} =
+    lists:foldl(fun(_I, {Flag, [ID|Insert], [ID|Select]}) -> {Flag, Insert, Select};
+                   (I, {_, [ID|Insert], [SD|Select]}) ->
+                        ?debugFmt("~p. expected ~p", [I, ID]),
+                        ?debugFmt("~p. value    ~p", [I, SD]),
+                        {true, Insert, Select}
+                end, {false, Data, [list_to_tuple(R) || R <- Rows]},
+                lists:seq(1, length(Data))),
+    ?assertEqual(false, Error),
+    ?assertEqual(ok, SelectStmt:close()),
+
     ?assertMatch(ok, BoundInsStmt:close()),
 
     DropStmtFinal = OciSession:prep_sql(?DROP),
