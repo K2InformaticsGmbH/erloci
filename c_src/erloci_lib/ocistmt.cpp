@@ -276,7 +276,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 			if(r.fn_ret != SUCCESS) {
 				REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
 				if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
-				ocisess->release_stmt(this);
+				if (r.fn_ret != CONTINUE_WITH_ERROR) ocisess->release_stmt(this);
 				throw r;
 			}
 			if(_stmt_typ == OCI_STMT_INSERT || _stmt_typ == OCI_STMT_UPDATE || _stmt_typ == OCI_STMT_DELETE) {
