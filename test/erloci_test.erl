@@ -180,7 +180,8 @@ db_test_() ->
          fun function_test/1,
          fun procedure_scalar_test/1,
          fun procedure_cur_test/1,
-         fun timestamp_interval_datatypes/1
+         fun timestamp_interval_datatypes/1,
+         fun stmt_reuse_onerror/1
         ]}
       }}.
 
@@ -900,3 +901,34 @@ timestamp_interval_datatypes({_, OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
+stmt_reuse_onerror({_, OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|             stmt_reuse_onerror              |"),
+    ?ELog("+---------------------------------------------+"),
+
+    CreateSql = <<"create table "?TESTTABLE" (unique_num number not null primary key)">>,
+    InsertSql = <<"insert into "?TESTTABLE" (unique_num) values (:unique_num)">>,
+
+    DropStmt = OciSession:prep_sql(?DROP),
+    DropStmt:exec_stmt(),
+    DropStmt:close(),
+
+    CreateStmt = OciSession:prep_sql(CreateSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateStmt),
+    ?assertEqual({executed, 0}, CreateStmt:exec_stmt()),
+    ?assertEqual(ok, CreateStmt:close()),
+
+    BoundInsStmt = OciSession:prep_sql(InsertSql),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
+    ?assertMatch(ok, BoundInsStmt:bind_vars([{<<":unique_num">>, 'SQLT_INT'}])),
+    ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt([{1}])),
+    ?assertMatch({error,{1,<<"ORA-00001",_/binary>>}}, BoundInsStmt:exec_stmt([{1}])),
+    ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt([{2}])),
+    ?assertMatch({error,{1,<<"ORA-00001",_/binary>>}}, BoundInsStmt:exec_stmt([{2}])),
+    ?assertMatch(ok, BoundInsStmt:close()),
+
+    DropStmtFinal = OciSession:prep_sql(?DROP),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmtFinal),
+    ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
+    ?assertEqual(ok, DropStmtFinal:close()),
+    ok.
