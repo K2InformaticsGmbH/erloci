@@ -940,7 +940,7 @@ multiple_bind_reuse({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),
 
     Cols = [lists:flatten(io_lib:format("col~p", [I]))
-            || I <- lists:seq(1, 5)],
+            || I <- lists:seq(1, 10)],
     BindVarCols = [io_lib:format(":P_~s", [C]) || C <- Cols],
     CreateSql = <<"create table "?TESTTABLE" (",
                   (list_to_binary(
@@ -964,7 +964,7 @@ multiple_bind_reuse({_, OciSession}) ->
 
     Data = [list_to_tuple([lists:nth(random:uniform(3),
                                      [<<"">>, <<"big">>, <<"small">>])
-                           || _ <- Cols]) || _ <- lists:seq(1, 2)],
+                           || _ <- Cols]) || _ <- lists:seq(1, 10)],
 
     CreateStmt = OciSession:prep_sql(CreateSql),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateStmt),
@@ -983,7 +983,10 @@ multiple_bind_reuse({_, OciSession}) ->
                  SelectStmt:exec_stmt()),
     {{rows, Rows}, true} = SelectStmt:fetch_rows(length(Data)+1),
     {Error, _, _} =
-    lists:foldl(fun(_I, {Flag, [ID|Insert], [ID|Select]}) -> {Flag, Insert, Select};
+    lists:foldl(fun(_I, {Flag, [ID|Insert], [ID|Select]}) ->
+                        %% ?debugFmt("~p. expected ~p", [I, ID]),
+                        %% ?debugFmt("~p. value    ~p", [I, ID]),
+                        {Flag, Insert, Select};
                    (I, {_, [ID|Insert], [SD|Select]}) ->
                         ?debugFmt("~p. expected ~p", [I, ID]),
                         ?debugFmt("~p. value    ~p", [I, SD]),

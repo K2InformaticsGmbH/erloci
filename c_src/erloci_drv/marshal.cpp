@@ -333,6 +333,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	for(unsigned int i=0; i < vars.size(); ++i) {
 		vars[i].valuep.clear();
 		vars[i].alen.clear();
+		vars[i].ind.clear();
 		if(vars[i].datap) {
 			free(vars[i].datap);
 			vars[i].datap = NULL;
