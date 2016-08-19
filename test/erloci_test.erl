@@ -72,27 +72,27 @@
 %%------------------------------------------------------------------------------
 %% db_negative_test_
 %%------------------------------------------------------------------------------
-%db_negative_test_() ->
-%    {timeout, 60, {
-%        setup,
-%        fun() ->
-%                application:start(erloci),
-%                OciPort = erloci:new(
-%                            [{logging, true},
-%                             {env, [{"NLS_LANG",
-%                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-%                OciPort
-%        end,
-%        fun(OciPort) ->
-%                OciPort:close(),
-%                application:stop(erloci)
-%        end,
-%        {with, [
-%            fun echo/1,
-%            fun bad_password/1,
-%            fun session_ping/1
-%        ]}
-%    }}.
+db_negative_test_() ->
+    {timeout, 60, {
+        setup,
+        fun() ->
+                application:start(erloci),
+                OciPort = erloci:new(
+                            [{logging, true},
+                             {env, [{"NLS_LANG",
+                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+                OciPort
+        end,
+        fun(OciPort) ->
+                OciPort:close(),
+                application:stop(erloci)
+        end,
+        {with, [
+            fun echo/1,
+            fun bad_password/1,
+            fun session_ping/1
+        ]}
+    }}.
 
 echo(OciPort) ->
     ?ELog("+---------------------------------------------+"),
@@ -169,19 +169,19 @@ db_test_() ->
                application:stop(erloci)
        end,
        {with,
-        [%fun drop_create/1,
-         %fun bad_sql_connection_reuse/1,
-         %fun insert_select_update/1,
-         %fun auto_rollback_test/1,
-         %fun commit_rollback_test/1,
-         %fun asc_desc_test/1,
-         %fun lob_test/1,
-         %fun describe_test/1,
-         %fun function_test/1,
-         %fun procedure_scalar_test/1,
-         %fun procedure_cur_test/1,
-         %fun timestamp_interval_datatypes/1,
-         %fun stmt_reuse_onerror/1,
+        [fun drop_create/1,
+         fun bad_sql_connection_reuse/1,
+         fun insert_select_update/1,
+         fun auto_rollback_test/1,
+         fun commit_rollback_test/1,
+         fun asc_desc_test/1,
+         fun lob_test/1,
+         fun describe_test/1,
+         fun function_test/1,
+         fun procedure_scalar_test/1,
+         fun procedure_cur_test/1,
+         fun timestamp_interval_datatypes/1,
+         fun stmt_reuse_onerror/1,
          fun multiple_bind_reuse/1
         ]}
       }}.
