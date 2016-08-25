@@ -750,9 +750,12 @@ for (ub2 pos = 1; pos <= count; pos++)
 				case SQLT_INT:
 					(*intf.append_int_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
 					break;
-				case SQLT_CHR:
-					(*intf.append_bin_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name), (const unsigned char*)(_argsin[i].datap), _argsin[i].datap_len, out_list);
-					break;
+				case SQLT_CHR: {
+					unsigned long long len = _argsin[i].datap_len;
+					if (_argsin[i].alen[0] > 0 && _argsin[i].alen[0] < len) len = _argsin[i].alen[0];
+					(*intf.append_bin_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name),
+														 (const unsigned char*)(_argsin[i].datap), len, out_list);
+					break;}
 				case SQLT_RSET:
 					(*intf.append_cur_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name),
 														 (unsigned long long)_ocisess,
