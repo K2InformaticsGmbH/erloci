@@ -747,9 +747,22 @@ for (ub2 pos = 1; pos <= count; pos++)
 		for(unsigned int i = 0; i < _argsin.size(); ++i) {
 			if(_argsin[i].dir == DIR_OUT || _argsin[i].dir == DIR_INOUT) {
 				switch (_argsin[i].dty) {
+				case SQLT_BFLOAT:
+				case SQLT_BDOUBLE:
+				case SQLT_FLT:
+					(*intf.append_flt_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name), *(double*)(_argsin[i].datap), out_list);
+					break;
+				case SQLT_NUM:
+				case SQLT_VNU:{
+					unsigned long long len = _argsin[i].datap_len+1;
+					if (_argsin[i].alen[0] > 0 && _argsin[i].alen[0] < len) len = _argsin[i].alen[0]+1;
+					(*intf.append_bin_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name),
+														 (const unsigned char*)(_argsin[i].datap), len, out_list);
+					break;}
 				case SQLT_INT:
 					(*intf.append_int_arg_tuple_to_list)((const unsigned char*)_argsin[i].name, strlen(_argsin[i].name), *(int*)(_argsin[i].datap), out_list);
 					break;
+				case SQLT_STR:
 				case SQLT_CHR: {
 					unsigned long long len = _argsin[i].datap_len;
 					if (_argsin[i].alen[0] > 0 && _argsin[i].alen[0] < len) len = _argsin[i].alen[0];
