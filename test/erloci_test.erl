@@ -722,10 +722,10 @@ procedure_scalar_test({_, OciSession}) ->
     ?assertMatch(ok, ExecStmt:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
                                         , {<<":p_second">>, inout, 'SQLT_CHR'}
                                         , {<<":p_result">>, out, 'SQLT_INT'}])),
-    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 52 ">>}
-                               ,{<<":p_result">>,52}]}, ExecStmt:exec_stmt([{50, <<"2             ">>, 3}], 1)),
-    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 7  ">>}
-                               ,{<<":p_result">>,7}]}, ExecStmt:exec_stmt([{5, <<"2             ">>, 3}], 1)),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 51">>}
+                               ,{<<":p_result">>,51}]}, ExecStmt:exec_stmt([{50, <<"1             ">>, 3}], 1)),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 6">>}
+                               ,{<<":p_result">>,6}]}, ExecStmt:exec_stmt([{5, <<"1             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt:close()),
 
     ExecStmt1 = OciSession:prep_sql(<<"call "?TESTPROCEDURE"(:p_first,:p_second,:p_result)">>),
@@ -733,9 +733,9 @@ procedure_scalar_test({_, OciSession}) ->
     ?assertMatch(ok, ExecStmt1:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
                                         , {<<":p_second">>, inout, 'SQLT_CHR'}
                                         , {<<":p_result">>, out, 'SQLT_INT'}])),
-    ?assertEqual({executed, 0, [{<<":p_second">>,<<"The sum is 52 ">>}
+    ?assertEqual({executed, 0, [{<<":p_second">>,<<"The sum is 52">>}
                                ,{<<":p_result">>,52}]}, ExecStmt1:exec_stmt([{50, <<"2             ">>, 3}], 1)),
-    ?assertEqual({executed, 0, [{<<":p_second">>,<<"The sum is 7  ">>}
+    ?assertEqual({executed, 0, [{<<":p_second">>,<<"The sum is 7">>}
                                ,{<<":p_result">>,7}]}, ExecStmt1:exec_stmt([{5, <<"2             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt1:close()),
 
@@ -744,10 +744,10 @@ procedure_scalar_test({_, OciSession}) ->
     ?assertMatch(ok, ExecStmt2:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
                                         , {<<":p_second">>, inout, 'SQLT_CHR'}
                                         , {<<":p_result">>, out, 'SQLT_INT'}])),
-    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 52 ">>}
-                               ,{<<":p_result">>,52}]}, ExecStmt2:exec_stmt([{50, <<"2             ">>, 3}], 1)),
-    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 7  ">>}
-                               ,{<<":p_result">>,7}]}, ExecStmt2:exec_stmt([{5, <<"2             ">>, 3}], 1)),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 53">>}
+                               ,{<<":p_result">>,53}]}, ExecStmt2:exec_stmt([{50, <<"3             ">>, 3}], 1)),
+    ?assertEqual({executed, 1, [{<<":p_second">>,<<"The sum is 8">>}
+                               ,{<<":p_result">>,8}]}, ExecStmt2:exec_stmt([{5, <<"3             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt2:close()),
 
     % Drop procedure

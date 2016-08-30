@@ -30,6 +30,9 @@
 % create port interface
 -export([new/1, new/2, del/1, bind_arg_types/0]).
 
+-include("oci.hrl").
+-include("oci_log_cb.hrl").
+
 start() -> application:start(?MODULE).
 start(_Type, _Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, []).
@@ -48,6 +51,10 @@ init(_) ->
 new(Options) -> new(Options, ?LOGFUN).
 new(Options, undefined) -> new(Options, ?LOGFUN);
 new(Options, LogFun) ->
+    case proplists:is_defined(pid, erlang:fun_info(LogFun)) of
+        true -> error({badarg, "only external funs are allowed as log fun"});
+        _ -> ok
+    end,
     case supervisor:start_child(?MODULE, [Options, LogFun]) of
         {ok, undefined} -> error(port_start_failed);
         {error, Error} -> error(Error);
