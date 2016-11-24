@@ -234,7 +234,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
 
 %% Callbacks
 init([Logging, ListenPort, LSock, LogFun, Options]) ->
-    PortLogger = oci_logger:start_link(LSock, LogFun),
+    PortLogger = oci_logger:start_link(LSock, LogFun, Options),
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -304,6 +304,11 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                      "["++PathSepStr++"]", [{return, list}])),
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
+    case proplists:get_value(pstate, Options, '$none') of
+        ProcessState when is_map(ProcessState) ->
+            maps:map(fun(K, V) -> put(K, V), V end, ProcessState);
+        _ -> ok
+    end,
     ?Debug(PortLogger, "Extra Env :~p", [Envs]),
     PortOptions = [ {packet, 4}
                   , binary

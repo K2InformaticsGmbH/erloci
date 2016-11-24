@@ -26,7 +26,7 @@
     terminate/2,
     code_change/3]).
 
--export([start_link/2, log/2, accept/1, bin2str/1]).
+-export([start_link/3, log/2, accept/1, bin2str/1]).
 
 -record(state, {
           lsock,
@@ -48,8 +48,8 @@ split_list(List, Size, Acc) ->
        true -> lists:reverse([L2,L1|Acc])
     end.
 
-start_link(LSock, LogFun) when is_function(LogFun, 1) ->
-    case gen_server:start_link(?MODULE, [LSock, LogFun], []) of
+start_link(LSock, LogFun, Options) when is_function(LogFun, 1) ->
+    case gen_server:start_link(?MODULE, [LSock, LogFun, Options], []) of
         {ok, Pid} -> {?MODULE, Pid};
         Error -> throw({error, Error})
     end.
@@ -61,7 +61,12 @@ log({Lvl, _Tag, File, Func, Line, Msg}, {?MODULE, Pid}) ->
     gen_server:cast(Pid, {Lvl, File, Func, Line, Msg});
 log(Msg, {?MODULE, Pid}) -> gen_server:cast(Pid, Msg).
 
-init([LSock, LogFun]) ->
+init([LSock, LogFun, Options]) ->
+    case proplists:get_value(pstate, Options, '$none') of
+        ProcessState when is_map(ProcessState) ->
+            maps:map(fun(K, V) -> put(K, V), V end, ProcessState);
+        _ -> ok
+    end,
     try
         LogFun({debug, atom_to_list(?MODULE), "", ?LINE, "---- ERLOCI PORT PROCESS LOGGER ----"})
     catch
