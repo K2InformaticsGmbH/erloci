@@ -59,7 +59,8 @@
     waiting_resp = false,
     logging = ?DBG_FLAG_OFF,
     logger,
-    lastcmd
+    lastcmd,
+    ping_timeout
 }).
 
 -define(log(__Lgr,__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Lgr, __Format, __Args); true -> ok end).
@@ -99,7 +100,9 @@ get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
 when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
     case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd]}, ?PORT_TIMEOUT) of
         {error, Error} -> {error, Error};
-        SessionId -> {?MODULE, PortPid, SessionId}
+        SessionId ->
+            PortPid ! {check_sess, SessionId},
+            {?MODULE, PortPid, SessionId}
     end.
 
 close({?MODULE, statement, _, _, _} = Ctx)  -> close(ignore_port, Ctx);
@@ -304,6 +307,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                      "["++PathSepStr++"]", [{return, list}])),
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
+    PingTimeout = proplists:get_value(ping_timeout, Options, 0),
     ?Debug(PortLogger, "Extra Env :~p", [Envs]),
     PortOptions = [ {packet, 4}
                   , binary
@@ -327,11 +331,11 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
                     ?Debug(PortLogger, "started log enabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, logger=PortLogger}};
+                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, logger=PortLogger, ping_timeout = PingTimeout}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_OFF})),
                     ?Debug(PortLogger, "started log disabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger}}
+                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger, ping_timeout = PingTimeout}}
             end
     end.
 
@@ -375,10 +379,22 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_b
     Resp = binary_to_term(Data),
     case handle_result(State#state.logging, Resp, L) of
         {undefined, Result} -> ?Debug(L,"no reply for ~p", [Result]);
-        {From, {error, Reason}} ->
-            gen_server:reply(binary_to_term(From), {error, Reason});
-        {From, Result} ->
-            gen_server:reply(binary_to_term(From), Result) % regular reply
+        {Info, Result} ->
+            case {binary_to_term(Info), Result} of
+                {SessionId, ok} when is_integer(SessionId) ->
+                    erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
+                {SessionId, {error, Reason}} when is_integer(SessionId) ->
+                    try
+                        true = erlang:port_close(Port)
+                    catch
+                        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
+                    end,
+                    erloci:del(self());
+                {From, {error, Reason}} ->
+                    gen_server:reply(From, {error, Reason});
+                {From, Result} ->
+                    gen_server:reply(From, Result) % regular reply
+            end
     end,
     {noreply, State#state{waiting_resp=false, lastcmd=undefined}};
 handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = State) ->
@@ -392,6 +408,13 @@ handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = Sta
             erloci:del(self()),
            {noreply, State}
     end;
+handle_info({check_sess, _}, #state{ping_timeout = 0} = State) ->
+    {noreply, State};
+handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
+    CmdTuple = list_to_tuple([term_to_binary(SessionId), ?SESN_PING, SessionId]),
+    BTerm = term_to_binary(CmdTuple),
+    true = port_command(Port, BTerm),
+    {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}};
 %% Catch all - throws away unknown messages (This could happen by "accident"
 %% so we do not want to crash, but we make a log entry as it is an
 %% unwanted behaviour.)
