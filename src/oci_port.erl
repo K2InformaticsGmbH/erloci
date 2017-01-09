@@ -237,7 +237,7 @@ fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
 
 %% Callbacks
 init([Logging, ListenPort, LSock, LogFun, Options]) ->
-    PortLogger = oci_logger:start_link(LSock, LogFun),
+    PortLogger = oci_logger:start_link(LSock, LogFun, Options),
     PrivDir = case code:priv_dir(erloci) of
         {error,_} -> "./priv/";
         PDir -> PDir
@@ -308,6 +308,11 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
     PingTimeout = proplists:get_value(ping_timeout, Options, 0),
+    case proplists:get_value(pstate, Options, '$none') of
+        ProcessState when is_map(ProcessState) ->
+            maps:map(fun(K, V) -> put(K, V), V end, ProcessState);
+        _ -> ok
+    end,
     ?Debug(PortLogger, "Extra Env :~p", [Envs]),
     PortOptions = [ {packet, 4}
                   , binary
@@ -383,7 +388,7 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_b
             case {binary_to_term(Info), Result} of
                 {SessionId, ok} when is_integer(SessionId) ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
-                {SessionId, {error, Reason}} when is_integer(SessionId) ->
+                {SessionId, {error, _Reason}} when is_integer(SessionId) ->
                     try
                         true = erlang:port_close(Port)
                     catch
