@@ -154,7 +154,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 	checkerr(&r, OCIDescriptorAlloc(envhp,(dvoid **)&(cur_clm.row_valp),									\
 									__desctype, 0, (dvoid **)0));											\
 	if(r.fn_ret != SUCCESS) {																				\
-		REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d("__dtypestr")\n", _stmthp, num_cols);	\
+		REMOTE_LOG(ERR, "failed OCIDescriptorAlloc for %p column %d(" __dtypestr")\n", _stmthp, num_cols);	\
 		throw r;																							\
 	}																										\
 }
@@ -166,7 +166,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 								(sword) cur_clm.dlen + 1, __datatype, &(cur_clm.indp), (ub2 *)0,			\
                                 (ub2 *)0, OCI_DEFAULT));													\
 	if(r.fn_ret != SUCCESS) {																				\
-		REMOTE_LOG(ERR, "failed OCIDefineByPos for %p column %d("__dtypestr")\n", _stmthp, num_cols);		\
+		REMOTE_LOG(ERR, "failed OCIDefineByPos for %p column %d(" __dtypestr")\n", _stmthp, num_cols);		\
 		throw r;																							\
 	}																										\
 }

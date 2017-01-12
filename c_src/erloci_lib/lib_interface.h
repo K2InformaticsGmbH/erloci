@@ -38,8 +38,8 @@ typedef enum _LOG_LEVEL {
 #define sprintf_s(_a, _b, _c, ...)				sprintf((_a), (_c), __VA_ARGS__)
 #define strncpy_s(_a, _b, _c, _d)               strncpy((_a), (_c), (_d))
 #define vsprintf_s(_a, _b, _c, _d)              vsprintf((_a), (_c), (_d))
-#define REMOTE_LOG_TERM(_level,_term,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_term,_str,##__VA_ARGS__)
-#define REMOTE_LOG(_level,_str, ...)			if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,NULL,_str,##__VA_ARGS__)
+#define REMOTE_LOG_TERM(_level,_term,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_term, _str,##__VA_ARGS__)
+#define REMOTE_LOG(_level,_str, ...)			if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,NULL, _str,##__VA_ARGS__)
 #define REMOTE_LOG_SINGLE(_str, ...)			if (log_flag) log_remote((_str),##__VA_ARGS__)
 #else
 #define REMOTE_LOG_TERM(_level,_term,_str, ...)	if (log_flag) log_remote(__FILE__,__FUNCTION__,__LINE__,_level,_term,_str,__VA_ARGS__)
