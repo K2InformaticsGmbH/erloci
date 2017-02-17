@@ -4,4 +4,5 @@ c_src/*/x64/
 erl_crash.dump
 priv
 rebar.lock
+rebar3.crashdump
 test/*.beam
