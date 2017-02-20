@@ -145,13 +145,13 @@ session_ping(OciPort) ->
     ?ELog("ping oci session", []),
     {Tns,User,Pswd} = ?CONN_CONF,
     OciSession = OciPort:get_session(Tns, User, Pswd),
-    ?assertEqual(ok, OciSession:ping()),
+    ?assertEqual(pong, OciSession:ping()),
     SelStmt = OciSession:prep_sql("select * from dual"),
-    ?assertEqual(ok, OciSession:ping()),
+    ?assertEqual(pong, OciSession:ping()),
     ?assertMatch({cols,[{<<"DUMMY">>,'SQLT_CHR',_,0,0}]}, SelStmt:exec_stmt()),
-    ?assertEqual(ok, OciSession:ping()),
+    ?assertEqual(pong, OciSession:ping()),
     ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
-    ?assertEqual(ok, OciSession:ping()).
+    ?assertEqual(pong, OciSession:ping()).
 
 %%------------------------------------------------------------------------------
 %% db_test_
@@ -189,6 +189,8 @@ db_test_() ->
          fun timestamp_interval_datatypes/1,
          fun stmt_reuse_onerror/1,
          fun multiple_bind_reuse/1,
+         fun check_ping/1,
+         fun check_session_without_ping/1,
          fun check_session_with_ping/1
         ]}
       }}.
@@ -1011,29 +1013,69 @@ multiple_bind_reuse({_, OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
-check_session_with_ping({_, OciSession}) ->
+check_ping({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|           check_session_with_ping           |"),
+    ?ELog("|                 check_ping                  |"),
     ?ELog("+---------------------------------------------+"),
-    Stmt = OciSession:prep_sql(?SESSSQL),
-    {cols, _} = Stmt:exec_stmt(),
-    {{rows, SessionsBefore}, true} = Stmt:fetch_rows(10000),
+    SessionsBefore = current_pool_session_ids(OciSession),
     %% Connection with ping timeout set to 1 second
     PingOciPort = erloci:new([{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
     {Tns,User,Pswd} = ?CONN_CONF,
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
-    ?assertEqual(ok, PingOciSession:ping()),
-    {cols, _} = Stmt:exec_stmt(),
-    {{rows, SessionsAfter}, true} = Stmt:fetch_rows(10000),
+    ?assertEqual(pong, PingOciSession:ping()),
+    SessionsAfter = current_pool_session_ids(OciSession),
     [PingSession | _] = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
-    Stmt1 = OciSession:prep_sql(<<"alter system kill session '", PingSession/binary, "' immediate">>),
-    case Stmt1:exec_stmt() of
-        {error,{30, _}} -> ok;
-        {error,{31, _}} -> ok;
-        {executed, 0} -> ?ELog("~p closed", [PingSession])
-    end,
+    ?assertEqual(ok, kill_session(OciSession, PingSession)),
     %% sleeping for 2 seconds so that ping would realize the session is dead
     timer:sleep(2000),
-    ?assertEqual(pang, PingOciSession:ping()),
+    ?assertEqual(pang, PingOciSession:ping()).
+
+check_session_without_ping({_, OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|         check_session_without_ping          |"),
+    ?ELog("+---------------------------------------------+"),
+    SessionsBefore = current_pool_session_ids(OciSession),
+    Opts = [{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
+    NoPingOciPort = erloci:new(Opts),
+    {Tns,User,Pswd} = ?CONN_CONF,
+    NoPingOciSession = NoPingOciPort:get_session(Tns, User, Pswd),
+    SelStmt1 = NoPingOciSession:prep_sql(<<"select 4+4 from dual">>),
+    SessionsAfter = current_pool_session_ids(OciSession),
+    ?assertMatch({cols, _}, SelStmt1:exec_stmt()),
+    [NoPingSession | _] = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
+    ?assertEqual(ok, kill_session(OciSession, NoPingSession)),
+    ?assertMatch({error, {3113, _}}, SelStmt1:exec_stmt()).
+
+check_session_with_ping({_, OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|           check_session_with_ping           |"),
+    ?ELog("+---------------------------------------------+"),
+    SessionsBefore = current_pool_session_ids(OciSession),
+    %% Connection with ping timeout set to 1 second
+    Opts = [{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
+    PingOciPort = erloci:new(Opts),
+    {Tns,User,Pswd} = ?CONN_CONF,
+    PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
+    SelStmt1 = PingOciSession:prep_sql(<<"select 4+4 from dual">>),
+    SessionsAfter = current_pool_session_ids(OciSession),
+    ?assertMatch({cols, _}, SelStmt1:exec_stmt()),
+    [NoPingSession | _] = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
+    ?assertEqual(ok, kill_session(OciSession, NoPingSession)),
+    timer:sleep(2000),
+    ?assertMatch({'EXIT', {noproc, _}}, catch SelStmt1:exec_stmt()).
+
+current_pool_session_ids(OciSession) ->
+    Stmt = OciSession:prep_sql(?SESSSQL),
+    ?assertMatch({cols, _}, Stmt:exec_stmt()),
+    {{rows, CurSessions}, true} = Stmt:fetch_rows(10000),
     ?assertEqual(ok, Stmt:close()),
-    ?assertEqual(ok, Stmt1:close()).
+    CurSessions.
+
+kill_session(OciSession, SessionToKill) when is_binary(SessionToKill) ->
+    Stmt = OciSession:prep_sql(<<"alter system kill session '", SessionToKill/binary, "' immediate">>),
+    case Stmt:exec_stmt() of
+        {error,{30, _}} -> ok;
+        {error,{31, _}} -> ok;
+        {executed, 0} -> ?ELog("~p closed", [SessionToKill])
+    end,
+    ?assertEqual(ok, Stmt:close()).
