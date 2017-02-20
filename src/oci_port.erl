@@ -379,7 +379,7 @@ handle_call({port_call, Msg}, From, #state{ping_timeout = PingInterval, ping_tre
     %?Debug(_PortLogger, "TX (~p)", [integer_to_list(byte_size(BTerm),16)]),
     true = port_command(Port, BTerm),
     NewPTref = case Msg of
-                   [_, SessionId | _] when is_integer(SessionId) ->
+                   [Cmd, SessionId | _] when Cmd /= ?RMOTE_MSG; Cmd /= ?CMD_UNKWN; Cmd /= ?CMD_ECHOT ->
                        reset_ping_timer(PingInterval, PTref, SessionId);
                    _ -> PTref
                end,
