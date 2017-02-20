@@ -1025,14 +1025,11 @@ check_session_with_ping({_, OciSession}) ->
     ?assertEqual(ok, PingOciSession:ping()),
     {cols, _} = Stmt:exec_stmt(),
     {{rows, SessionsAfter}, true} = Stmt:fetch_rows(10000),
-    PingSession = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
-    Stmt1 = OciSession:prep_sql(
-         list_to_binary(
-           io_lib:format("alter system kill session '~s' immediate", [PingSession])
-          )),
+    [PingSession | _] = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
+    Stmt1 = OciSession:prep_sql(<<"alter system kill session '", PingSession/binary, "' immediate">>),
     case Stmt1:exec_stmt() of
-        {error,{30,<<"ORA-00030: User session ID does not exist.\n">>}} -> ok;
-        {error,{31,<<"ORA-00031: session marked for kill\n">>}} -> ok;
+        {error,{30, _}} -> ok;
+        {error,{31, _}} -> ok;
         {executed, 0} -> ?ELog("~p closed", [PingSession])
     end,
     %% sleeping for 2 seconds so that ping would realize the session is dead
