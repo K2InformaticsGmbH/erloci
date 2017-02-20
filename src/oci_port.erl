@@ -369,7 +369,8 @@ handle_call(close, _From, #state{port=Port} = State) ->
     end,
     erloci:del(self()),
     {reply, ok, State};
-handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger, ping_timeout = PingInterval, ping_tref = PTref} = State) ->
+handle_call({port_call, Msg}, From, #state{ping_timeout = PingInterval, ping_tref = PTref,
+                                           port=Port, logger=_PortLogger} = State) ->
     Cmd = [if From /= undefined -> term_to_binary(From); true -> From end | Msg],
     CmdTuple = list_to_tuple(Cmd),
     BTerm = term_to_binary(CmdTuple),
@@ -398,9 +399,9 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
             PTref;
         {Info, Result} ->
             case {binary_to_term(Info), Result} of
-                {SessionId, ok} when is_integer(SessionId) ->
+                {{ping, SessionId}, ok} ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
-                {SessionId, {error, _Reason}} when is_integer(SessionId) ->
+                {{ping, SessionId}, {error, _Reason}} ->
                     try
                         true = erlang:port_close(Port)
                     catch
@@ -431,7 +432,7 @@ handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = Sta
 handle_info({check_sess, _}, #state{ping_timeout = 0} = State) ->
     {noreply, State};
 handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
-    CmdTuple = list_to_tuple([term_to_binary(SessionId), ?SESN_PING, SessionId]),
+    CmdTuple = list_to_tuple([term_to_binary({ping, SessionId}), ?SESN_PING, SessionId]),
     BTerm = term_to_binary(CmdTuple),
     true = port_command(Port, BTerm),
     {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}};
