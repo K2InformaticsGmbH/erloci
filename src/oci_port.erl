@@ -143,7 +143,10 @@ bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_li
     end.
 
 ping({?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]}, ?PORT_TIMEOUT).
+    case rpc:call(node(PortPid), erlang, is_process_alive, [PortPid]) of
+        true -> gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]}, ?PORT_TIMEOUT);
+        _ -> pang
+    end.
 
 commit({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?CMT_SESSN, SessionId]}, ?PORT_TIMEOUT).

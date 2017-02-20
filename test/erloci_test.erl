@@ -68,10 +68,16 @@
                           , {<<":votes_first_rank">>, 'SQLT_INT'}
                           , {<<":pri_rowid1">>, 'SQLT_STR'}
                           ]).
+-define(SESSSQL, <<"select '' || s.sid || ',' || s.serial# "
+                   "from gv$session s join "
+                   "gv$process p on p.addr = s.paddr and "
+                   "p.inst_id = s.inst_id "
+                   "where s.type != 'BACKGROUND' and "
+                   "s.program = 'ocierl.exe'">>).
 
-%%------------------------------------------------------------------------------
+%% ------------------------------------------------------------------------------
 %% db_negative_test_
-%%------------------------------------------------------------------------------
+%% ------------------------------------------------------------------------------
 db_negative_test_() ->
     {timeout, 60, {
         setup,
@@ -182,7 +188,8 @@ db_test_() ->
          fun procedure_cur_test/1,
          fun timestamp_interval_datatypes/1,
          fun stmt_reuse_onerror/1,
-         fun multiple_bind_reuse/1
+         fun multiple_bind_reuse/1,
+         fun check_session_with_ping/1
         ]}
       }}.
 
@@ -1003,3 +1010,33 @@ multiple_bind_reuse({_, OciSession}) ->
     ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
+
+check_session_with_ping({_, OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|           check_session_with_ping           |"),
+    ?ELog("+---------------------------------------------+"),
+    Stmt = OciSession:prep_sql(?SESSSQL),
+    {cols, _} = Stmt:exec_stmt(),
+    {{rows, SessionsBefore}, true} = Stmt:fetch_rows(10000),
+    %% Connection with ping timeout set to 1 second
+    PingOciPort = erloci:new([{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+    {Tns,User,Pswd} = ?CONN_CONF,
+    PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
+    ?assertEqual(ok, PingOciSession:ping()),
+    {cols, _} = Stmt:exec_stmt(),
+    {{rows, SessionsAfter}, true} = Stmt:fetch_rows(10000),
+    PingSession = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
+    Stmt1 = OciSession:prep_sql(
+         list_to_binary(
+           io_lib:format("alter system kill session '~s' immediate", [PingSession])
+          )),
+    case Stmt1:exec_stmt() of
+        {error,{30,<<"ORA-00030: User session ID does not exist.\n">>}} -> ok;
+        {error,{31,<<"ORA-00031: session marked for kill\n">>}} -> ok;
+        {executed, 0} -> ?ELog("~p closed", [PingSession])
+    end,
+    %% sleeping for 2 seconds so that ping would realize the session is dead
+    timer:sleep(2000),
+    ?assertEqual(pang, PingOciSession:ping()),
+    ?assertEqual(ok, Stmt:close()),
+    ?assertEqual(ok, Stmt1:close()).
