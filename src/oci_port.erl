@@ -304,7 +304,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                  end,
     LibPathVal = lists:last(
                    re:split(
-                     re:replace(NewLibPath, "~n", "~~", [global, {return, list}]),
+                     re:replace(NewLibPath, "~", "~~", [global, {return, list}]),
                      "["++PathSepStr++"]", [{return, list}])),
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
