@@ -21,7 +21,6 @@
 %% API
 -export([
     start_link/2,
-    stop/1,
     logging/2,
     get_session/4,
     describe/3,
@@ -79,9 +78,6 @@ start_link(Options,LogFun) ->
             Logging = proplists:get_value(logging, Options, false),
             gen_server:start_link(?MODULE, [Logging, ListenPort, LSock, LogFun, Options], [])
     end.
-
-stop(PortPid) ->
-    gen_server:call(PortPid, stop).
 
 logging(enable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]}, ?PORT_TIMEOUT);
@@ -246,6 +242,7 @@ init([Logging, ListenPort, LSock, LogFun, Options]) ->
         {error,_} -> "./priv/";
         PDir -> PDir
     end,
+    process_flag(trap_exit, true),
     case os:find_executable(?EXE_NAME, PrivDir) of
         false ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
@@ -307,7 +304,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                  end,
     LibPathVal = lists:last(
                    re:split(
-                     re:replace(NewLibPath, "~", "~~", [global, {return, list}]),
+                     re:replace(NewLibPath, "~n", "~~", [global, {return, list}]),
                      "["++PathSepStr++"]", [{return, list}])),
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
@@ -361,12 +358,7 @@ portstart(Executable, PortOptions) ->
     open_port({spawn_executable, Executable}, PortOptions).
 -endif.
 
-handle_call(close, _From, #state{port=Port} = State) ->
-    try
-        true = erlang:port_close(Port)
-    catch
-        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
-    end,
+handle_call(close, _From, State) ->
     erloci:del(self()),
     {reply, ok, State};
 handle_call({port_call, Msg}, From, #state{ping_timeout = PingInterval, ping_tref = PTref,
@@ -402,11 +394,6 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
                 {{ping, SessionId}, ok} ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
                 {{ping, _SessionId}, {error, _Reason}} ->
-                    try
-                        true = erlang:port_close(Port)
-                    catch
-                        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
-                    end,
                     erloci:del(self()),
                     PTref;
                 {From, {error, Reason}} ->
