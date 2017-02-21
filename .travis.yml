@@ -6,7 +6,9 @@ env:
     - ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe 
     - ORACLE_SID=XE
 before_install:
+  - chmod +x .travis/oracle/download.sh
   - .travis/oracle/download.sh
+  - chmod +x .travis/oracle/install.sh
   - .travis/oracle/install.sh  
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
