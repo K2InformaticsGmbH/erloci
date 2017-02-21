@@ -1,5 +1,8 @@
 #!/bin/sh -e
 
+set -x
+set -v
+
 [ -n "$ORACLE_FILE" ] || { echo "Missing ORACLE_FILE environment variable!"; exit 1; }
 [ -n "$ORACLE_HOME" ] || { echo "Missing ORACLE_HOME environment variable!"; exit 1; }
 
