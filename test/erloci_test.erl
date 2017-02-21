@@ -72,8 +72,7 @@
                    "from gv$session s join "
                    "gv$process p on p.addr = s.paddr and "
                    "p.inst_id = s.inst_id "
-                   "where s.type != 'BACKGROUND' and "
-                   "(s.program = 'ocierl.exe' or s.program like 'ocierl%')">>).
+                   "where s.type != 'BACKGROUND' and s.program like 'ocierl%'">>).
 
 %% ------------------------------------------------------------------------------
 %% db_negative_test_

@@ -401,7 +401,7 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
             case {binary_to_term(Info), Result} of
                 {{ping, SessionId}, ok} ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
-                {{ping, SessionId}, {error, _Reason}} ->
+                {{ping, _SessionId}, {error, _Reason}} ->
                     try
                         true = erlang:port_close(Port)
                     catch
