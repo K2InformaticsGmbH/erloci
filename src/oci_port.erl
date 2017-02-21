@@ -59,7 +59,9 @@
     waiting_resp = false,
     logging = ?DBG_FLAG_OFF,
     logger,
-    lastcmd
+    lastcmd,
+    ping_timeout,
+    ping_tref = undefined
 }).
 
 -define(log(__Lgr,__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Lgr, __Format, __Args); true -> ok end).
@@ -99,7 +101,9 @@ get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
 when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
     case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd]}, ?PORT_TIMEOUT) of
         {error, Error} -> {error, Error};
-        SessionId -> {?MODULE, PortPid, SessionId}
+        SessionId ->
+            PortPid ! {check_sess, SessionId},
+            {?MODULE, PortPid, SessionId}
     end.
 
 close({?MODULE, statement, _, _, _} = Ctx)  -> close(ignore_port, Ctx);
@@ -140,7 +144,10 @@ bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_li
     end.
 
 ping({?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]}, ?PORT_TIMEOUT).
+    case catch gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]}, ?PORT_TIMEOUT) of
+        ok -> pong;
+        _  -> pang
+    end.
 
 commit({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?CMT_SESSN, SessionId]}, ?PORT_TIMEOUT).
@@ -304,6 +311,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                      "["++PathSepStr++"]", [{return, list}])),
     ?Debug(PortLogger, "~s = ...~s", [LibPath, LibPathVal]),
     Envs = proplists:get_value(env, Options, []),
+    PingTimeout = proplists:get_value(ping_timeout, Options, 0),
     case proplists:get_value(pstate, Options, '$none') of
         ProcessState when is_map(ProcessState) ->
             maps:map(fun(K, V) -> put(K, V), V end, ProcessState);
@@ -332,11 +340,11 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
                     ?Debug(PortLogger, "started log enabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, logger=PortLogger}};
+                    {ok, #state{port=Port, logging=?DBG_FLAG_ON, logger=PortLogger, ping_timeout = PingTimeout}};
                 false ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_OFF})),
                     ?Debug(PortLogger, "started log disabled new port:~n~p", [erlang:port_info(Port)]),
-                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger}}
+                    {ok, #state{port=Port, logging=?DBG_FLAG_OFF, logger=PortLogger, ping_timeout = PingTimeout}}
             end
     end.
 
@@ -361,7 +369,8 @@ handle_call(close, _From, #state{port=Port} = State) ->
     end,
     erloci:del(self()),
     {reply, ok, State};
-handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger} = State) ->
+handle_call({port_call, Msg}, From, #state{ping_timeout = PingInterval, ping_tref = PTref,
+                                           port=Port, logger=_PortLogger} = State) ->
     Cmd = [if From /= undefined -> term_to_binary(From); true -> From end | Msg],
     CmdTuple = list_to_tuple(Cmd),
     BTerm = term_to_binary(CmdTuple),
@@ -369,23 +378,46 @@ handle_call({port_call, Msg}, From, #state{port=Port, logger=_PortLogger} = Stat
     %?Debug(_PortLogger, "TX (~p):~n---~n~p~n---~n~s~n---", [byte_size(BTerm), Cmd, oci_logger:bin2str(BTerm)]),
     %?Debug(_PortLogger, "TX (~p)", [integer_to_list(byte_size(BTerm),16)]),
     true = port_command(Port, BTerm),
-    {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}}.
+    NewPTref = case Msg of
+                   [Cmd, SessionId | _] when Cmd /= ?RMOTE_MSG; Cmd /= ?CMD_UNKWN; Cmd /= ?CMD_ECHOT ->
+                       reset_ping_timer(PingInterval, PTref, SessionId);
+                   _ -> PTref
+               end,
+    {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple, ping_tref = NewPTref}}.
 
 handle_cast(Msg, State) ->
     error_logger:error_report("ORA: received unexpected cast: ~p~n", [Msg]),
     {noreply, State}.
 
 %% We got a reply from a previously sent command to the Port.  Relay it to the caller.
-handle_info({Port, {data, Data}}, #state{port=Port, logger=L} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->    
+handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref} = State) when is_binary(Data) andalso (byte_size(Data) > 0) ->
     Resp = binary_to_term(Data),
+    NewPTref =
     case handle_result(State#state.logging, Resp, L) of
-        {undefined, Result} -> ?Debug(L,"no reply for ~p", [Result]);
-        {From, {error, Reason}} ->
-            gen_server:reply(binary_to_term(From), {error, Reason});
-        {From, Result} ->
-            gen_server:reply(binary_to_term(From), Result) % regular reply
+        {undefined, Result} ->
+            ?Debug(L,"no reply for ~p", [Result]),
+            PTref;
+        {Info, Result} ->
+            case {binary_to_term(Info), Result} of
+                {{ping, SessionId}, ok} ->
+                    erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
+                {{ping, _SessionId}, {error, _Reason}} ->
+                    try
+                        true = erlang:port_close(Port)
+                    catch
+                        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
+                    end,
+                    erloci:del(self()),
+                    PTref;
+                {From, {error, Reason}} ->
+                    gen_server:reply(From, {error, Reason}),
+                    PTref;
+                {From, Result} ->
+                    gen_server:reply(From, Result), % regular reply
+                    PTref
+            end
     end,
-    {noreply, State#state{waiting_resp=false, lastcmd=undefined}};
+    {noreply, State#state{waiting_resp=false, lastcmd=undefined, ping_tref = NewPTref}};
 handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = State) ->
     case Status of
         0 ->
@@ -397,6 +429,13 @@ handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = Sta
             erloci:del(self()),
            {noreply, State}
     end;
+handle_info({check_sess, _}, #state{ping_timeout = 0} = State) ->
+    {noreply, State};
+handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
+    CmdTuple = list_to_tuple([term_to_binary({ping, SessionId}), ?SESN_PING, SessionId]),
+    BTerm = term_to_binary(CmdTuple),
+    true = port_command(Port, BTerm),
+    {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}};
 %% Catch all - throws away unknown messages (This could happen by "accident"
 %% so we do not want to crash, but we make a log entry as it is an
 %% unwanted behaviour.)
@@ -436,6 +475,15 @@ handle_result(_L, {Ref, _Cmd, Result}, _Lgr) ->
     %?log(_Lgr, _L, "RX: ~s -> ~p", [?CMDSTR(_Cmd), Result]),
     {Ref, Result}.
 
+reset_ping_timer(0, _, _) -> undefined;
+reset_ping_timer(PingInterval, TRef, SessionId) when is_reference(TRef) ->
+    erlang:cancel_timer(TRef),
+    reset_ping_timer(PingInterval, SessionId);
+reset_ping_timer(PingInterval, _TRef, SessionId) ->
+    reset_ping_timer(PingInterval, SessionId).
+
+reset_ping_timer(PingInterval, SessionId) ->
+    erlang:send_after(PingInterval, self(), {check_sess, SessionId}).
 
 % port return signals
 signal_str(1)  -> {'SIGHUP',        exit,   "Hangup"};

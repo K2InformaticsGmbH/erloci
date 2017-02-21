@@ -2,6 +2,7 @@ _build
 c_src/x64/
 c_src/*/x64/
 erl_crash.dump
+logs
 priv
 rebar.lock
 rebar3.crashdump
