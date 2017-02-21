@@ -9,10 +9,10 @@ before_install:
   - ls
   - chmod +x .travis/oracle/download.sh
   - .travis/oracle/download.sh
-  - ls oracle11g/xe/
+  - ls oracle11g/xe
   - chmod +x .travis/oracle/install.sh
   - .travis/oracle/install.sh  
-  - ls /u01/app/oracle/product/11.2.0/xe/
+  - ls /u01/app/oracle/product/11.2.0/xe
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 language: erlang
