@@ -13,7 +13,8 @@ before_install:
   - chmod +x .travis/oracle/install.sh
   - .travis/oracle/install.sh  
   - ls -l
-  - ls -l /
+  - ls -l /u01
+  - ls -l /home
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 language: erlang
