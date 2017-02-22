@@ -14,7 +14,7 @@ before_install:
   - .travis/oracle/install.sh  
   - ls -l
   - ls -l /u01/app/oracle/product/11.2.0/xe 
-  - ls -l /home/me/download
+  - ls -l /home/me/
   - sudo apt-get install libevent-dev
   - sudo apt-get install alien dpkg-dev debhelper build-essential
 install:
