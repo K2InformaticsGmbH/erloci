@@ -123,7 +123,29 @@ SQLT_IBFLOAT        float()
 ```
 
 ### Eunit test
-The Oracle connection information are taken from erloci.app.src. Please change it to point to your database before executing the steps below:
+The database user `<<db_user>>` must have at least the following privileges: 
+
+	-- Roles
+	GRANT CONNECT TO <<db_user>>;
+	GRANT RESOURCE TO <<db_user>>;
+	ALTER USER <<db_user>> DEFAULT ROLE ALL;
+	-- System Privileges
+	GRANT ALTER SESSION TO <<db_user>>;
+	GRANT ALTER SYSTEM TO <<db_user>>;
+	GRANT CREATE ANY DIRECTORY TO <<db_user>>;
+	GRANT CREATE DATABASE LINK TO <<db_user>>;
+	GRANT CREATE SEQUENCE TO <<db_user>>;
+	GRANT CREATE SESSION TO <<db_user>>;
+	GRANT CREATE SYNONYM TO <<db_user>>;
+	GRANT CREATE VIEW TO <<db_user>>;
+	GRANT DROP ANY DIRECTORY TO <<db_user>>;
+	-- Object Privileges
+	GRANT EXECUTE ON SYS.DBMS_STATS TO <<db_user>>;
+	GRANT SELECT ON SYS.GV_$PROCESS TO <<db_user>>;
+	GRANT SELECT ON SYS.GV_$SESSION TO <<db_user>>;
+
+The Oracle connection information are taken from the file `connect.config` in directory `test`. Please change it to point to your database before executing the steps below:
+
   1. <code>rebar compile</code>
   2. <code>rebar eunit</code>
 

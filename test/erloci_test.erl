@@ -132,7 +132,7 @@ bad_password(OciPort) ->
     ?ELog("|                 bad_password                |"),
     ?ELog("+---------------------------------------------+"),
     ?ELog("get_session with wrong password", []),
-    {Tns,User,Pswd} = ?CONN_CONF,
+    {Tns,User,Pswd, _} = ?CONN_CONF,
     ?assertMatch(
        {error, {1017,_}},
        OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
@@ -142,7 +142,7 @@ session_ping(OciPort) ->
     ?ELog("|                 session_ping                |"),
     ?ELog("+---------------------------------------------+"),
     ?ELog("ping oci session", []),
-    {Tns,User,Pswd} = ?CONN_CONF,
+    {Tns,User,Pswd,_} = ?CONN_CONF,
     OciSession = OciPort:get_session(Tns, User, Pswd),
     ?assertEqual(pong, OciSession:ping()),
     SelStmt = OciSession:prep_sql("select * from dual"),
@@ -160,8 +160,8 @@ db_test_() ->
        setup,
        fun() ->
                application:start(erloci),
-               OciPort = erloci:new([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-               {Tns,User,Pswd} = ?CONN_CONF,
+               {Tns,User,Pswd, NlsLang} = ?CONN_CONF,
+               OciPort = erloci:new([{logging, true}, {env, [{"NLS_LANG", NlsLang}]}]),
                OciSession = OciPort:get_session(Tns, User, Pswd),
                {OciPort, OciSession}
        end,
@@ -1018,8 +1018,8 @@ check_ping({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
     %% Connection with ping timeout set to 1 second
-    PingOciPort = erloci:new([{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-    {Tns,User,Pswd} = ?CONN_CONF,
+    {Tns,User,Pswd, NlsLang} = ?CONN_CONF,
+    PingOciPort = erloci:new([{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", NlsLang}]}]),
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
     ?assertEqual(pong, PingOciSession:ping()),
     SessionsAfter = current_pool_session_ids(OciSession),
@@ -1034,9 +1034,9 @@ check_session_without_ping({_, OciSession}) ->
     ?ELog("|         check_session_without_ping          |"),
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
-    Opts = [{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
+    {Tns,User,Pswd,NlsLang} = ?CONN_CONF,
+    Opts = [{logging, true}, {env, [{"NLS_LANG", NlsLang}]}],
     NoPingOciPort = erloci:new(Opts),
-    {Tns,User,Pswd} = ?CONN_CONF,
     NoPingOciSession = NoPingOciPort:get_session(Tns, User, Pswd),
     SelStmt1 = NoPingOciSession:prep_sql(<<"select 4+4 from dual">>),
     SessionsAfter = current_pool_session_ids(OciSession),
@@ -1051,9 +1051,9 @@ check_session_with_ping({_, OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
     %% Connection with ping timeout set to 1 second
-    Opts = [{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
+    {Tns,User,Pswd,NlsLang} = ?CONN_CONF,
+    Opts = [{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", NlsLang}]}],
     PingOciPort = erloci:new(Opts),
-    {Tns,User,Pswd} = ?CONN_CONF,
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
     SelStmt1 = PingOciSession:prep_sql(<<"select 4+4 from dual">>),
     SessionsAfter = current_pool_session_ids(OciSession),
@@ -1061,7 +1061,7 @@ check_session_with_ping({_, OciSession}) ->
     [NoPingSession | _] = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
     ?assertEqual(ok, kill_session(OciSession, NoPingSession)),
     timer:sleep(2000),
-    ?assertMatch({'EXIT', {noproc, _}}, catch SelStmt1:exec_stmt()).
+    ?assertMatch({error, {3114, _}}, catch SelStmt1:exec_stmt()).
 
 current_pool_session_ids(OciSession) ->
     Stmt = OciSession:prep_sql(?SESSSQL),

@@ -7,3 +7,4 @@ priv
 rebar.lock
 rebar3.crashdump
 test/*.beam
+tmp
