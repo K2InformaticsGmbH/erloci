@@ -6,24 +6,18 @@
                  ConnectConfigFile =
                  filename:join(
                    lists:reverse(
-                     ["connect.config", "test"
-                      | case lists:reverse(filename:split(Cwd)) of
-                            [".eunit" | Rest] -> Rest;
-                            Error ->
-                                ?ELog("~p", [Error]),
-                                error(Error)
-                        end])),
+                     ["connect.config", "test" | lists:reverse(filename:split(Cwd))])),
                  case file:consult(ConnectConfigFile) of
                      {ok, Params} ->
                          {proplists:get_value(tns, Params),
                           proplists:get_value(user, Params),
-                          proplists:get_value(password, Params)};
+                          proplists:get_value(password, Params),
+                          proplists:get_value(nls_lang, Params)};
                      {error, Reason} ->
                          ?ELog("~p", [Reason]),
                          error(Reason)
                  end;
              {error, Reason} ->
-                 ?ELog("~p", [Reason]),
                  error(Reason)
          end
  end)()).
