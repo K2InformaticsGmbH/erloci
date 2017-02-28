@@ -38,7 +38,7 @@ init_per_suite(ConfigData) ->
                 proplists:get_value(tns, Params),
                 proplists:get_value(user, Params),
                 proplists:get_value(password, Params),
-                proplists:get_value(nls_lang, Params)};
+                proplists:get_value(lang, Params)};
             {error, Reason} ->
                 ?ELog("~p", [Reason]),
                 error(Reason)
