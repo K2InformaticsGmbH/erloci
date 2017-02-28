@@ -61,10 +61,7 @@ new(Options, LogFun) ->
         {ok, ChildPid} -> {oci_port, ChildPid}
     end.
 
-del(Child) ->
-    spawn(fun() ->
-                  supervisor:terminate_child(?MODULE, Child)
-          end).
+del(Child) -> supervisor:terminate_child(?MODULE, Child).
 
 bind_arg_types() ->
     [atom_to_binary(T,utf8) || {T,_} <- ?CLM_TYPES].

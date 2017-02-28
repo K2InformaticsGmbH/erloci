@@ -74,82 +74,82 @@
                    "p.inst_id = s.inst_id "
                    "where s.type != 'BACKGROUND' and s.program like 'ocierl%'">>).
 
-%% ------------------------------------------------------------------------------
-%% db_negative_test_
-%% ------------------------------------------------------------------------------
-db_negative_test_() ->
-    {timeout, 60, {
-        setup,
-        fun() ->
-                Conf = ?CONN_CONF,
-                application:start(erloci),
-                OciPort = erloci:new(
-                            [{logging, true},
-                             {env, [{"NLS_LANG",
-                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-                #{ociport => OciPort, conf => Conf}
-        end,
-        fun(#{ociport := OciPort}) ->
-                OciPort:close(),
-                application:stop(erloci)
-        end,
-        {with, [
-            fun echo/1,
-            fun bad_password/1,
-            fun session_ping/1
-        ]}
-    }}.
-
-echo(#{ociport := OciPort}) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|                     echo                    |"),
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("echo back erlang terms", []),
-    ?assertEqual(1, OciPort:echo(1)),
-    ?assertEqual(1.2, OciPort:echo(1.2)),
-    ?assertEqual(atom, OciPort:echo(atom)),
-    ?assertEqual(self(), OciPort:echo(self())),
-    ?assertEqual(node(), OciPort:echo(node())),
-    Ref = make_ref(),
-    ?assertEqual(Ref, OciPort:echo(Ref)),
-    % Load the ref cache to generate long ref
-    _Refs = [make_ref() || _I <- lists:seq(1,1000000)],    
-    Ref1 = make_ref(),
-    ?assertEqual(Ref1, OciPort:echo(Ref1)),
-    %Fun = fun() -> ok end, % Not Supported
-    %?assertEqual(Fun, OciPort:echo(Fun)),
-    ?assertEqual("", OciPort:echo("")),
-    ?assertEqual(<<>>, OciPort:echo(<<>>)),
-    ?assertEqual([], OciPort:echo([])),
-    ?assertEqual({}, OciPort:echo({})),
-    ?assertEqual("string", OciPort:echo("string")),
-    ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
-    ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
-    ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
-
-
-bad_password(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|                 bad_password                |"),
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("get_session with wrong password", []),
-    ?assertMatch(
-       {error, {1017,_}},
-       OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
-
-session_ping(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|                 session_ping                |"),
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("ping oci session", []),
-    OciSession = OciPort:get_session(Tns, User, Pswd),
-    ?assertEqual(pong, OciSession:ping()),
-    SelStmt = OciSession:prep_sql("select * from dual"),
-    ?assertEqual(pong, OciSession:ping()),
-    ?assertMatch({cols,[{<<"DUMMY">>,'SQLT_CHR',_,0,0}]}, SelStmt:exec_stmt()),
-    ?assertEqual(pong, OciSession:ping()),
-    ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
-    ?assertEqual(pong, OciSession:ping()).
+%% - %% ------------------------------------------------------------------------------
+%% - %% db_negative_test_
+%% - %% ------------------------------------------------------------------------------
+%% - db_negative_test_() ->
+%% -     {timeout, 60, {
+%% -         setup,
+%% -         fun() ->
+%% -                 Conf = ?CONN_CONF,
+%% -                 application:start(erloci),
+%% -                 OciPort = erloci:new(
+%% -                             [{logging, true},
+%% -                              {env, [{"NLS_LANG",
+%% -                                      "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+%% -                 #{ociport => OciPort, conf => Conf}
+%% -         end,
+%% -         fun(#{ociport := OciPort}) ->
+%% -                 OciPort:close(),
+%% -                 application:stop(erloci)
+%% -         end,
+%% -         {with, [
+%% -             fun echo/1,
+%% -             fun bad_password/1,
+%% -             fun session_ping/1
+%% -         ]}
+%% -     }}.
+%% - 
+%% - echo(#{ociport := OciPort}) ->
+%% -     ?ELog("+---------------------------------------------+"),
+%% -     ?ELog("|                     echo                    |"),
+%% -     ?ELog("+---------------------------------------------+"),
+%% -     ?ELog("echo back erlang terms", []),
+%% -     ?assertEqual(1, OciPort:echo(1)),
+%% -     ?assertEqual(1.2, OciPort:echo(1.2)),
+%% -     ?assertEqual(atom, OciPort:echo(atom)),
+%% -     ?assertEqual(self(), OciPort:echo(self())),
+%% -     ?assertEqual(node(), OciPort:echo(node())),
+%% -     Ref = make_ref(),
+%% -     ?assertEqual(Ref, OciPort:echo(Ref)),
+%% -     % Load the ref cache to generate long ref
+%% -     _Refs = [make_ref() || _I <- lists:seq(1,1000000)],    
+%% -     Ref1 = make_ref(),
+%% -     ?assertEqual(Ref1, OciPort:echo(Ref1)),
+%% -     %Fun = fun() -> ok end, % Not Supported
+%% -     %?assertEqual(Fun, OciPort:echo(Fun)),
+%% -     ?assertEqual("", OciPort:echo("")),
+%% -     ?assertEqual(<<>>, OciPort:echo(<<>>)),
+%% -     ?assertEqual([], OciPort:echo([])),
+%% -     ?assertEqual({}, OciPort:echo({})),
+%% -     ?assertEqual("string", OciPort:echo("string")),
+%% -     ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
+%% -     ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
+%% -     ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
+%% - 
+%% - 
+%% - bad_password(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
+%% -     ?ELog("+---------------------------------------------+"),
+%% -     ?ELog("|                 bad_password                |"),
+%% -     ?ELog("+---------------------------------------------+"),
+%% -     ?ELog("get_session with wrong password", []),
+%% -     ?assertMatch(
+%% -        {error, {1017,_}},
+%% -        OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
+%% - 
+%% - session_ping(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
+%% -     ?ELog("+---------------------------------------------+"),
+%% -     ?ELog("|                 session_ping                |"),
+%% -     ?ELog("+---------------------------------------------+"),
+%% -     ?ELog("ping oci session", []),
+%% -     OciSession = OciPort:get_session(Tns, User, Pswd),
+%% -     ?assertEqual(pong, OciSession:ping()),
+%% -     SelStmt = OciSession:prep_sql("select * from dual"),
+%% -     ?assertEqual(pong, OciSession:ping()),
+%% -     ?assertMatch({cols,[{<<"DUMMY">>,'SQLT_CHR',_,0,0}]}, SelStmt:exec_stmt()),
+%% -     ?assertEqual(pong, OciSession:ping()),
+%% -     ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
+%% -     ?assertEqual(pong, OciSession:ping()).
 
 %%------------------------------------------------------------------------------
 %% db_test_
@@ -231,32 +231,61 @@ flush_table(OciSession) ->
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()).
 
-lob_test(#{ocisession := OciSession, ssh_conn_ref := _ConRef}) ->
+ssh_cmd(ConRef, Cmd) ->
+    {ok, Chn} = ssh_connection:session_channel(ConRef, infinity),
+    success = ssh_connection:exec(ConRef, Chn, Cmd, infinity),
+    ssh_cmd_result(ConRef, Chn).
+
+ssh_cmd_result(ConRef, Chn) -> ssh_cmd_result(ConRef, Chn, []).
+ssh_cmd_result(ConRef, Chn, Buffer) ->
+    case receive
+             {ssh_cm, ConRef, {closed, Chn}} -> closed;
+             {ssh_cm, ConRef, {eof, Chn}} -> eof;
+             {ssh_cm, ConRef, {exit_status, Chn, 0}} -> exit_status_ok;
+             {ssh_cm, ConRef, {data, Chn, DTC, Data}} ->
+                 if DTC /= 0 -> ?ELog("[~p] ~s", [DTC, Data]);
+                    true -> ok end,
+                 {data, Data};
+             {ssh_cm, ConRef, {exit_status, Chn, Exit}} -> {error, {exit_status, Exit}};
+             {ssh_cm, ConRef, Other} -> {error, {unexpected, Other}}
+         end of
+        {data, Dat} -> ssh_cmd_result(ConRef, Chn, [Dat | Buffer]);
+        eof -> ssh_cmd_result(ConRef, Chn, Buffer);
+        exit_status_ok -> ssh_cmd_result(ConRef, Chn, Buffer);
+        closed -> Buffer;
+        {error, Error} -> error(Error)
+    end.
+
+lob_test(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                   lob_test                  |"),
     ?ELog("+---------------------------------------------+"),
 
-    RowCount = 5,
+    RowCount = 3,
 
-    Files = [begin
-        ContentSize = random:uniform(1024),
-        Content = list_to_binary([random:uniform(255) || _I <- lists:seq(1,ContentSize)]),
-        Filename = "test"++integer_to_list(I)++".bin",
-        ok = file:write_file(Filename, [Content]),
-        {filename:dirname(filename:absname(Filename)), Filename}
+    Files =
+    [begin
+         ContentSize = random:uniform(1024),
+         Filename = "/tmp/test"++integer_to_list(I)++".bin",
+         RCmd = lists:flatten(
+                  io_lib:format(
+                    "dd if=/dev/zero of=~s bs=~p count=1",
+                    [Filename, ContentSize])),
+         ssh_cmd(ConRef,RCmd),
+         Filename
      end || I <- lists:seq(1,RowCount)],
-    [{Dir,_}|_] = Files,
-    CreateDirSql = <<"create directory \"TestDir\" as '", (list_to_binary(Dir))/binary,"'">>,
+
+    CreateDirSql = <<"create or replace directory \"TestDir\" as '/tmp'">>,
     StmtDirCreate = OciSession:prep_sql(CreateDirSql),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirCreate),
     case StmtDirCreate:exec_stmt() of
         {executed, 0} ->
-            ?ELog("created Directory alias ~s", [Dir]),
+            ?ELog("created Directory alias for /tmp"),
             ?assertEqual(ok, StmtDirCreate:close());
         {error, {955, _}} ->
-            ?ELog("Dir alias ~s exists", [Dir]);
+            ?ELog("Dir alias for /tmp exists");
         {error, {N,Error}} ->
-            ?ELog("Dir alias ~s creation failed ~p:~s", [Dir, N,Error]),
+            ?ELog("Dir alias for /tmp creation failed ~p:~s", [N,Error]),
             ?ELog("SQL ~s", [CreateDirSql]),
             ?assertEqual("Directory Created", "Directory creation failed")
     end,
@@ -295,31 +324,27 @@ lob_test(#{ocisession := OciSession, ssh_conn_ref := _ConRef}) ->
     {{rows, Rows}, true} = StmtSelect:fetch_rows(RowCount+1),
     ?assertEqual(RowCount, length(Rows)),
 
-    RowsWithContent = [begin
-        {LidClobd, ClobdLen} = lists:nth(1, R),
-        {lob, ClobDVal} = StmtSelect:lob(LidClobd, 1, ClobdLen),
-        ?assertEqual(<<"clobd0">>, ClobDVal),
-        {LidBlobd, BlobdLen} = lists:nth(2, R),
-        {lob, BlobDVal} = StmtSelect:lob(LidBlobd, 1, BlobdLen),
-        ?assertEqual(<<16#45, 16#3d, 16#7a, 16#30>>, BlobDVal),
-        {LidNclobd, NclobdLen} = lists:nth(3, R),
-        {lob, NClobDVal} = StmtSelect:lob(LidNclobd, 1, NclobdLen),
-        ?assertEqual(<<"nclobd0">>, NClobDVal),
-        {LidBfiled, BfiledLen, DirBin, File} = lists:nth(4, R),
-        ?assertEqual(DirBin, <<"TestDir">>),
-        {ok, FileContent} = file:read_file(File),
-        ?assertEqual({lob, FileContent}, StmtSelect:lob(LidBfiled, 1, BfiledLen)),
-        [ClobDVal, BlobDVal, NClobDVal, {DirBin, File, byte_size(FileContent)}]
-     end
-     || R <- Rows],
-    ?ELog("Content from lobs rows~n~p", [RowsWithContent]),
+    lists:foreach(
+      fun(Row) ->
+              [{LidClobd, ClobdLen}, {LidBlobd, BlobdLen}, {LidNclobd, NclobdLen},
+               {LidBfiled, BfiledLen, DirBin, File} | _] = Row,
+              ?assertEqual(DirBin, <<"TestDir">>),
+              ?ELog("processing... : ~s", [File]),
+              {lob, ClobDVal} = StmtSelect:lob(LidClobd, 1, ClobdLen),
+              ?assertEqual(<<"clobd0">>, ClobDVal),
+              {lob, BlobDVal} = StmtSelect:lob(LidBlobd, 1, BlobdLen),
+              ?assertEqual(<<16#45, 16#3d, 16#7a, 16#30>>, BlobDVal),
+              {lob, NClobDVal} = StmtSelect:lob(LidNclobd, 1, NclobdLen),
+              ?assertEqual(<<"nclobd0">>, NClobDVal),
+              [FileContent] = ssh_cmd(ConRef,"cat "++File),
+              {lob, FileContentDB} = StmtSelect:lob(LidBfiled, 1, BfiledLen),
+              ?assertEqual(FileContent, FileContentDB),
+              ?ELog("processed : ~s", [File])
+      end, Rows),
 
     ?assertEqual(ok, StmtSelect:close()),
 
-    [begin
-         ok = file:delete(File)
-     end
-     || {_, File} <- Files],
+    ?ELog("RM ~p", [[ssh_cmd(ConRef, "rm -f "++File) || File <- Files]]),
     StmtDrop = OciSession:prep_sql(<<"drop table lobs">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
     ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),
