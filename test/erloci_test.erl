@@ -81,14 +81,15 @@ db_negative_test_() ->
     {timeout, 60, {
         setup,
         fun() ->
+                Conf = ?CONN_CONF,
                 application:start(erloci),
                 OciPort = erloci:new(
                             [{logging, true},
                              {env, [{"NLS_LANG",
                                      "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-                OciPort
+                #{ociport => OciPort, conf => Conf}
         end,
-        fun(OciPort) ->
+        fun(#{ociport := OciPort}) ->
                 OciPort:close(),
                 application:stop(erloci)
         end,
@@ -99,7 +100,7 @@ db_negative_test_() ->
         ]}
     }}.
 
-echo(OciPort) ->
+echo(#{ociport := OciPort}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                     echo                    |"),
     ?ELog("+---------------------------------------------+"),
@@ -127,22 +128,20 @@ echo(OciPort) ->
     ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
 
 
-bad_password(OciPort) ->
+bad_password(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                 bad_password                |"),
     ?ELog("+---------------------------------------------+"),
     ?ELog("get_session with wrong password", []),
-    {Tns,User,Pswd} = ?CONN_CONF,
     ?assertMatch(
        {error, {1017,_}},
        OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
 
-session_ping(OciPort) ->
+session_ping(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                 session_ping                |"),
     ?ELog("+---------------------------------------------+"),
     ?ELog("ping oci session", []),
-    {Tns,User,Pswd} = ?CONN_CONF,
     OciSession = OciPort:get_session(Tns, User, Pswd),
     ?assertEqual(pong, OciSession:ping()),
     SelStmt = OciSession:prep_sql("select * from dual"),
@@ -159,19 +158,27 @@ db_test_() ->
     {timeout, 60, {
        setup,
        fun() ->
+               Conf = ?CONN_CONF,
                application:start(erloci),
-               OciPort = erloci:new([{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-               {Tns,User,Pswd} = ?CONN_CONF,
+               #{tns := Tns, user := User, password := Pswd,
+                 logging := Logging, lang := Lang} = Conf,
+               OciPort = erloci:new([{logging, Logging}, {env, [{"NLS_LANG", Lang}]}]),
                OciSession = OciPort:get_session(Tns, User, Pswd),
-               {OciPort, OciSession}
+               ssh(#{ociport => OciPort, ocisession => OciSession, conf => Conf})
        end,
-       fun({OciPort, OciSession}) ->
+       fun(#{ociport := OciPort, ocisession := OciSession} = State) ->
                DropStmt = OciSession:prep_sql(?DROP),
                DropStmt:exec_stmt(),
                DropStmt:close(),
                OciSession:close(),
                OciPort:close(),
-               application:stop(erloci)
+               application:stop(erloci),
+               case State of
+                   #{ssh_conn_ref := ConRef} ->
+                       ok = ssh:close(ConRef);
+                   _ -> ok
+               end,
+               ssh:stop()
        end,
        {with,
         [fun drop_create/1,
@@ -194,6 +201,20 @@ db_test_() ->
         ]}
       }}.
 
+ssh(#{conf := #{ssh_ip := Ip, ssh_port := Port,
+                ssh_user := User, ssh_password := Password}} = State) ->
+    ok = ssh:start(),
+    case ssh:connect(Ip,Port,[{user,User},{password,Password}]) of
+        {ok, ConRef} ->
+            State#{ssh_conn_ref => ConRef};
+        {error, Reason} ->
+            ?ELog("SSH setup error ~p", [Reason]),
+            State
+    end;
+ssh(State) ->
+    ?ELog("SSH not configured, some tests will be skipped"),
+    State.
+
 flush_table(OciSession) ->
     ?ELog("creating (drop if exists) table ~s", [?TESTTABLE]),
     DropStmt = OciSession:prep_sql(?DROP),
@@ -210,7 +231,7 @@ flush_table(OciSession) ->
     ?assertEqual({executed, 0}, StmtCreate:exec_stmt()),
     ?assertEqual(ok, StmtCreate:close()).
 
-lob_test({_, OciSession}) ->
+lob_test(#{ocisession := OciSession, ssh_conn_ref := _ConRef}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                   lob_test                  |"),
     ?ELog("+---------------------------------------------+"),
@@ -223,10 +244,10 @@ lob_test({_, OciSession}) ->
         Filename = "test"++integer_to_list(I)++".bin",
         ok = file:write_file(Filename, [Content]),
         {filename:dirname(filename:absname(Filename)), Filename}
-     end
-     || I <- lists:seq(1,RowCount)],
-    Dir = element(1,lists:nth(1,Files)),
-    StmtDirCreate = OciSession:prep_sql(list_to_binary(["create directory \"TestDir\" as '",Dir,"'"])),
+     end || I <- lists:seq(1,RowCount)],
+    [{Dir,_}|_] = Files,
+    CreateDirSql = <<"create directory \"TestDir\" as '", (list_to_binary(Dir))/binary,"'">>,
+    StmtDirCreate = OciSession:prep_sql(CreateDirSql),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirCreate),
     case StmtDirCreate:exec_stmt() of
         {executed, 0} ->
@@ -236,9 +257,11 @@ lob_test({_, OciSession}) ->
             ?ELog("Dir alias ~s exists", [Dir]);
         {error, {N,Error}} ->
             ?ELog("Dir alias ~s creation failed ~p:~s", [Dir, N,Error]),
+            ?ELog("SQL ~s", [CreateDirSql]),
             ?assertEqual("Directory Created", "Directory creation failed")
     end,
-    StmtCreate = OciSession:prep_sql(<<"create table lobs(clobd clob, blobd blob, nclobd nclob, bfiled bfile)">>),
+    StmtCreate = OciSession:prep_sql(
+                   <<"create table lobs(clobd clob, blobd blob, nclobd nclob, bfiled bfile)">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtCreate),
     case StmtCreate:exec_stmt() of
         {executed, 0} ->
@@ -304,9 +327,13 @@ lob_test({_, OciSession}) ->
     StmtDirDrop = OciSession:prep_sql(list_to_binary(["drop directory \"TestDir\""])),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirDrop),
     ?assertEqual({executed, 0}, StmtDirDrop:exec_stmt()),
-    ?assertEqual(ok, StmtDirDrop:close()).
+    ?assertEqual(ok, StmtDirDrop:close());
+lob_test(_) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|          lob_test (SKIPPED)                 |"),
+    ?ELog("+---------------------------------------------+").
 
-drop_create({_, OciSession}) ->
+drop_create(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                   drop_create               |"),
     ?ELog("+---------------------------------------------+"),
@@ -329,7 +356,7 @@ drop_create({_, OciSession}) ->
     ?assertEqual({executed,0}, DropStmt:exec_stmt()),
     ?assertEqual(ok, DropStmt:close()).
 
-bad_sql_connection_reuse({_, OciSession}) ->
+bad_sql_connection_reuse(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|           bad_sql_connection_reuse          |"),
     ?ELog("+---------------------------------------------+"),
@@ -343,7 +370,7 @@ bad_sql_connection_reuse({_, OciSession}) ->
     ?assertEqual(ok, SelStmt:close()).
 
 
-insert_select_update({_, OciSession}) ->
+insert_select_update(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|            insert_select_update             |"),
     ?ELog("+---------------------------------------------+"),
@@ -468,7 +495,7 @@ insert_select_update({_, OciSession}) ->
     )),
     ?assertEqual(ok, BoundUpdStmt:close()).
 
-auto_rollback_test({_, OciSession}) ->
+auto_rollback_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|              auto_rollback_test             |"),
     ?ELog("+---------------------------------------------+"),
@@ -532,7 +559,7 @@ auto_rollback_test({_, OciSession}) ->
     ?assertEqual({{rows, Rows}, false}, SelStmt:fetch_rows(RowCount)),
     ?assertEqual(ok, SelStmt:close()).
 
-commit_rollback_test({_, OciSession}) ->
+commit_rollback_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|            commit_rollback_test             |"),
     ?ELog("+---------------------------------------------+"),
@@ -601,7 +628,7 @@ commit_rollback_test({_, OciSession}) ->
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
     ?assertEqual(ok, SelStmt:close()).
 
-asc_desc_test({_, OciSession}) ->
+asc_desc_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                asc_desc_test                |"),
     ?ELog("+---------------------------------------------+"),
@@ -654,7 +681,7 @@ asc_desc_test({_, OciSession}) ->
     ?assertEqual(ok, SelStmt1:close()),
     ?assertEqual(ok, SelStmt2:close()).
 
-describe_test({_, OciSession}) ->
+describe_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|               describe_test                 |"),
     ?ELog("+---------------------------------------------+"),
@@ -666,7 +693,7 @@ describe_test({_, OciSession}) ->
     ?assertEqual(9, length(Descs)),
     ?ELog("table ~s has ~p", [?TESTTABLE, Descs]).
 
-function_test({_, OciSession}) ->
+function_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|              function_test                  |"),
     ?ELog("+---------------------------------------------+"),
@@ -706,7 +733,7 @@ function_test({_, OciSession}) ->
     ?assertEqual({executed, 0}, DropFunStmt:exec_stmt()),
     ?assertEqual(ok, DropFunStmt:close()).
 
-procedure_scalar_test({_, OciSession}) ->
+procedure_scalar_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|           procedure_scalar_test             |"),
     ?ELog("+---------------------------------------------+"),
@@ -763,7 +790,7 @@ procedure_scalar_test({_, OciSession}) ->
     ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
     ?assertEqual(ok, DropProcStmt:close()).
 
-procedure_cur_test({_, OciSession}) ->
+procedure_cur_test(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|             procedure_cur_test              |"),
     ?ELog("+---------------------------------------------+"),
@@ -819,7 +846,7 @@ procedure_cur_test({_, OciSession}) ->
     ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
     ?assertEqual(ok, DropProcStmt:close()).
 
-timestamp_interval_datatypes({_, OciSession}) ->
+timestamp_interval_datatypes(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|       timestamp_interval_datatypes          |"),
     ?ELog("+---------------------------------------------+"),
@@ -910,7 +937,7 @@ timestamp_interval_datatypes({_, OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
-stmt_reuse_onerror({_, OciSession}) ->
+stmt_reuse_onerror(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|             stmt_reuse_onerror              |"),
     ?ELog("+---------------------------------------------+"),
@@ -942,7 +969,7 @@ stmt_reuse_onerror({_, OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
-multiple_bind_reuse({_, OciSession}) ->
+multiple_bind_reuse(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|             multiple_bind_reuse             |"),
     ?ELog("+---------------------------------------------+"),
@@ -1012,14 +1039,13 @@ multiple_bind_reuse({_, OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
-check_ping({_, OciSession}) ->
+check_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                 check_ping                  |"),
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
     %% Connection with ping timeout set to 1 second
     PingOciPort = erloci:new([{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-    {Tns,User,Pswd} = ?CONN_CONF,
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
     ?assertEqual(pong, PingOciSession:ping()),
     SessionsAfter = current_pool_session_ids(OciSession),
@@ -1029,14 +1055,14 @@ check_ping({_, OciSession}) ->
     timer:sleep(2000),
     ?assertEqual(pang, PingOciSession:ping()).
 
-check_session_without_ping({_, OciSession}) ->
+check_session_without_ping(#{ocisession := OciSession,
+                             conf := #{tns := Tns, user := User, password := Pswd}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|         check_session_without_ping          |"),
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
     Opts = [{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
     NoPingOciPort = erloci:new(Opts),
-    {Tns,User,Pswd} = ?CONN_CONF,
     NoPingOciSession = NoPingOciPort:get_session(Tns, User, Pswd),
     SelStmt1 = NoPingOciSession:prep_sql(<<"select 4+4 from dual">>),
     SessionsAfter = current_pool_session_ids(OciSession),
@@ -1045,7 +1071,7 @@ check_session_without_ping({_, OciSession}) ->
     ?assertEqual(ok, kill_session(OciSession, NoPingSession)),
     ?assertMatch({error, {3113, _}}, SelStmt1:exec_stmt()).
 
-check_session_with_ping({_, OciSession}) ->
+check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|           check_session_with_ping           |"),
     ?ELog("+---------------------------------------------+"),
@@ -1053,7 +1079,6 @@ check_session_with_ping({_, OciSession}) ->
     %% Connection with ping timeout set to 1 second
     Opts = [{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
     PingOciPort = erloci:new(Opts),
-    {Tns,User,Pswd} = ?CONN_CONF,
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
     SelStmt1 = PingOciSession:prep_sql(<<"select 4+4 from dual">>),
     SessionsAfter = current_pool_session_ids(OciSession),

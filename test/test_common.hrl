@@ -14,10 +14,10 @@
                                 error(Error)
                         end])),
                  case file:consult(ConnectConfigFile) of
+                     {ok, [Params]} when is_map(Params) -> Params;
                      {ok, Params} ->
-                         {proplists:get_value(tns, Params),
-                          proplists:get_value(user, Params),
-                          proplists:get_value(password, Params)};
+                         ?ELog("bad config (expected map) ~p", [Params]),
+                         error(badconfig);
                      {error, Reason} ->
                          ?ELog("~p", [Reason]),
                          error(Reason)

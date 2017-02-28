@@ -6,7 +6,6 @@ ipch/
 *.sdf
 *.XML
 *.xml
-priv/
 c_src/*.txt
 c_src/lib/instantclient/
 c_src/lib/instantclient/*.so
@@ -35,9 +34,9 @@ c_src/*/x64/
 *.manifest
 *.sw*
 *.app
-priv/*.ilk
-priv/*.pdb
-priv/*.lib
+*.ilk
+*.pdb
+*.lib
 *.htm
 *.res
 Readme.txt
@@ -54,3 +53,4 @@ support/
 .rebar/
 console_test.erl
 doc/
+test/connect.config
