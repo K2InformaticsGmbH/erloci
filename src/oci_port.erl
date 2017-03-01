@@ -1,4 +1,5 @@
-%% Copyright 2012 K2Informatics GmbH, Root LÃ¤ngenbold, Switzerland
+%% coding: latin-1
+%% Copyright 2012 K2Informatics GmbH, Root Längenbold, Switzerland
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -16,135 +17,104 @@
 -behaviour(gen_server).
 
 -include("oci.hrl").
-%-define(WITH_VALGRIND, 1).
 
 %% API
--export([
-    start_link/2,
-    stop/1,
-    logging/2,
-    get_session/4,
-    describe/3,
-    prep_sql/2,
-    ping/1,
-    commit/1,
-    rollback/1,
-    bind_vars/2,
-    lob/4,
-    exec_stmt/1,
-    exec_stmt/2,
-    exec_stmt/3,
-    fetch_rows/2,
-    keep_alive/2,
-    close/1,
-    close/2,
-    echo/2
-]).
-
--export([
-    split_binds/2
-]).
+-export([start_link/2, stop/1, logging/2, get_session/4, describe/3,
+         prep_sql/2, ping/1, commit/1, rollback/1, bind_vars/2, lob/4,
+         exec_stmt/1, exec_stmt/2, exec_stmt/3, fetch_rows/2, keep_alive/2,
+         close/1, echo/2, split_binds/2]).
 
 %% gen_server callbacks
--export([
-    init/1,
-    handle_call/3,
-    handle_cast/2,
-    handle_info/2,
-    terminate/2,
-    code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+         code_change/3]).
 
--record(state, {
-    port,
-    waiting_resp = false,
-    logging = ?DBG_FLAG_OFF,
-    logger,
-    lastcmd,
-    ping_timeout,
-    ping_tref = undefined
-}).
+-record(state, {port,
+                waiting_resp = false,
+                logging = ?DBG_FLAG_OFF,
+                logger,
+                lastcmd,
+                ping_timeout,
+                ping_tref = undefined
+               }).
 
--define(log(__Lgr,__Flag, __Format, __Args), if __Flag == ?DBG_FLAG_ON -> ?Info(__Lgr, __Format, __Args); true -> ok end).
-% Port driver breaks on faster pipe access
-%-define(DriverSleep, timer:sleep(100)).
--define(DriverSleep, ok).
+-define(log(__Lgr,__Flag, __Format, __Args),
+        if __Flag == ?DBG_FLAG_ON ->
+               ?Info(__Lgr, __Format, __Args);
+           true -> ok
+        end).
 
 start_link(Options,LogFun) ->
-    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false}, {ip, {127,0,0,1}}]),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {packet, 0}, {active, false},
+                                     {ip, {127,0,0,1}}]),
     {ok, ListenPort} = inet:port(LSock),
     case Options of
         undefined ->
-            gen_server:start_link(?MODULE, [false, ListenPort, LSock, LogFun, []], []);
+            gen_server:start_link(?MODULE, [false, ListenPort, LSock, LogFun,
+                                            []], []);
         Options when is_list(Options)->
             Logging = proplists:get_value(logging, Options, false),
-            gen_server:start_link(?MODULE, [Logging, ListenPort, LSock, LogFun, Options], [])
+            gen_server:start_link(?MODULE, [Logging, ListenPort, LSock, LogFun,
+                                            Options], [])
     end.
 
 stop(PortPid) ->
     gen_server:call(PortPid, stop).
 
 logging(enable, {?MODULE, PortPid}) ->
-    gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]}, ?PORT_TIMEOUT);
+    gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]},
+                    ?PORT_TIMEOUT);
 logging(disable, {?MODULE, PortPid}) ->
-    gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_OFF]}, ?PORT_TIMEOUT).
+    gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_OFF]},
+                    ?PORT_TIMEOUT).
 
 keep_alive(KeepAlive, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {keep_alive, KeepAlive}, ?PORT_TIMEOUT).
 
 echo(Term, {?MODULE, PortPid}) ->
-    case gen_server:call(PortPid, {port_call, [?CMD_ECHOT, Term]}, ?PORT_TIMEOUT) of
+    case gen_server:call(PortPid, {port_call, [?CMD_ECHOT, Term]},
+                         ?PORT_TIMEOUT) of
         {error, Error} -> {error, Error};
         Return -> Return
     end.
 
 get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
-when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
-    case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd]}, ?PORT_TIMEOUT) of
+  when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
+    case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd]},
+                         ?PORT_TIMEOUT) of
         {error, Error} -> {error, Error};
         SessionId ->
             PortPid ! {check_sess, SessionId},
             {?MODULE, PortPid, SessionId}
     end.
 
-close({?MODULE, statement, _, _, _} = Ctx)  -> close(ignore_port, Ctx);
-close({?MODULE, _, _} = Ctx)                -> close(ignore_port, Ctx);
 close({?MODULE, PortPid}) ->
-    gen_server:call(PortPid, close, ?PORT_TIMEOUT).
+    erloci:del(PortPid);
+close({?MODULE, PortPid, SessionId}) ->
+    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]},
+                    ?PORT_TIMEOUT);
+close({?MODULE, statement, PortPid, SessionId, StmtId}) ->
+    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]},
+                    ?PORT_TIMEOUT).
 
-close(port_close, {?MODULE, statement, PortPid, _SessionId, _StmtId}) ->
-    close({?MODULE, PortPid});
-close(port_close, {?MODULE, PortPid, _SessionId}) ->
-    close({?MODULE, PortPid});
-close(_, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    gen_server:call(PortPid, {port_call, [?CLSE_STMT, SessionId, StmtId]}, ?PORT_TIMEOUT);
-close(_, {?MODULE, PortPid, SessionId}) ->
-    gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]}, ?PORT_TIMEOUT).
+lob(LobHandle, Offset, Length, {?MODULE, statement, PortPid, SessionId,
+                                StmtId})
+  when is_integer(LobHandle) andalso (Length > 0) andalso (Offset > 0) ->
+    gen_server:call(PortPid, {port_call, [?GET_LOBDA, SessionId, StmtId,
+                                          LobHandle, Offset, Length]},
+                    ?PORT_TIMEOUT).
 
-lob(LobHandle, Offset, Length, {?MODULE, statement, PortPid, SessionId, StmtId})
-  when is_integer(LobHandle)
-       andalso (Length > 0)
-       andalso (Offset > 0) ->
-    R = gen_server:call(PortPid, {port_call, [?GET_LOBDA, SessionId, StmtId, LobHandle, Offset, Length]}, ?PORT_TIMEOUT),
-    ?DriverSleep,
-    case R of
-        ok -> ok;
-        R -> R
-    end.
-
-bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) when is_list(BindVars) ->
+bind_vars(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId})
+  when is_list(BindVars) ->
     TranslatedBindVars = [case BV of
                               {K,V}     -> {K, ?AD(in), ?CT(V)};
                               {K,D,V}   -> {K, ?AD(D),  ?CT(V)}
                           end || BV <- BindVars],
-    R = gen_server:call(PortPid, {port_call, [?BIND_ARGS, SessionId, StmtId, TranslatedBindVars]}, ?PORT_TIMEOUT),
-    ?DriverSleep,
-    case R of
-        ok -> ok;
-        R -> R
-    end.
+    gen_server:call(PortPid, {port_call, [?BIND_ARGS, SessionId, StmtId,
+                                          TranslatedBindVars]}, ?PORT_TIMEOUT).
 
 ping({?MODULE, PortPid, SessionId}) ->
-    case catch gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]}, ?PORT_TIMEOUT) of
+    case catch gen_server:call(PortPid, {port_call, [?SESN_PING, SessionId]},
+                               ?PORT_TIMEOUT) of
         ok -> pong;
         _  -> pang
     end.
@@ -155,10 +125,10 @@ commit({?MODULE, PortPid, SessionId}) ->
 rollback({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?RBK_SESSN, SessionId]}, ?PORT_TIMEOUT).
 
-describe(Object, Type, {?MODULE, PortPid, SessionId})
-when is_binary(Object); is_atom(Type) ->
-    R = gen_server:call(PortPid, {port_call, [?CMD_DSCRB, SessionId, Object, ?DT(Type)]}, ?PORT_TIMEOUT),
-    case R of
+describe(Object, Type, {?MODULE, PortPid, SessionId}) when is_binary(Object);
+                                                           is_atom(Type) ->
+    case gen_server:call(PortPid, {port_call, [?CMD_DSCRB, SessionId, Object,
+                                               ?DT(Type)]}, ?PORT_TIMEOUT) of
         {desc, Descs} -> {ok, [{N,?CS(T),Sz} || {N,T,Sz} <- Descs]};
         R -> R
     end.
@@ -166,9 +136,8 @@ when is_binary(Object); is_atom(Type) ->
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_list(Sql) ->
     prep_sql(iolist_to_binary(Sql), {?MODULE, PortPid, SessionId});
 prep_sql(Sql, {?MODULE, PortPid, SessionId}) when is_binary(Sql) ->
-    R = gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]}, ?PORT_TIMEOUT),
-    ?DriverSleep,
-    case R of
+    case gen_server:call(PortPid, {port_call, [?PREP_STMT, SessionId, Sql]},
+                         ?PORT_TIMEOUT) of
         {stmt,StmtId} -> {?MODULE, statement, PortPid, SessionId, StmtId};
         R -> R
     end.
@@ -178,63 +147,74 @@ exec_stmt({?MODULE, statement, PortPid, SessionId, StmtId}) ->
     exec_stmt([], 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
 exec_stmt(BindVars, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
     exec_stmt(BindVars, 1, {?MODULE, statement, PortPid, SessionId, StmtId}).
-exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
+exec_stmt(BindVars, AutoCommit, {?MODULE, statement, PortPid, SessionId,
+                                 StmtId}) ->
     GroupedBindVars = split_binds(BindVars,?MAX_REQ_SIZE),
-    collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, []).
+    collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId,
+                                 AutoCommit, []).
 
 collect_grouped_bind_request([], _, _, _, _, Acc) ->
     UniqueResponses = sets:to_list(sets:from_list(Acc)),
-    Results = lists:foldl(fun({K, Vs}, Res) ->
-                                  case lists:keyfind(K, 1, Res) of
-                                      {K, Vals} -> lists:keyreplace(K, 1, Res, {K, Vals++Vs});
-                                      false -> [{K, Vs} | Res]
-                                  end
-                          end,
-                          [],
-                          UniqueResponses),
-    case Results of
+    case lists:foldl(
+           fun({K, Vs}, Res) ->
+                   case lists:keyfind(K, 1, Res) of
+                       {K, Vals} ->
+                           lists:keyreplace(K, 1, Res, {K, Vals++Vs});
+                       false -> [{K, Vs} | Res]
+                   end
+           end, [], UniqueResponses) of
         [Result] -> Result;
-        _ -> Results
+        Results -> Results
     end;
-collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId, StmtId, AutoCommit, Acc) ->
-    NewAutoCommit = if length(GroupedBindVars) > 0 -> 0; true -> AutoCommit end,
-    %if length(BindVars) > 0 -> io:format(user,"TX rows ~p~n", [length(BindVars)]); true -> ok end,
-    R = gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId, BindVars, NewAutoCommit]}, ?PORT_TIMEOUT),
-    ?DriverSleep,
-    case R of
-        {error, Error}  -> {error, Error};
-        {cols, Clms}    -> collect_grouped_bind_request( GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit
-                                                       , [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
-        {executed, _} -> R;
+collect_grouped_bind_request([BindVars|GroupedBindVars], PortPid, SessionId,
+                             StmtId, AutoCommit, Acc) ->
+    NewAutoCommit = if length(GroupedBindVars) > 0 -> 0;
+                       true -> AutoCommit end,
+    case gen_server:call(PortPid, {port_call, [?EXEC_STMT, SessionId, StmtId,
+                                               BindVars, NewAutoCommit]},
+                         ?PORT_TIMEOUT) of
+        {executed, _} = R -> R;
+        {error, _} = Error -> Error;
+        {cols, Clms} ->
+            collect_grouped_bind_request(
+              GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit,
+              [{cols, [{N,?CS(T),Sz,P,Sc} || {N,T,Sz,P,Sc} <- Clms]} | Acc]);
         {executed, C, OutVars} ->
-            {executed, C, [
-                case OV of
-                    {N,{cursor, SessionId, NewStmtId}} -> {N, {?MODULE, statement, PortPid, SessionId, NewStmtId}};
-                    Other -> Other
-                end
-             || OV <- OutVars]};
-        R               -> collect_grouped_bind_request(GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit, [R | Acc])
+            {executed, C,
+             [case OV of
+                  {N,{cursor, SessionId, NewStmtId}} ->
+                      {N, {?MODULE, statement, PortPid, SessionId, NewStmtId}};
+                  Other -> Other
+              end || OV <- OutVars]};
+        R ->
+            collect_grouped_bind_request(
+              GroupedBindVars, PortPid, SessionId, StmtId, AutoCommit,
+              [R | Acc])
     end.
 
-split_binds(BindVars,MaxReqSize)    -> split_binds(BindVars, MaxReqSize, length(BindVars), []).
-split_binds(BindVars, _, 0, [])     -> [BindVars];
-split_binds(BindVars, _, 0, Acc)    -> lists:reverse([B || B <- [BindVars | Acc], length(B) > 0]);
-split_binds([], _, _, Acc)          -> lists:reverse([B || B <- Acc, length(B) > 0]);
+split_binds(BindVars,MaxReqSize) ->
+    split_binds(BindVars, MaxReqSize, length(BindVars), []).
+
+split_binds(BindVars, _, 0, [])  -> [BindVars];
+split_binds(BindVars, _, 0, Acc) ->
+    lists:reverse([B || B <- [BindVars | Acc], length(B) > 0]);
+split_binds([], _, _, Acc) ->
+    lists:reverse([B || B <- Acc, length(B) > 0]);
 split_binds(BindVars, MaxReqSize, At, Acc) when is_list(BindVars) ->
     {Head,Tail} = lists:split(At, BindVars),
     ReqSize = byte_size(term_to_binary(Head)),
     if
         ReqSize > MaxReqSize ->
             NewAt = round(At / (ReqSize / MaxReqSize)),
-            %io:format(user,"req size ~p, max ~p -- BindVar(~p) splitting at ~p~n", [ReqSize, MaxReqSize, length(BindVars), NewAt]),
             split_binds(BindVars, MaxReqSize, NewAt, Acc);
         true ->
-            split_binds(Tail, MaxReqSize, length(Tail), [lists:reverse(Head)|Acc])
+            split_binds(Tail, MaxReqSize, length(Tail),
+                        [lists:reverse(Head)|Acc])
     end.
 
 fetch_rows(Count, {?MODULE, statement, PortPid, SessionId, StmtId}) ->
-    case gen_server:call(PortPid, {port_call, [?FTCH_ROWS, SessionId, StmtId, Count]}, ?PORT_TIMEOUT) of
-        %%{{rows, Rows}, Completed} -> {{rows, lists:reverse(Rows)}, Completed};
+    case gen_server:call(PortPid, {port_call, [?FTCH_ROWS, SessionId, StmtId,
+                                               Count]}, ?PORT_TIMEOUT) of
         {{rows, Rows}, Completed} -> {{rows, Rows}, Completed};
         Other -> Other
     end.
@@ -361,14 +341,6 @@ portstart(Executable, PortOptions) ->
     open_port({spawn_executable, Executable}, PortOptions).
 -endif.
 
-handle_call(close, _From, #state{port=Port} = State) ->
-    try
-        true = erlang:port_close(Port)
-    catch
-        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
-    end,
-    erloci:del(self()),
-    {reply, ok, State};
 handle_call({port_call, Msg}, From, #state{ping_timeout = PingInterval, ping_tref = PTref,
                                            port=Port, logger=_PortLogger} = State) ->
     Cmd = [if From /= undefined -> term_to_binary(From); true -> From end | Msg],
