@@ -20,10 +20,11 @@
 all() -> [load].
 
 init_per_suite(ConfigData) ->
+    ct:pal("wwe init_per_suite ===> Start ~n", []),
     io:format(user, "---~p---~n", [?LINE]),
     application:start(erloci),
     io:format(user, "---~p---~n", [?LINE]),
-    {Tns, User, Pswd, NlsLang} = (fun() ->
+    {Tns, User, Pswd, Lang, Logging} = (fun() ->
         ConnectConfigFile =
             filename:join(lists:reverse(["connect.config" |
                 case lists:reverse(filename:split(?config(data_dir, ConfigData))) of
@@ -38,7 +39,8 @@ init_per_suite(ConfigData) ->
                 proplists:get_value(tns, Params),
                 proplists:get_value(user, Params),
                 proplists:get_value(password, Params),
-                proplists:get_value(lang, Params)};
+                proplists:get_value(lang, Params),
+                proplists:get_value(logging, Params)};
             {error, Reason} ->
                 ?ELog("~p", [Reason]),
                 error(Reason)
@@ -56,34 +58,36 @@ init_per_suite(ConfigData) ->
         , list_to_binary(["_hero_", integer_to_list(I), "_"])
         , list_to_binary(["_reality_", integer_to_list(I), "_"])
         , I
-        , oci_util:edatetime_to_ora(erlang:now())
+        , oci_util:edatetime_to_ora(erlang:timestamp())
         , I
     } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
-    [{tables, Tables}, {binds, Binds}, {config, {Tns, User, Pswd, NlsLang}} | ConfigData].
+    [{tables, Tables}, {binds, Binds}, {config, {Tns, User, Pswd, Lang, Logging}} | ConfigData].
 
 end_per_suite(ConfigData) ->
+    ct:pal("wwe end_per_suite ===> Start ~n", []),
     Tables = lists:merge([Tabs || {_, Tabs} <- ?value(tables, ConfigData)]),
-    {Tns, User, Pswd, NlsLang} = ?value(config, ConfigData),
+    {Tns, User, Pswd, Lang, Logging} = ?value(config, ConfigData),
     OciPort = erloci:new(
-        [{logging, true},
-            {env, [{"NLS_LANG", NlsLang}]}
+        [{logging, Logging},
+            {env, [{"NLS_LANG", Lang}]}
         ]),
     OciSession = OciPort:get_session(Tns, User, Pswd),
     [tab_drop(OciSession, Table) || Table <- Tables],
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
+    ct:pal("wwe load ===> Start ~n", []),
     Tables = ?value(tables, ConfigData),
     ct:pal(info, "tables: ~p", [tables]),
     Binds = ?value(binds, ConfigData),
-    {Tns, User, Pswd, NlsLang} = ?value(config, ConfigData),
+    {Tns, User, Pswd, Lang, Logging} = ?value(config, ConfigData),
     RowsPerProcess = length(Binds),
     ct:pal(info, "Starting ~p connection processes with ~p", [?CONNECTIONS, Tables]),
-    % OciPort = oci_port:start_link([{logging, true}]),
+    % OciPort = oci_port:start_link([{logging, Logging}]),
     OciPort = erloci:new([
-        {logging, true},
-        {env, [{"NLS_LANG", NlsLang}]}
+        {logging, Logging},
+        {env, [{"NLS_LANG", Lang}]}
     ]),
     This = self(),
     [spawn(fun() ->
