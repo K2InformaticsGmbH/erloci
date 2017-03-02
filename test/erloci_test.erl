@@ -74,82 +74,72 @@
                    "p.inst_id = s.inst_id "
                    "where s.type != 'BACKGROUND' and s.program like 'ocierl%'">>).
 
-%% - %% ------------------------------------------------------------------------------
-%% - %% db_negative_test_
-%% - %% ------------------------------------------------------------------------------
-%% - db_negative_test_() ->
-%% -     {timeout, 60, {
-%% -         setup,
-%% -         fun() ->
-%% -                 Conf = ?CONN_CONF,
-%% -                 application:start(erloci),
-%% -                 OciPort = erloci:new(
-%% -                             [{logging, true},
-%% -                              {env, [{"NLS_LANG",
-%% -                                      "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-%% -                 #{ociport => OciPort, conf => Conf}
-%% -         end,
-%% -         fun(#{ociport := OciPort}) ->
-%% -                 OciPort:close(),
-%% -                 application:stop(erloci)
-%% -         end,
-%% -         {with, [
-%% -             fun echo/1,
-%% -             fun bad_password/1,
-%% -             fun session_ping/1
-%% -         ]}
-%% -     }}.
-%% - 
-%% - echo(#{ociport := OciPort}) ->
-%% -     ?ELog("+---------------------------------------------+"),
-%% -     ?ELog("|                     echo                    |"),
-%% -     ?ELog("+---------------------------------------------+"),
-%% -     ?ELog("echo back erlang terms", []),
-%% -     ?assertEqual(1, OciPort:echo(1)),
-%% -     ?assertEqual(1.2, OciPort:echo(1.2)),
-%% -     ?assertEqual(atom, OciPort:echo(atom)),
-%% -     ?assertEqual(self(), OciPort:echo(self())),
-%% -     ?assertEqual(node(), OciPort:echo(node())),
-%% -     Ref = make_ref(),
-%% -     ?assertEqual(Ref, OciPort:echo(Ref)),
-%% -     % Load the ref cache to generate long ref
-%% -     _Refs = [make_ref() || _I <- lists:seq(1,1000000)],    
-%% -     Ref1 = make_ref(),
-%% -     ?assertEqual(Ref1, OciPort:echo(Ref1)),
-%% -     %Fun = fun() -> ok end, % Not Supported
-%% -     %?assertEqual(Fun, OciPort:echo(Fun)),
-%% -     ?assertEqual("", OciPort:echo("")),
-%% -     ?assertEqual(<<>>, OciPort:echo(<<>>)),
-%% -     ?assertEqual([], OciPort:echo([])),
-%% -     ?assertEqual({}, OciPort:echo({})),
-%% -     ?assertEqual("string", OciPort:echo("string")),
-%% -     ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
-%% -     ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
-%% -     ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
-%% - 
-%% - 
-%% - bad_password(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
-%% -     ?ELog("+---------------------------------------------+"),
-%% -     ?ELog("|                 bad_password                |"),
-%% -     ?ELog("+---------------------------------------------+"),
-%% -     ?ELog("get_session with wrong password", []),
-%% -     ?assertMatch(
-%% -        {error, {1017,_}},
-%% -        OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
-%% - 
-%% - session_ping(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
-%% -     ?ELog("+---------------------------------------------+"),
-%% -     ?ELog("|                 session_ping                |"),
-%% -     ?ELog("+---------------------------------------------+"),
-%% -     ?ELog("ping oci session", []),
-%% -     OciSession = OciPort:get_session(Tns, User, Pswd),
-%% -     ?assertEqual(pong, OciSession:ping()),
-%% -     SelStmt = OciSession:prep_sql("select * from dual"),
-%% -     ?assertEqual(pong, OciSession:ping()),
-%% -     ?assertMatch({cols,[{<<"DUMMY">>,'SQLT_CHR',_,0,0}]}, SelStmt:exec_stmt()),
-%% -     ?assertEqual(pong, OciSession:ping()),
-%% -     ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
-%% -     ?assertEqual(pong, OciSession:ping()).
+%% ------------------------------------------------------------------------------
+%% db_negative_test
+%% ------------------------------------------------------------------------------
+db_negative_test(State) ->
+    {timeout, 60, {
+        setup,
+        fun() -> State end,
+        fun(_State) -> ok end,
+        {with, [
+            fun echo/1,
+            fun bad_password/1,
+            fun session_ping/1
+        ]}
+    }}.
+
+echo(#{ociport := OciPort}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                     echo                    |"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("echo back erlang terms", []),
+    ?assertEqual(1, OciPort:echo(1)),
+    ?assertEqual(1.2, OciPort:echo(1.2)),
+    ?assertEqual(atom, OciPort:echo(atom)),
+    ?assertEqual(self(), OciPort:echo(self())),
+    ?assertEqual(node(), OciPort:echo(node())),
+    Ref = make_ref(),
+    ?assertEqual(Ref, OciPort:echo(Ref)),
+    % Load the ref cache to generate long ref
+    Refs = [make_ref() || _I <- lists:seq(1,1000000)],    
+    Ref1 = make_ref(),
+    ?assertEqual(Ref1, OciPort:echo(Ref1)),
+    %Fun = fun() -> ok end, % Not Supported
+    %?assertEqual(Fun, OciPort:echo(Fun)),
+    ?assertEqual("", OciPort:echo("")),
+    ?assertEqual(<<>>, OciPort:echo(<<>>)),
+    ?assertEqual([], OciPort:echo([])),
+    ?assertEqual({}, OciPort:echo({})),
+    ?assertEqual("string", OciPort:echo("string")),
+    ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
+    ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
+    ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])),
+    ?ELog("Reference generated : ~p", [length(Refs)]).
+
+
+bad_password(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                 bad_password                |"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("get_session with wrong password", []),
+    ?assertMatch(
+       {error, {1017,_}},
+       OciPort:get_session(Tns, User, list_to_binary([Pswd,"_bad"]))).
+
+session_ping(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                 session_ping                |"),
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("ping oci session", []),
+    OciSession = OciPort:get_session(Tns, User, Pswd),
+    ?assertEqual(pong, OciSession:ping()),
+    SelStmt = OciSession:prep_sql("select * from dual"),
+    ?assertEqual(pong, OciSession:ping()),
+    ?assertMatch({cols,[{<<"DUMMY">>,'SQLT_CHR',_,0,0}]}, SelStmt:exec_stmt()),
+    ?assertEqual(pong, OciSession:ping()),
+    ?assertEqual({{rows,[[<<"X">>]]},true}, SelStmt:fetch_rows(100)),
+    ?assertEqual(pong, OciSession:ping()).
 
 %%------------------------------------------------------------------------------
 %% db_test_
@@ -197,7 +187,8 @@ db_test_() ->
          fun multiple_bind_reuse/1,
          fun check_ping/1,
          fun check_session_without_ping/1,
-         fun check_session_with_ping/1
+         fun check_session_with_ping/1,
+         fun db_negative_test/1
         ]}
       }}.
 
@@ -483,7 +474,7 @@ insert_select_update(#{ocisession := OciSession}) ->
         ?assertEqual(<< "_püèr_"/utf8 >>, binary:part(Publisher, 0, byte_size(<< "_püèr_"/utf8 >>)))
     end
     || [_, _, Publisher, _, Hero, _, _, _, Chapters, _] <- Rows],
-    RowIDs = [R || [R|_] <- Rows],
+    RowIds = [R || [R|_] <- Rows],
 
     ?ELog("RowIds ~p", [RowIds]),
     ?ELog("~s", [binary_to_list(?UPDATE)]),
@@ -1064,13 +1055,13 @@ multiple_bind_reuse(#{ocisession := OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
-check_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd}}) ->
+check_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd, logging := Logging, lang := Lang}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                 check_ping                  |"),
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
     %% Connection with ping timeout set to 1 second
-    PingOciPort = erloci:new([{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+    PingOciPort = erloci:new([{logging, Logging}, {ping_timeout, 1000}, {env, [{"NLS_LANG", Lang}]}]),
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
     ?assertEqual(pong, PingOciSession:ping()),
     SessionsAfter = current_pool_session_ids(OciSession),
@@ -1081,12 +1072,12 @@ check_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, passw
     ?assertEqual(pang, PingOciSession:ping()).
 
 check_session_without_ping(#{ocisession := OciSession,
-                             conf := #{tns := Tns, user := User, password := Pswd}}) ->
+                             conf := #{tns := Tns, user := User, password := Pswd, logging := Logging, lang := Lang}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|         check_session_without_ping          |"),
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
-    Opts = [{logging, true}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
+    Opts = [{logging, Logging}, {env, [{"NLS_LANG", Lang}]}],
     NoPingOciPort = erloci:new(Opts),
     NoPingOciSession = NoPingOciPort:get_session(Tns, User, Pswd),
     SelStmt1 = NoPingOciSession:prep_sql(<<"select 4+4 from dual">>),
@@ -1096,13 +1087,13 @@ check_session_without_ping(#{ocisession := OciSession,
     ?assertEqual(ok, kill_session(OciSession, NoPingSession)),
     ?assertMatch({error, {3113, _}}, SelStmt1:exec_stmt()).
 
-check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd}}) ->
+check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd, logging := Logging, lang := Lang}}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|           check_session_with_ping           |"),
     ?ELog("+---------------------------------------------+"),
     SessionsBefore = current_pool_session_ids(OciSession),
     %% Connection with ping timeout set to 1 second
-    Opts = [{logging, true}, {ping_timeout, 1000}, {env, [{"NLS_LANG", "GERMAN_SWITZERLAND.AL32UTF8"}]}],
+    Opts = [{logging, Logging}, {ping_timeout, 1000}, {env, [{"NLS_LANG", Lang}]}],
     PingOciPort = erloci:new(Opts),
     PingOciSession = PingOciPort:get_session(Tns, User, Pswd),
     SelStmt1 = PingOciSession:prep_sql(<<"select 4+4 from dual">>),
@@ -1111,7 +1102,7 @@ check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user :
     [NoPingSession | _] = lists:flatten(SessionsAfter) -- lists:flatten(SessionsBefore),
     ?assertEqual(ok, kill_session(OciSession, NoPingSession)),
     timer:sleep(2000),
-    ?assertMatch({'EXIT', {noproc, _}}, catch SelStmt1:exec_stmt()).
+    ?assertMatch({error, {3114, _}}, SelStmt1:exec_stmt()).
 
 current_pool_session_ids(OciSession) ->
     Stmt = OciSession:prep_sql(?SESSSQL),
