@@ -105,7 +105,8 @@ when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
 close({?MODULE, statement, _, _, _} = Ctx)  -> close(ignore_port, Ctx);
 close({?MODULE, _, _} = Ctx)                -> close(ignore_port, Ctx);
 close({?MODULE, PortPid}) ->
-    gen_server:call(PortPid, close, ?PORT_TIMEOUT).
+    erloci:del(PortPid),
+    ok.
 
 close(port_close, {?MODULE, statement, PortPid, _SessionId, _StmtId}) ->
     close({?MODULE, PortPid});
@@ -358,9 +359,6 @@ portstart(Executable, PortOptions) ->
     open_port({spawn_executable, Executable}, PortOptions).
 -endif.
 
-handle_call(close, _From, State) ->
-    erloci:del(self()),
-    {reply, ok, State};
 handle_call({port_call, Msg}, From, #state{ping_timeout = PingInterval, ping_tref = PTref,
                                            port=Port, logger=_PortLogger} = State) ->
     Cmd = [if From /= undefined -> term_to_binary(From); true -> From end | Msg],
@@ -393,8 +391,8 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
             case {binary_to_term(Info), Result} of
                 {{ping, SessionId}, ok} ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
-                {{ping, _SessionId}, {error, _Reason}} ->
-                    erloci:del(self()),
+                {{ping, SessionId}, {error, _Reason}} ->
+                    port_command(Port, term_to_binary({term_to_binary(self()),?PUT_SESSN, SessionId})),
                     PTref;
                 {From, {error, Reason}} ->
                     gen_server:reply(From, {error, Reason}),
