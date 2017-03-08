@@ -85,7 +85,7 @@ get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
     end.
 
 close({?MODULE, PortPid}) ->
-    erloci:del(PortPid),
+    PortPid ! close,
     ok;
 close({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]},
@@ -224,7 +224,6 @@ init([Logging, ListenPort, LSock, LogFun, Options]) ->
         {error,_} -> "./priv/";
         PDir -> PDir
     end,
-    process_flag(trap_exit, true),
     case os:find_executable(?EXE_NAME, PrivDir) of
         false ->
             case os:find_executable(?EXE_NAME, "./deps/erloci/priv/") of
@@ -399,6 +398,7 @@ handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
     BTerm = term_to_binary(CmdTuple),
     true = port_command(Port, BTerm),
     {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}};
+handle_info(close, State) -> {stop, normal, State};
 %% Catch all - throws away unknown messages (This could happen by "accident"
 %% so we do not want to crash, but we make a log entry as it is an
 %% unwanted behaviour.)
