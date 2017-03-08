@@ -84,9 +84,7 @@ get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
             {?MODULE, PortPid, SessionId}
     end.
 
-close({?MODULE, PortPid}) ->
-    PortPid ! close,
-    ok;
+close({?MODULE, PortPid}) -> PortPid ! close;
 close({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]},
                     ?PORT_TIMEOUT);
