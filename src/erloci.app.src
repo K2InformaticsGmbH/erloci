@@ -17,7 +17,7 @@
 {application, erloci,
  [
   {description, "Erlang port driver for OCI"},
-  {vsn, "0.0.3"},
+  {vsn, "0.0.3-pre1"},
   {registered, []},
   {applications, [
                   kernel,
