@@ -387,14 +387,11 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
 handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = State) ->
     case Status of
         0 ->
-            ?log(L, State#state.logging, "port ~p exited with status ~p", [Port, Status]),
-            erloci:del(self()),
-            {noreply, State};
+            ?log(L, State#state.logging, "port ~p exited with status ~p", [Port, Status]);
         Other ->
-           ?Error(L, "~p abnormal termination ~p", [Port, signal_str(Other-128)]),
-            erloci:del(self()),
-           {noreply, State}
-    end;
+           ?Error(L, "~p abnormal termination ~p", [Port, signal_str(Other-128)])
+    end,
+    {stop, normal, State};
 handle_info({check_sess, _}, #state{ping_timeout = 0} = State) ->
     {noreply, State};
 handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
