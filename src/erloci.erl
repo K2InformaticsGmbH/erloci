@@ -28,7 +28,7 @@
 -export([init/1]).
 
 % create port interface
--export([new/1, new/2, del/1, bind_arg_types/0]).
+-export([new/1, new/2, bind_arg_types/0]).
 
 -include("oci.hrl").
 -include("oci_log_cb.hrl").
@@ -46,7 +46,7 @@ stop(_State) ->
 init(_) ->
     {ok, {{simple_one_for_one,5,10},
           [{oci_port,{oci_port,start_link,[]},
-            permanent, 5000, worker, [oci_port]}]}}.
+            temporary, 5000, worker, [oci_port]}]}}.
 
 new(Options) -> new(Options, ?LOGFUN).
 new(Options, undefined) -> new(Options, ?LOGFUN);
@@ -60,8 +60,6 @@ new(Options, LogFun) ->
         {error, Error} -> error(Error);
         {ok, ChildPid} -> {oci_port, ChildPid}
     end.
-
-del(Child) -> supervisor:terminate_child(?MODULE, Child).
 
 bind_arg_types() ->
     [atom_to_binary(T,utf8) || {T,_} <- ?CLM_TYPES].
