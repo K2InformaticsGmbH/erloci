@@ -19,7 +19,7 @@
 -include("oci.hrl").
 
 %% API
--export([start_link/2, stop/1, logging/2, get_session/4, describe/3,
+-export([start_link/2, logging/2, get_session/4, describe/3,
          prep_sql/2, ping/1, commit/1, rollback/1, bind_vars/2, lob/4,
          exec_stmt/1, exec_stmt/2, exec_stmt/3, fetch_rows/2, keep_alive/2,
          close/1, echo/2, split_binds/2]).
@@ -57,9 +57,6 @@ start_link(Options,LogFun) ->
                                             Options], [])
     end.
 
-stop(PortPid) ->
-    gen_server:call(PortPid, stop).
-
 logging(enable, {?MODULE, PortPid}) ->
     gen_server:call(PortPid, {port_call, [?RMOTE_MSG, ?DBG_FLAG_ON]},
                     ?PORT_TIMEOUT);
@@ -87,8 +84,7 @@ get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
             {?MODULE, PortPid, SessionId}
     end.
 
-close({?MODULE, PortPid}) ->
-    erloci:del(PortPid);
+close({?MODULE, PortPid}) -> PortPid ! close;
 close({?MODULE, PortPid, SessionId}) ->
     gen_server:call(PortPid, {port_call, [?PUT_SESSN, SessionId]},
                     ?PORT_TIMEOUT);
@@ -373,13 +369,8 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
             case {binary_to_term(Info), Result} of
                 {{ping, SessionId}, ok} ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
-                {{ping, _SessionId}, {error, _Reason}} ->
-                    try
-                        true = erlang:port_close(Port)
-                    catch
-                        _:R -> error_logger:error_report("Port close failed with reason: ~p~n", [R])
-                    end,
-                    erloci:del(self()),
+                {{ping, SessionId}, {error, _Reason}} ->
+                    port_command(Port, term_to_binary({term_to_binary(self()),?PUT_SESSN, SessionId})),
                     PTref;
                 {From, {error, Reason}} ->
                     gen_server:reply(From, {error, Reason}),
@@ -393,14 +384,11 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
 handle_info({Port, {exit_status, Status}}, #state{port = Port, logger = L} = State) ->
     case Status of
         0 ->
-            ?log(L, State#state.logging, "port ~p exited with status ~p", [Port, Status]),
-            erloci:del(self()),
-            {noreply, State};
+            ?log(L, State#state.logging, "port ~p exited with status ~p", [Port, Status]);
         Other ->
-           ?Error(L, "~p abnormal termination ~p", [Port, signal_str(Other-128)]),
-            erloci:del(self()),
-           {noreply, State}
-    end;
+           ?Error(L, "~p abnormal termination ~p", [Port, signal_str(Other-128)])
+    end,
+    {stop, normal, State};
 handle_info({check_sess, _}, #state{ping_timeout = 0} = State) ->
     {noreply, State};
 handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
@@ -408,6 +396,7 @@ handle_info({check_sess, SessionId}, #state{port = Port} = State) ->
     BTerm = term_to_binary(CmdTuple),
     true = port_command(Port, BTerm),
     {noreply, State#state{waiting_resp=true, lastcmd=CmdTuple}};
+handle_info(close, State) -> {stop, normal, State};
 %% Catch all - throws away unknown messages (This could happen by "accident"
 %% so we do not want to crash, but we make a log entry as it is an
 %% unwanted behaviour.)
