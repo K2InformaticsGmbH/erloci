@@ -20,32 +20,11 @@
 all() -> [load].
 
 init_per_suite(ConfigData) ->
-    ct:pal("wwe init_per_suite ===> Start ~n", []),
     io:format(user, "---~p---~n", [?LINE]),
     application:start(erloci),
     io:format(user, "---~p---~n", [?LINE]),
-    {Tns, User, Pswd, Lang, Logging} = (fun() ->
-        ConnectConfigFile =
-            filename:join(lists:reverse(["connect.config" |
-                case lists:reverse(filename:split(?config(data_dir, ConfigData))) of
-                    ["erloci_SUITE_data" | Rest] -> Rest;
-                    Error ->
-                        ?ELog("~p", [Error]),
-                        error(Error)
-                end
-            ])),
-        case file:consult(ConnectConfigFile) of
-            {ok, Params} -> {
-                proplists:get_value(tns, Params),
-                proplists:get_value(user, Params),
-                proplists:get_value(password, Params),
-                proplists:get_value(lang, Params),
-                proplists:get_value(logging, Params)};
-            {error, Reason} ->
-                ?ELog("~p", [Reason]),
-                error(Reason)
-        end
-                                  end)(),
+    #{tns := Tns, user := User, password := Pswd,
+        logging := Logging, lang := Lang} = ?CONN_CONF_CT,
     io:format(user, "---~p---~n", [?LINE]),
     Tables = [{C,
         [lists:flatten([?TAB, "_", integer_to_list(C), "_", integer_to_list(S)])
@@ -65,7 +44,6 @@ init_per_suite(ConfigData) ->
     [{tables, Tables}, {binds, Binds}, {config, {Tns, User, Pswd, Lang, Logging}} | ConfigData].
 
 end_per_suite(ConfigData) ->
-    ct:pal("wwe end_per_suite ===> Start ~n", []),
     Tables = lists:merge([Tabs || {_, Tabs} <- ?value(tables, ConfigData)]),
     {Tns, User, Pswd, Lang, Logging} = ?value(config, ConfigData),
     OciPort = erloci:new(
@@ -77,7 +55,6 @@ end_per_suite(ConfigData) ->
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
-    ct:pal("wwe load ===> Start ~n", []),
     Tables = ?value(tables, ConfigData),
     ct:pal(info, "tables: ~p", [tables]),
     Binds = ?value(binds, ConfigData),
