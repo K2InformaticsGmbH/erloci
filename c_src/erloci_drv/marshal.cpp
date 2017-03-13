@@ -494,6 +494,9 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 						throw r;
 					}
 					break;
+                case SQLT_RSET:
+					// Ouput ref cursors bind values are ignored.
+                    break;
 				default:
 					strcpy(r.gerrbuf, "Unsupported type in bind");
 					throw r;
