@@ -57,9 +57,9 @@ void checkerr(OCIError * errhp, sword status, int line)
 }
 
 const char
-	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=5437)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 	*usr = "scott",
-	*pwd = "tiger";
+	*pwd = "regit";
 
 OCIEnv		*envhp = NULL;
 OCIError	*errhp = NULL;
@@ -826,13 +826,18 @@ int main(int argc, char* argv[])
 	if(setup_env())
 		goto error_return;
 
-	if(statement("select ts from datetime"))
+	if(statement("select rowid from myiot"))
 		goto error_return;
 
 	// http://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci03typ.htm#i423684
 
-	unsigned char descpp[10];
-	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)1, (void*)descpp, (sb4)10, (ub2) 180,
+	OCIRowid * pRowID;
+	err = OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)1, (void*)&pRowID, (sb4)0, (ub2) SQLT_RDD,
 		(void*)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
@@ -845,6 +850,17 @@ int main(int argc, char* argv[])
 		return true;
 	}
 
+	ub2 size = 4999;
+	OraText *rowID = new OraText[size + 1];
+	memset(rowID, 0, 19);
+
+	err = OCIRowidToChar(pRowID, rowID, &size, errhp);
+	if(err != OCI_SUCCESS) {
+		checkerr(errhp, err, __LINE__);
+		return true;
+	}
+
+	printf("ROWID %s\n", (unsigned char *)rowID);
 #if 0
 	if(dump_object(envhp, errhp, svchp, "sys.aq$_jms_map_message", obj, null_obj, o))
 	//if(describe("sys.aq$_jms_map_message"))

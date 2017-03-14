@@ -535,9 +535,18 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(INT_SQLT_TIMESTAMP_TZ, "INT_SQLT_TIMESTAMP_TZ");
                 break;
-			// 19 bytes buffer
-			case SQLT_RDD:
-			case SQLT_RID:
+			case SQLT_RDD: {
+				OCIALLOC(OCI_DTYPE_ROWID, "SQLT_RDD");
+				void * _t = cur_clm.row_valp;
+				ub4 _dlen = cur_clm.dlen;
+				cur_clm.dlen = -1;
+				cur_clm.row_valp = &(cur_clm.row_valp);
+				OCIDEF(SQLT_RDD, "SQLT_RDD");
+				cur_clm.row_valp = _t;
+				cur_clm.dlen = _dlen;
+                break;
+			}
+			case SQLT_RID: // 19 bytes buffer
 				cur_clm.dlen = (cur_clm.dlen < 19 ? 19 : cur_clm.dlen);
 				cur_clm.row_valp = new text[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
@@ -943,9 +952,31 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
 						break;
 					}
+					case SQLT_RDD: {
+						OCIRowid * pRowID = (OCIRowid*)_columns[i]->row_valp;
+						ub2 size = _columns[i]->dlen;
+						OraText *rowID = new OraText[size + 1];
+						checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
+						if(r.fn_ret != SUCCESS) {
+							if (size > _columns[i]->dlen) {
+								delete rowID;
+								rowID = new OraText[size + 1];
+								checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
+								if(r.fn_ret != SUCCESS) {
+									REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+									throw r;
+								}
+							} else {
+								REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+								throw r;
+							}
+						}
+						size_t str_len = strlen((char*)rowID);
+						(*intf.append_string_to_list)((char*)rowID, str_len, row);
+						break;
+					}
 					case SQLT_BIN:
 					case SQLT_RID:
-					case SQLT_RDD:
 					case SQLT_AFC:
 					case SQLT_STR: {
 						size_t str_len = strlen((char*)(_columns[i]->row_valp));
