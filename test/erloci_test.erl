@@ -792,8 +792,7 @@ procedure_scalar_test(#{ocisession := OciSession}) ->
                  ExecStmt:exec_stmt([{50, <<"1             ">>, 3}], 1)),
     ?assertEqual({executed, 1,
                   [{<<":p_second">>,<<"The sum is 6">>},
-                   {<<":p_result">>,6}]},
-                 ExecStmt:exec_stmt([{5, <<"1             ">>, 3}], 1)),
+                   {<<":p_result">>,6}]}, ExecStmt:exec_stmt([{5, <<"1             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt:close()),
 
     ExecStmt1 = OciSession:prep_sql(<<"call "?TESTPROCEDURE"(:p_first,:p_second,:p_result)">>),
