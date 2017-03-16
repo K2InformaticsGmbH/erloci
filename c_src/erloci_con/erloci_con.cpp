@@ -57,9 +57,9 @@ void checkerr(OCIError * errhp, sword status, int line)
 }
 
 const char
-	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=80.67.144.206)(PORT=5437)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 	*usr = "scott",
-	*pwd = "regit";
+	*pwd = "tiger";
 
 OCIEnv		*envhp = NULL;
 OCIError	*errhp = NULL;
