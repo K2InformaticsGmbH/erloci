@@ -77,28 +77,28 @@
 %% ------------------------------------------------------------------------------
 %% db_negative_test_
 %% ------------------------------------------------------------------------------
-db_negative_test_() ->
-    {timeout, 60, {
-        setup,
-        fun() ->
-                Conf = ?CONN_CONF,
-                application:start(erloci),
-                OciPort = erloci:new(
-                            [{logging, true},
-                             {env, [{"NLS_LANG",
-                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-                #{ociport => OciPort, conf => Conf}
-        end,
-        fun(#{ociport := OciPort}) ->
-                OciPort:close(),
-                application:stop(erloci)
-        end,
-        {with, [
-            fun echo/1,
-            fun bad_password/1,
-            fun session_ping/1
-        ]}
-    }}.
+% db_negative_test_() ->
+%     {timeout, 60, {
+%         setup,
+%         fun() ->
+%                 Conf = ?CONN_CONF,
+%                 application:start(erloci),
+%                 OciPort = erloci:new(
+%                             [{logging, true},
+%                              {env, [{"NLS_LANG",
+%                                      "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+%                 #{ociport => OciPort, conf => Conf}
+%         end,
+%         fun(#{ociport := OciPort}) ->
+%                 OciPort:close(),
+%                 application:stop(erloci)
+%         end,
+%         {with, [
+%             fun echo/1,
+%             fun bad_password/1,
+%             fun session_ping/1
+%         ]}
+%     }}.
 
 echo(#{ociport := OciPort}) ->
     ?ELog("+---------------------------------------------+"),
@@ -181,23 +181,23 @@ db_test_() ->
                ssh:stop()
        end,
        {with,
-        [fun drop_create/1,
-         fun bad_sql_connection_reuse/1,
-         fun insert_select_update/1,
-         fun auto_rollback_test/1,
-         fun commit_rollback_test/1,
-         fun asc_desc_test/1,
-         %fun lob_test/1,
-         fun describe_test/1,
-         fun function_test/1,
-         fun procedure_scalar_test/1,
-         fun procedure_cur_test/1,
-         fun timestamp_interval_datatypes/1,
-         fun stmt_reuse_onerror/1,
-         fun multiple_bind_reuse/1,
-         fun check_ping/1,
-         fun check_session_without_ping/1,
-         fun check_session_with_ping/1,
+        [%fun drop_create/1,
+         %fun bad_sql_connection_reuse/1,
+         %fun insert_select_update/1,
+         %fun auto_rollback_test/1,
+         %fun commit_rollback_test/1,
+         %fun asc_desc_test/1,
+         fun lob_test/1,
+         %fun describe_test/1,
+         %fun function_test/1,
+         %fun procedure_scalar_test/1,
+         %fun procedure_cur_test/1,
+         %fun timestamp_interval_datatypes/1,
+         %fun stmt_reuse_onerror/1,
+         %fun multiple_bind_reuse/1,
+         %fun check_ping/1,
+         %fun check_session_without_ping/1,
+         %fun check_session_with_ping/1,
          fun urowid/1
         ]}
       }}.
@@ -1128,22 +1128,6 @@ check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user :
     timer:sleep(2000),
     ?assertMatch({'EXIT', {noproc, _}}, catch SelStmt1:exec_stmt()).
 
-current_pool_session_ids(OciSession) ->
-    Stmt = OciSession:prep_sql(?SESSSQL),
-    ?assertMatch({cols, _}, Stmt:exec_stmt()),
-    {{rows, CurSessions}, true} = Stmt:fetch_rows(10000),
-    ?assertEqual(ok, Stmt:close()),
-    CurSessions.
-
-kill_session(OciSession, SessionToKill) when is_binary(SessionToKill) ->
-    Stmt = OciSession:prep_sql(<<"alter system kill session '", SessionToKill/binary, "' immediate">>),
-    case Stmt:exec_stmt() of
-        {error,{30, _}} -> ok;
-        {error,{31, _}} -> ok;
-        {executed, 0} -> ?ELog("~p closed", [SessionToKill])
-    end,
-    ?assertEqual(ok, Stmt:close()).
-
 urowid(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                  urowid                     |"),
@@ -1196,3 +1180,20 @@ urowid(#{ocisession := OciSession}) ->
     ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
+
+
+current_pool_session_ids(OciSession) ->
+    Stmt = OciSession:prep_sql(?SESSSQL),
+    ?assertMatch({cols, _}, Stmt:exec_stmt()),
+    {{rows, CurSessions}, true} = Stmt:fetch_rows(10000),
+    ?assertEqual(ok, Stmt:close()),
+    CurSessions.
+
+kill_session(OciSession, SessionToKill) when is_binary(SessionToKill) ->
+    Stmt = OciSession:prep_sql(<<"alter system kill session '", SessionToKill/binary, "' immediate">>),
+    case Stmt:exec_stmt() of
+        {error,{30, _}} -> ok;
+        {error,{31, _}} -> ok;
+        {executed, 0} -> ?ELog("~p closed", [SessionToKill])
+    end,
+    ?assertEqual(ok, Stmt:close()).
