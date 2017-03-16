@@ -77,28 +77,28 @@
 %% ------------------------------------------------------------------------------
 %% db_negative_test_
 %% ------------------------------------------------------------------------------
-% db_negative_test_() ->
-%     {timeout, 60, {
-%         setup,
-%         fun() ->
-%                 Conf = ?CONN_CONF,
-%                 application:start(erloci),
-%                 OciPort = erloci:new(
-%                             [{logging, true},
-%                              {env, [{"NLS_LANG",
-%                                      "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
-%                 #{ociport => OciPort, conf => Conf}
-%         end,
-%         fun(#{ociport := OciPort}) ->
-%                 OciPort:close(),
-%                 application:stop(erloci)
-%         end,
-%         {with, [
-%             fun echo/1,
-%             fun bad_password/1,
-%             fun session_ping/1
-%         ]}
-%     }}.
+db_negative_test_() ->
+    {timeout, 60, {
+        setup,
+        fun() ->
+                Conf = ?CONN_CONF,
+                application:start(erloci),
+                OciPort = erloci:new(
+                            [{logging, true},
+                             {env, [{"NLS_LANG",
+                                     "GERMAN_SWITZERLAND.AL32UTF8"}]}]),
+                #{ociport => OciPort, conf => Conf}
+        end,
+        fun(#{ociport := OciPort}) ->
+                OciPort:close(),
+                application:stop(erloci)
+        end,
+        {with, [
+            fun echo/1,
+            fun bad_password/1,
+            fun session_ping/1
+        ]}
+    }}.
 
 echo(#{ociport := OciPort}) ->
     ?ELog("+---------------------------------------------+"),
@@ -113,7 +113,7 @@ echo(#{ociport := OciPort}) ->
     Ref = make_ref(),
     ?assertEqual(Ref, OciPort:echo(Ref)),
     % Load the ref cache to generate long ref
-    _Refs = [make_ref() || _I <- lists:seq(1,1000000)],    
+    _Refs = [make_ref() || _I <- lists:seq(1,1000000)],
     Ref1 = make_ref(),
     ?assertEqual(Ref1, OciPort:echo(Ref1)),
     %Fun = fun() -> ok end, % Not Supported
@@ -181,23 +181,23 @@ db_test_() ->
                ssh:stop()
        end,
        {with,
-        [%fun drop_create/1,
-         %fun bad_sql_connection_reuse/1,
-         %fun insert_select_update/1,
-         %fun auto_rollback_test/1,
-         %fun commit_rollback_test/1,
-         %fun asc_desc_test/1,
+        [fun drop_create/1,
+         fun bad_sql_connection_reuse/1,
+         fun insert_select_update/1,
+         fun auto_rollback_test/1,
+         fun commit_rollback_test/1,
+         fun asc_desc_test/1,
          fun lob_test/1,
-         %fun describe_test/1,
-         %fun function_test/1,
-         %fun procedure_scalar_test/1,
-         %fun procedure_cur_test/1,
-         %fun timestamp_interval_datatypes/1,
-         %fun stmt_reuse_onerror/1,
-         %fun multiple_bind_reuse/1,
-         %fun check_ping/1,
-         %fun check_session_without_ping/1,
-         %fun check_session_with_ping/1,
+         fun describe_test/1,
+         fun function_test/1,
+         fun procedure_scalar_test/1,
+         fun procedure_cur_test/1,
+         fun timestamp_interval_datatypes/1,
+         fun stmt_reuse_onerror/1,
+         fun multiple_bind_reuse/1,
+         fun check_ping/1,
+         fun check_session_without_ping/1,
+         fun check_session_with_ping/1,
          fun urowid/1
         ]}
       }}.
@@ -223,7 +223,7 @@ flush_table(OciSession) ->
     % If table doesn't exists the handle isn't valid
     % Any error is ignored anyway
     case DropStmt:exec_stmt() of
-        {error, _} -> ok; 
+        {error, _} -> ok;
         _ -> ?assertEqual(ok, DropStmt:close())
     end,
     ?ELog("creating table ~s", [?TESTTABLE]),
@@ -490,10 +490,11 @@ insert_select_update(#{ocisession := OciSession}) ->
     ?ELog("~s", [binary_to_list(?UPDATE)]),
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundUpdStmt),
-    BoundUpdStmtRes = BoundUpdStmt:bind_vars(lists:keyreplace(<<":votes">>, 1, ?UPDATE_BIND_LIST, {<<":votes">>, 'SQLT_INT'})),
+    BoundUpdStmtRes = BoundUpdStmt:bind_vars(
+                        lists:keyreplace(<<":votes">>, 1, ?UPDATE_BIND_LIST, {<<":votes">>, 'SQLT_INT'})),
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt(
-        [{ I                                                                 % pkey 
+        [{ I                                                                 % pkey
          , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"]) % publisher
          , I+I/3                                                             % rank
          , I+I/50                                                            % hero
@@ -507,7 +508,7 @@ insert_select_update(#{ocisession := OciSession}) ->
     )),
     ?ELog("Bound update statement reuse"),
     ?assertMatch({rowids, _}, BoundUpdStmt:exec_stmt(
-        [{ I                                                                 % pkey 
+        [{ I                                                                 % pkey
          , unicode:characters_to_binary(["_Püèr_",integer_to_list(I),"_"]) % publisher
          , I+I/3                                                             % rank
          , I+I/50                                                            % hero
@@ -536,7 +537,7 @@ auto_rollback_test(#{ocisession := OciSession}) ->
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
     BoundInsStmt:exec_stmt(
-        [{ I                                                                                % pkey 
+        [{ I                                                                                % pkey
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
@@ -566,7 +567,7 @@ auto_rollback_test(#{ocisession := OciSession}) ->
 
     % Expected Invalid number Error (1722)
     ?assertMatch({error,{1722,_}}, BoundUpdStmt:exec_stmt(
-        [{ I                                                                                % pkey 
+        [{ I                                                                                % pkey
          , list_to_binary(["_Publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/3                                                                            % rank
          , I+I/2                                                                            % hero
@@ -600,7 +601,7 @@ commit_rollback_test(#{ocisession := OciSession}) ->
     ?assertMatch(ok, BoundInsStmtRes),
     ?assertMatch({rowids, _},
         BoundInsStmt:exec_stmt(
-          [{ I                                                              % pkey 
+          [{ I                                                              % pkey
            , list_to_binary(["_publisher_",integer_to_list(I),"_"])         % publisher
            , I+I/2                                                          % rank
            , I+I/3                                                          % hero
@@ -632,7 +633,7 @@ commit_rollback_test(#{ocisession := OciSession}) ->
     ?assertMatch(ok, BoundUpdStmtRes),
     ?assertMatch({rowids, _},
         BoundUpdStmt:exec_stmt(
-          [{ I                                                              % pkey 
+          [{ I                                                              % pkey
            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])         % publisher
            , I+I/3                                                          % rank
            , I+I/2                                                          % hero
@@ -669,7 +670,7 @@ asc_desc_test(#{ocisession := OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
     ?assertMatch(ok, BoundInsStmt:bind_vars(?BIND_LIST)),
     ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt(
-        [{ I                                                                                % pkey 
+        [{ I                                                                                % pkey
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
@@ -797,25 +798,22 @@ procedure_scalar_test(#{ocisession := OciSession}) ->
 
     ExecStmt1 = OciSession:prep_sql(<<"call "?TESTPROCEDURE"(:p_first,:p_second,:p_result)">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt1),
-    ?assertMatch(ok, ExecStmt1:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
-                                        , {<<":p_second">>, inout, 'SQLT_CHR'}
-                                        , {<<":p_result">>, out, 'SQLT_INT'}])),
+    ?assertMatch(ok, ExecStmt1:bind_vars(
+                       [ {<<":p_first">>, in, 'SQLT_INT'}, {<<":p_second">>, inout, 'SQLT_CHR'},
+                         {<<":p_result">>, out, 'SQLT_INT'}])),
     ?assertEqual({executed, 0,
-                  [{<<":p_second">>,<<"The sum is 52">>},
-                   {<<":p_result">>,52}]},
+                  [{<<":p_second">>,<<"The sum is 52">>}, {<<":p_result">>,52}]},
                  ExecStmt1:exec_stmt([{50, <<"2             ">>, 3}], 1)),
     ?assertEqual({executed, 0,
                   [{<<":p_second">>,<<"The sum is 7">>},
-                   {<<":p_result">>,7}]},
-                 ExecStmt1:exec_stmt([{5, <<"2             ">>, 3}], 1)),
+                   {<<":p_result">>,7}]}, ExecStmt1:exec_stmt([{5, <<"2             ">>, 3}], 1)),
     ?assertEqual(ok, ExecStmt1:close()),
 
     ExecStmt2 = OciSession:prep_sql(<<"declare begin "?TESTPROCEDURE"(:p_first,:p_second,:p_result); end;">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, ExecStmt2),
-    ?assertMatch(ok, ExecStmt2:bind_vars(
-                       [ {<<":p_first">>, in, 'SQLT_INT'},
-                         {<<":p_second">>, inout, 'SQLT_CHR'},
-                         {<<":p_result">>, out, 'SQLT_INT'}])),
+    ?assertMatch(ok, ExecStmt2:bind_vars([ {<<":p_first">>, in, 'SQLT_INT'}
+                                        , {<<":p_second">>, inout, 'SQLT_CHR'}
+                                        , {<<":p_result">>, out, 'SQLT_INT'}])),
     ?assertEqual({executed, 1,
                   [{<<":p_second">>,<<"The sum is 53">>},
                    {<<":p_result">>,53}]}, ExecStmt2:exec_stmt([{50, <<"3             ">>, 3}], 1)),
@@ -843,7 +841,7 @@ procedure_cur_test(#{ocisession := OciSession}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundInsStmt),
     ?assertMatch(ok, BoundInsStmt:bind_vars(?BIND_LIST)),
     ?assertMatch({rowids, _}, BoundInsStmt:exec_stmt(
-        [{ I                                                                                % pkey 
+        [{ I                                                                                % pkey
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
@@ -939,7 +937,7 @@ timestamp_interval_datatypes(#{ocisession := OciSession}) ->
                         ,{<<"IYM">>,'SQLT_INTERVAL_YM',5,3,0}
                         ,{<<"IDS">>,'SQLT_INTERVAL_DS',11,2,3}]}
                  , SelectStmt:exec_stmt()),
-    RowRet = SelectStmt:fetch_rows(5), 
+    RowRet = SelectStmt:fetch_rows(5),
     ?assertEqual(ok, SelectStmt:close()),
 
     ?assertMatch({{rows, _}, true}, RowRet),
@@ -1181,6 +1179,9 @@ urowid(#{ocisession := OciSession}) ->
     ?assertEqual(ok, DropStmtFinal:close()),
     ok.
 
+%%------------------------------------------------------------------------------
+%% test helpers
+%%------------------------------------------------------------------------------
 
 current_pool_session_ids(OciSession) ->
     Stmt = OciSession:prep_sql(?SESSSQL),
