@@ -113,7 +113,8 @@ echo(#{ociport := OciPort}) ->
     Ref = make_ref(),
     ?assertEqual(Ref, OciPort:echo(Ref)),
     % Load the ref cache to generate long ref
-    _Refs = [make_ref() || _I <- lists:seq(1,1000000)],
+    Refs = [make_ref() || _I <- lists:seq(1,1000000)],
+    ?debugFmt("~p refs created to load ref cache", [length(Refs)]),
     Ref1 = make_ref(),
     ?assertEqual(Ref1, OciPort:echo(Ref1)),
     %Fun = fun() -> ok end, % Not Supported
@@ -126,7 +127,6 @@ echo(#{ociport := OciPort}) ->
     ?assertEqual(<<"binary">>, OciPort:echo(<<"binary">>)),
     ?assertEqual({1,'Atom',1.2,"string"}, OciPort:echo({1,'Atom',1.2,"string"})),
     ?assertEqual([1, atom, 1.2,"string"], OciPort:echo([1,atom,1.2,"string"])).
-
 
 bad_password(#{ociport := OciPort, conf := #{tns := Tns, user := User, password := Pswd}}) ->
     ?ELog("+---------------------------------------------+"),
@@ -184,14 +184,14 @@ db_test_() ->
         [fun drop_create/1,
          fun bad_sql_connection_reuse/1,
          fun insert_select_update/1,
-         fun auto_rollback_test/1,
-         fun commit_rollback_test/1,
-         fun asc_desc_test/1,
-         fun lob_test/1,
-         fun describe_test/1,
-         fun function_test/1,
-         fun procedure_scalar_test/1,
-         fun procedure_cur_test/1,
+         fun auto_rollback/1,
+         fun commit_rollback/1,
+         fun asc_desc/1,
+         fun lob/1,
+         fun describe/1,
+         fun function/1,
+         fun procedure_scalar/1,
+         fun procedure_cur/1,
          fun timestamp_interval_datatypes/1,
          fun stmt_reuse_onerror/1,
          fun multiple_bind_reuse/1,
@@ -256,9 +256,9 @@ ssh_cmd_result(ConRef, Chn, Buffer) ->
         {error, Error} -> error(Error)
     end.
 
-lob_test(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
+lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|                   lob_test                  |"),
+    ?ELog("|                     lob                     |"),
     ?ELog("+---------------------------------------------+"),
 
     RowCount = 3,
@@ -353,9 +353,9 @@ lob_test(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirDrop),
     ?assertEqual({executed, 0}, StmtDirDrop:exec_stmt()),
     ?assertEqual(ok, StmtDirDrop:close());
-lob_test(_) ->
+lob(_) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|          lob_test (SKIPPED)                 |"),
+    ?ELog("|            lob (SKIPPED)                    |"),
     ?ELog("+---------------------------------------------+").
 
 drop_create(#{ocisession := OciSession}) ->
@@ -485,7 +485,7 @@ insert_select_update(#{ocisession := OciSession}) ->
     || [_, _, Publisher, _, Hero, _, _, _, Chapters, _] <- Rows],
     RowIDs = [R || [R|_] <- Rows],
 
-    ?ELog("RowIds ~p", [RowIds]),
+    ?ELog("RowIds ~p", [RowIDs]),
     ?ELog("~s", [binary_to_list(?UPDATE)]),
     BoundUpdStmt = OciSession:prep_sql(?UPDATE),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, BoundUpdStmt),
@@ -521,9 +521,9 @@ insert_select_update(#{ocisession := OciSession}) ->
     )),
     ?assertEqual(ok, BoundUpdStmt:close()).
 
-auto_rollback_test(#{ocisession := OciSession}) ->
+auto_rollback(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|              auto_rollback_test             |"),
+    ?ELog("|                auto_rollback                |"),
     ?ELog("+---------------------------------------------+"),
     RowCount = 3,
 
@@ -585,9 +585,9 @@ auto_rollback_test(#{ocisession := OciSession}) ->
     ?assertEqual({{rows, Rows}, false}, SelStmt:fetch_rows(RowCount)),
     ?assertEqual(ok, SelStmt:close()).
 
-commit_rollback_test(#{ocisession := OciSession}) ->
+commit_rollback(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|            commit_rollback_test             |"),
+    ?ELog("|               commit_rollback               |"),
     ?ELog("+---------------------------------------------+"),
     RowCount = 3,
 
@@ -656,9 +656,9 @@ commit_rollback_test(#{ocisession := OciSession}) ->
     ?assertEqual(lists:sort(Rows), lists:sort(NewRows)),
     ?assertEqual(ok, SelStmt:close()).
 
-asc_desc_test(#{ocisession := OciSession}) ->
+asc_desc(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|                asc_desc_test                |"),
+    ?ELog("|                  asc_desc                   |"),
     ?ELog("+---------------------------------------------+"),
     RowCount = 10,
 
@@ -709,9 +709,9 @@ asc_desc_test(#{ocisession := OciSession}) ->
     ?assertEqual(ok, SelStmt1:close()),
     ?assertEqual(ok, SelStmt2:close()).
 
-describe_test(#{ocisession := OciSession}) ->
+describe(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|               describe_test                 |"),
+    ?ELog("|                 describe                    |"),
     ?ELog("+---------------------------------------------+"),
 
     flush_table(OciSession),
@@ -721,9 +721,9 @@ describe_test(#{ocisession := OciSession}) ->
     ?assertEqual(9, length(Descs)),
     ?ELog("table ~s has ~p", [?TESTTABLE, Descs]).
 
-function_test(#{ocisession := OciSession}) ->
+function(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|              function_test                  |"),
+    ?ELog("|                function                     |"),
     ?ELog("+---------------------------------------------+"),
 
     CreateFunction = OciSession:prep_sql(<<"
@@ -761,9 +761,9 @@ function_test(#{ocisession := OciSession}) ->
     ?assertEqual({executed, 0}, DropFunStmt:exec_stmt()),
     ?assertEqual(ok, DropFunStmt:close()).
 
-procedure_scalar_test(#{ocisession := OciSession}) ->
+procedure_scalar(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|           procedure_scalar_test             |"),
+    ?ELog("|             procedure_scalar                |"),
     ?ELog("+---------------------------------------------+"),
 
     CreateProcedure = OciSession:prep_sql(<<"
@@ -825,9 +825,9 @@ procedure_scalar_test(#{ocisession := OciSession}) ->
     ?assertEqual({executed, 0}, DropProcStmt:exec_stmt()),
     ?assertEqual(ok, DropProcStmt:close()).
 
-procedure_cur_test(#{ocisession := OciSession}) ->
+procedure_cur(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|             procedure_cur_test              |"),
+    ?ELog("|               procedure_cur                 |"),
     ?ELog("+---------------------------------------------+"),
 
     RowCount = 10,
@@ -1085,16 +1085,16 @@ multiple_bind_reuse(#{ocisession := OciSession}) ->
          end)(__OciSession)).
 
 -define(kill_session(__OciSession, __SessionToKill),
-        (fun(OciSess, Sess2Kill) ->
-                 Stmt = OciSess:prep_sql(
-                          <<"alter system kill session '", Sess2Kill/binary,
-                            "' immediate">>),
-                 case Stmt:exec_stmt() of
+        (fun(OciSessKS, Sess2Kill) ->
+                 StmtKS = OciSessKS:prep_sql(
+                            <<"alter system kill session '", Sess2Kill/binary,
+                              "' immediate">>),
+                 case StmtKS:exec_stmt() of
                      {error,{30, _}} -> ok;
                      {error,{31, _}} -> ok;
                      {executed, 0} -> ?ELog("~p closed", [Sess2Kill])
                  end,
-                 ?assertEqual(ok, Stmt:close())
+                 ?assertEqual(ok, StmtKS:close())
          end)(__OciSession, __SessionToKill)).
 
 check_ping(#{ocisession := OciSession, conf := #{tns := Tns, user := User, password := Pswd}}) ->
