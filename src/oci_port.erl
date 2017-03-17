@@ -310,8 +310,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
-%            timer:sleep(10000),
-            %% TODO -- Logging is turned after port creation for the integration tests to run
+            link(Port),
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
@@ -370,7 +369,7 @@ handle_info({Port, {data, Data}}, #state{port=Port, logger=L, ping_tref = PTref}
                 {{ping, SessionId}, ok} ->
                     erlang:send_after(State#state.ping_timeout, self(), {check_sess, SessionId});
                 {{ping, SessionId}, {error, _Reason}} ->
-                    port_command(Port, term_to_binary({term_to_binary(self()),?PUT_SESSN, SessionId})),
+                    port_command(Port, term_to_binary({undefined, ?PUT_SESSN, SessionId})),
                     PTref;
                 {From, {error, Reason}} ->
                     gen_server:reply(From, {error, Reason}),
