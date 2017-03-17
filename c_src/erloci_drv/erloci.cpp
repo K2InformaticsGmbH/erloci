@@ -99,5 +99,6 @@ int main(int argc, char * argv[])
     hnd = OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, TRUE, pid);
     TerminateProcess(hnd, 0);
 #endif
+    // No special exit treatment required for NIX*
     return 0;
 }
