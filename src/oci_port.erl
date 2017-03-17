@@ -310,6 +310,7 @@ start_exe(Executable, Logging, ListenPort, PortLogger, Options) ->
             ?Error(PortLogger, "oci could not open port: ~p", [Reason]),
             {stop, Reason};
         Port ->
+            link(Port),
             case Logging of
                 true ->
                     port_command(Port, term_to_binary({undefined, ?RMOTE_MSG, ?DBG_FLAG_ON})),
