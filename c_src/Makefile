@@ -9,6 +9,7 @@ else
 	PRIV_DIR = priv
 endif
 
+MKDIR_P = mkdir -p
 ERLOCI_PATH = $(SRC_PATH_PREFIX)erloci_drv
 ERLOCI_LIB_PATH = $(SRC_PATH_PREFIX)erloci_lib
 OCI_INCLUDE_PATH = $(INSTANT_CLIENT_INCLUDE_PATH)
@@ -26,9 +27,12 @@ CXXFLAGS = -ggdb -Wall -I$(ERL_INTERFACE_DIR)/include  -I$(ERLOCI_PATH) -I$(ERLO
 LINKDIRS = -L$(ERL_INTERFACE_DIR)/lib -L$(PRIV_DIR) -L$(OCI_LIB_PATH)
 LINKFLAGS = -levent -lpthread -lerl_interface -lei -lerloci -locci -lons -lclntshcore -lclntsh -lnnz12 -lipc1 -lmql1
 
-all: $(PRIV_DIR)/$(EXE_TARGET)
+all: $(PRIV_DIR) $(PRIV_DIR)/$(EXE_TARGET)
 	@rsync -uL --progress $(OCI_LIB_PATH)*.so* $(PRIV_DIR)/
 	@echo "erloci compiled!!!"
+
+$(PRIV_DIR):
+	$(MKDIR_P) $(PRIV_DIR)
 
 $(PRIV_DIR)/$(EXE_TARGET): $(PRIV_DIR)/$(LIB_TARGET) $(ERLOCI_OBJS)
 	g++ -Wall $(LINKDIRS) $^ $(LINKFLAGS) -o $@

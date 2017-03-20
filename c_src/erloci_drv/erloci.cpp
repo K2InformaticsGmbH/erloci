@@ -30,6 +30,9 @@ int main(int argc, char * argv[])
 #ifdef __WIN32__
     _setmode( _fileno( stdout ), _O_BINARY );
     _setmode( _fileno( stdin  ), _O_BINARY );
+	DWORD pid = GetCurrentProcessId();
+#else
+	pid_t pid = getpid();
 #endif
 
 	transcoder::instance();
@@ -75,8 +78,8 @@ int main(int argc, char * argv[])
         nls_lang = "";
 	REMOTE_LOG(
         INF,
-        "Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d,"
-        " NLS_LANG %s",
+		"[%lu] Port process configs : erlang term max size 0x%08X bytes, logging %s, TCP port for logs %d,"
+        " NLS_LANG %s", pid,
         max_term_byte_size, (log_flag ? "enabled" : "disabled"), log_tcp_port, nls_lang);
 	threads::init();
 	port& prt = port::instance();
@@ -90,6 +93,12 @@ int main(int argc, char * argv[])
     }
 	threads::run_threads = false;
 
-	REMOTE_LOG(DBG, "erloci terminating...");
+	REMOTE_LOG(DBG, "[%lu] terminating...", pid);
+#ifdef __WIN32__
+	HANDLE hnd;
+    hnd = OpenProcess(SYNCHRONIZE | PROCESS_TERMINATE, TRUE, pid);
+    TerminateProcess(hnd, 0);
+#endif
+    // No special exit treatment required for NIX*
     return 0;
 }
