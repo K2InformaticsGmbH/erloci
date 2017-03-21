@@ -69,9 +69,9 @@ export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.8.2"
 ```
 
 ### Compiling
-We assume you have [rebar](https://github.com/basho/rebar) somewhere on your path. Rebar will take care of the Erlang and C++ sources.
-<code>rebar compile</code>
-Please check the rebar manual for how to add erloci as a dependency to your project.
+We assume you have [rebar3](https://www.rebar3.org/) somewhere on your path. Rebar3 will take care of the Erlang and C++ sources.
+<code>rebar3 compile</code>
+Please check the rebar3 documentation for how to add erloci as a dependency to your project.
 
 #### Compiling C++ port in visual studio (2008)
 Change/Add the following:
@@ -90,7 +90,7 @@ This is experimental at the moment, a patch need to be applied to update the VS 
 git apply misc/vs2013.patch
 ```
 
-Issue `rebar co` as usual; then don't forget to revert temporarily changed vcxproj files: `git reset --hard`.
+Issue `rebar3 compile` as usual; then don't forget to revert temporarily changed vcxproj files: `git reset --hard`.
 
 ### 3rd party dependencies
 #### Threadpool 
@@ -101,7 +101,7 @@ This library is unused (not linked) in a Windows environment. For an easier inst
 OCI provides a high performance, native 'C' language based interface to the Oracle Database. There is no ODBC layer between your application and the database. Since we don't want to distribute the Oracle Code you MUST download the OCI Packages (basic and devel) from the Oracle Website: http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html.
 
 #### Compile ERLOCI in Windows
-Make sure you have <code>vcbuild.exe</code> in path. After that <code>rebar compile</code> will take care the rest. Currently erloci can only be build with VS2008.
+Make sure you have <code>vcbuild.exe</code> in path. After that <code>rebar3 compile</code> will take care the rest. Currently erloci can only be build with VS2008.
 
 ### Erlang to/from Oracle datatype mapping (currently)
 
@@ -143,8 +143,8 @@ The database user `<<db_user>>` must have at least the following privileges:
 
 The Oracle connection information are taken from the file `connect.config` in directory `test`. Please change it to point to your database before executing the steps below:
 
-  1. <code>rebar compile</code>
-  2. <code>rebar eunit</code>
+  1. <code>rebar3 compile</code>
+  2. <code>rebar3 eunit</code>
 
 ### CHANGE LOG
 #### 0.0.2
