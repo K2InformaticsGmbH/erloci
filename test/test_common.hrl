@@ -6,13 +6,7 @@
                  ConnectConfigFile =
                  filename:join(
                    lists:reverse(
-                     ["connect.config", "test"
-                      | case lists:reverse(filename:split(Cwd)) of
-                            [".eunit" | Rest] -> Rest;
-                            Error ->
-                                ?ELog("~p", [Error]),
-                                error(Error)
-                        end])),
+                     ["connect.config", "test" | lists:reverse(filename:split(Cwd))])),
                  case file:consult(ConnectConfigFile) of
                      {ok, [Params]} when is_map(Params) -> Params;
                      {ok, Params} ->
@@ -27,6 +21,23 @@
                  error(Reason)
          end
  end)()).
+
+-define(CONN_CONF_CT,
+    (fun() ->
+        ConnectConfigFile =
+            filename:join(
+                lists:reverse(
+                    ["connect.config", "../../lib/erloci/test"])),
+        case file:consult(ConnectConfigFile) of
+            {ok, [Params]} when is_map(Params) -> Params;
+            {ok, Params} ->
+                ?ELog("bad config (expected map) ~p", [Params]),
+                error(badconfig);
+            {error, Reason} ->
+                ?ELog("~p", [Reason]),
+                error(Reason)
+        end
+     end)()).
 
 -ifdef(debugFmt).
     -define(ELog(__Fmt,__Args),

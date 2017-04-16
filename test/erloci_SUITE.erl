@@ -5,7 +5,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include("test_common.hrl").
 
--define(value(Key,Config), proplists:get_value(Key,Config)).
+-define(value(Key, Config), proplists:get_value(Key, Config)).
 -define(TAB, "erloci_load").
 
 %10 10 100
@@ -19,49 +19,58 @@
 
 all() -> [load].
 
-init_per_suite(InitConfigData) ->
-io:format(user, "---~p---~n", [?LINE]),
+init_per_suite(ConfigData) ->
+    io:format(user, "---~p---~n", [?LINE]),
     application:start(erloci),
-io:format(user, "---~p---~n", [?LINE]),
-    {Tns,User,Pswd} = ?CONN_CONF,
-io:format(user, "---~p---~n", [?LINE]),
+    io:format(user, "---~p---~n", [?LINE]),
+    #{tns := Tns, user := User, password := Pswd,
+        logging := Logging, lang := Lang} = ?CONN_CONF_CT,
+    io:format(user, "---~p---~n", [?LINE]),
     Tables = [{C,
-                [lists:flatten([?TAB,"_",integer_to_list(C),"_", integer_to_list(S)])
-                || S <- ?STMTIDLIST]}
-            || C <- ?CONNIDLIST],
+        [lists:flatten([?TAB, "_", integer_to_list(C), "_", integer_to_list(S)])
+            || S <- ?STMTIDLIST]}
+        || C <- ?CONNIDLIST],
     ct:pal(info, "Building ~p rows to bind for ~p tables", [?ROWS_PER_TABLE, length(Tables)]),
-    Binds = [{ I
-     , list_to_binary(["_publisher_",integer_to_list(I),"_"])
-     , I+I/2
-     , list_to_binary(["_hero_",integer_to_list(I),"_"])
-     , list_to_binary(["_reality_",integer_to_list(I),"_"])
-     , I
-     , oci_util:edatetime_to_ora(erlang:now())
-     , I
-     } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
+    Binds = [{I
+        , list_to_binary(["_publisher_", integer_to_list(I), "_"])
+        , I + I / 2
+        , list_to_binary(["_hero_", integer_to_list(I), "_"])
+        , list_to_binary(["_reality_", integer_to_list(I), "_"])
+        , I
+        , oci_util:edatetime_to_ora(erlang:timestamp())
+        , I
+    } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
-    [{tables, Tables}, {binds, Binds}, {config, {Tns,User,Pswd}}  | InitConfigData].
+    [{tables, Tables}, {binds, Binds}, {config, {Tns, User, Pswd, Lang, Logging}} | ConfigData].
 
 end_per_suite(ConfigData) ->
-    Tables = lists:merge([Tabs || {_,Tabs} <- ?value(tables, ConfigData)]),
-    {Tns,User,Pswd} = ?value(config, ConfigData),
-    OciPort = oci_port:start_link([{logging, true}]),
+    Tables = lists:merge([Tabs || {_, Tabs} <- ?value(tables, ConfigData)]),
+    {Tns, User, Pswd, Lang, Logging} = ?value(config, ConfigData),
+    OciPort = erloci:new(
+        [{logging, Logging},
+            {env, [{"NLS_LANG", Lang}]}
+        ]),
     OciSession = OciPort:get_session(Tns, User, Pswd),
     [tab_drop(OciSession, Table) || Table <- Tables],
     ct:pal(info, "Finishing...", []).
 
 load(ConfigData) ->
     Tables = ?value(tables, ConfigData),
+    ct:pal(info, "tables: ~p", [tables]),
     Binds = ?value(binds, ConfigData),
-    {Tns,User,Pswd} = ?value(config, ConfigData),
+    {Tns, User, Pswd, Lang, Logging} = ?value(config, ConfigData),
     RowsPerProcess = length(Binds),
     ct:pal(info, "Starting ~p connection processes with ~p", [?CONNECTIONS, Tables]),
-    OciPort = oci_port:start_link([{logging, true}]),
+    % OciPort = oci_port:start_link([{logging, Logging}]),
+    OciPort = erloci:new([
+        {logging, Logging},
+        {env, [{"NLS_LANG", Lang}]}
+    ]),
     This = self(),
     [spawn(fun() ->
-        connection(OciPort, C, proplists:get_value(C,Tables,[]), Tns, User, Pswd, This, RowsPerProcess, Binds)
-     end)
-    || C <- ?CONNIDLIST],
+        connection(OciPort, C, proplists:get_value(C, Tables, []), Tns, User, Pswd, This, RowsPerProcess, Binds)
+           end)
+        || C <- ?CONNIDLIST],
     collect_processes(lists:sort(Tables), []),
     ct:pal(info, "Closing port ~p", [OciPort]),
     ok = OciPort:close().
@@ -70,22 +79,22 @@ connection(OciPort, Cid, Tables, Tns, User, Pswd, Master, RowsPerProcess, Binds)
     OciSession = OciPort:get_session(Tns, User, Pswd),
     ct:pal(info, "Got session ~p", [OciSession]),
     [begin
-        tab_drop(OciSession, Table),
-        tab_create(OciSession, Table)
-    end
-    || Table <- Tables],
+         tab_drop(OciSession, Table),
+         tab_create(OciSession, Table)
+     end
+        || Table <- Tables],
     This = self(),
     [spawn(fun() ->
         table(OciSession, Cid, Tid, This, RowsPerProcess, Binds)
-     end)
-    || Tid <- ?STMTIDLIST],
+           end)
+        || Tid <- ?STMTIDLIST],
     collect_processes(lists:sort(Tables), []),
     ct:pal(info, "Closing session ~p", [OciSession]),
     ok = OciSession:close(),
     Master ! {Cid, Tables}.
 
 table(OciSession, Cid, Tid, Master, RowsPerProcess, Binds) ->
-    Table = lists:flatten([?TAB,"_",integer_to_list(Cid),"_", integer_to_list(Tid)]),
+    Table = lists:flatten([?TAB, "_", integer_to_list(Cid), "_", integer_to_list(Tid)]),
     tab_load(OciSession, Table, RowsPerProcess, Binds),
     tab_access(OciSession, Table, 10),
     tab_drop(OciSession, Table),
@@ -139,17 +148,17 @@ collect_processes(Tables, Acc) ->
     , {<<":votes">>, 'SQLT_INT'}
     , {<<":createdate">>, 'SQLT_DAT'}
     , {<<":votes_first_rank">>, 'SQLT_INT'}
-    ]
+]
 ).
 -define(SELECT_WITH_ROWID(__T), ?B([
-    "select ",__T,".rowid, ",__T,".* from ",__T])
+    "select ", __T, ".rowid, ", __T, ".* from ", __T])
 ).
 
 tab_drop(OciSession, Table) when is_list(Table) ->
     DropStmt = OciSession:prep_sql(?B(["drop table ", Table])),
     {oci_port, statement, _, _, _} = DropStmt,
     case DropStmt:exec_stmt() of
-        {error, _} -> ok; 
+        {error, _} -> ok;
         _ ->
             %ct:pal(info, "[~s] Droped!", [Table]),
             ok = DropStmt:close()
@@ -185,11 +194,11 @@ tab_access(OciSession, Table, Count) ->
 
 load_rows_to_end(Table, {{rows, Rows}, true}, _, _, Total) ->
     Loaded = length(Rows),
-    ct:pal(info, "[~s] Loaded ~p / ~p rows - Finished", [Table, Loaded, Total+Loaded]);
+    ct:pal(info, "[~s] Loaded ~p / ~p rows - Finished", [Table, Loaded, Total + Loaded]);
 load_rows_to_end(Table, {error, Error}, SelStmt, Count, Total) ->
     ct:pal(info, "[~s] Loaded ~p error - ~p", [Table, Total, Error]),
     load_rows_to_end(Table, SelStmt:fetch_rows(Count), SelStmt, Count, Total);
 load_rows_to_end(Table, {{rows, Rows}, false}, SelStmt, Count, Total) ->
     Loaded = length(Rows),
-    ct:pal(info, "[~s] Loaded ~p / ~p", [Table, Loaded, Total+Loaded]),
-    load_rows_to_end(Table, SelStmt:fetch_rows(Count), SelStmt, Count, Total+Loaded).
+    ct:pal(info, "[~s] Loaded ~p / ~p", [Table, Loaded, Total + Loaded]),
+    load_rows_to_end(Table, SelStmt:fetch_rows(Count), SelStmt, Count, Total + Loaded).
