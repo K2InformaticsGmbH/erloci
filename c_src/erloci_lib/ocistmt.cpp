@@ -290,13 +290,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 
 				// returned RowID is only valid if anything was changed at all
 				if(rc > 0) {
-					// Get the row ID for the row that was just inserted.
-					OraText *rowID = new OraText[19]; // Extra char for null termination.
-					ub2 size = 18;
 					OCIRowid *pRowID;
-					//OCIError *pError;
-					memset(rowID, 0, 19); // Set to all nulls so that string will be null terminated.
-					//OCIHandleAlloc(envhp, (void**)&pError, OCI_HTYPE_ERROR, 0, NULL);
 					checkerr(&r, OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL));
 					if(r.fn_ret != SUCCESS) {
 						REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
@@ -313,15 +307,21 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 						throw r;
 					}
 
+					// Get the row ID for the row that was just inserted.
+					OraText *rowID;
+					ub2 size = 0;
+					OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp);
+					rowID = new OraText[size + 1]; // Extra char for null termination.
+					memset(rowID, 0, size + 1); // Set to all nulls so that string will be null terminated.
 					checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
 					if(r.fn_ret != SUCCESS) {
-						REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+						REMOTE_LOG(ERR, "failed OCIRowidToChar error %s (%s)\n", r.gerrbuf, _stmtstr);
 						if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 						ocisess->release_stmt(this);
 						throw r;
 					}
-
 					(*intf.append_string_to_list)((char*)rowID, strlen((char*)rowID), rowid_list);
+					delete rowID;
 				} else {
 					(*intf.append_string_to_list)(NULL, 0, rowid_list);
 				}
@@ -535,9 +535,18 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				cur_clm.rtype = LCL_DTYPE_NONE;
 				OCIDEF(INT_SQLT_TIMESTAMP_TZ, "INT_SQLT_TIMESTAMP_TZ");
                 break;
-			// 19 bytes buffer
-			case SQLT_RDD:
-			case SQLT_RID:
+			case SQLT_RDD: {
+				OCIALLOC(OCI_DTYPE_ROWID, "SQLT_RDD");
+				void * _t = cur_clm.row_valp;
+				ub4 _dlen = cur_clm.dlen;
+				cur_clm.dlen = -1;
+				cur_clm.row_valp = &(cur_clm.row_valp);
+				OCIDEF(SQLT_RDD, "SQLT_RDD");
+				cur_clm.row_valp = _t;
+				cur_clm.dlen = _dlen;
+                break;
+			}
+			case SQLT_RID: // 19 bytes buffer
 				cur_clm.dlen = (cur_clm.dlen < 19 ? 19 : cur_clm.dlen);
 				cur_clm.row_valp = new text[cur_clm.dlen + 1];
 				cur_clm.rtype = LCL_DTYPE_NONE;
@@ -943,9 +952,25 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						memset(_columns[i]->row_valp, 0, _columns[i]->dlen);
 						break;
 					}
+					case SQLT_RDD: {
+						OCIRowid * pRowID = (OCIRowid*)_columns[i]->row_valp;
+						ub2 size = 0;
+						OraText *rowID;
+						OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp);
+						rowID = new OraText[size + 1]; // Extra char for null termination.
+						memset(rowID, 0, size + 1); // Set to all nulls so that string will be null terminated.
+						checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
+						if(r.fn_ret != SUCCESS) {
+							REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+							throw r;
+						}
+						size_t str_len = strlen((char*)rowID);
+						(*intf.append_string_to_list)((char*)rowID, str_len, row);
+						delete rowID;
+						break;
+					}
 					case SQLT_BIN:
 					case SQLT_RID:
-					case SQLT_RDD:
 					case SQLT_AFC:
 					case SQLT_STR: {
 						size_t str_len = strlen((char*)(_columns[i]->row_valp));

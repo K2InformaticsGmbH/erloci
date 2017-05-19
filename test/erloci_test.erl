@@ -197,7 +197,8 @@ db_test_() ->
          fun multiple_bind_reuse/1,
          fun check_ping/1,
          fun check_session_without_ping/1,
-         fun check_session_with_ping/1
+         fun check_session_with_ping/1,
+         fun urowid/1
         ]}
       }}.
 
@@ -1150,3 +1151,55 @@ check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user :
     ?assertMatch({'EXIT', {noproc, _}}, catch SelStmt1:exec_stmt()),
     PingOciPort:close().
 
+urowid(#{ocisession := OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                  urowid                     |"),
+    ?ELog("+---------------------------------------------+"),
+
+    CreateStmt = OciSession:prep_sql(
+                   <<"create table "?TESTTABLE" ("
+                       " c1 number,"
+                       " c2 varchar2(3000),"
+                       " primary key(c1, c2))"
+                     " organization index">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateStmt),
+    ?assertEqual({executed, 0}, CreateStmt:exec_stmt()),
+    ?assertEqual(ok, CreateStmt:close()),
+
+    ?ELog("testing insert returns UROWID"),
+    [begin
+         StmtInsert = OciSession:prep_sql(
+                        <<"insert into "?TESTTABLE" values(",
+                          (integer_to_binary(I))/binary, ",'",
+                          (list_to_binary(
+                             lists:duplicate(crypto:rand_uniform(1000,3000), I))
+                          )/binary, "')">>),
+        ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
+        ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
+        ?assertEqual(ok, StmtInsert:close())
+     end || I <- lists:seq($0,$9)],
+
+    ?ELog("testing select UROWID"),
+    SelectStmt = OciSession:prep_sql(<<"select rowid, c1 from "?TESTTABLE>>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelectStmt),
+    ?assertMatch({cols, _}, SelectStmt:exec_stmt()),
+    {{rows, Rows}, true} = SelectStmt:fetch_rows(100),
+    ?assertEqual(ok, SelectStmt:close()),
+
+    ?ELog("testing update UROWID"),
+    BoundUpdStmt = OciSession:prep_sql(
+                     <<"update "?TESTTABLE" set c1 = :p_c1"
+                       " where "?TESTTABLE".rowid = :p_rowid">>),
+    ?assertMatch(ok, BoundUpdStmt:bind_vars([{<<":p_c1">>, 'SQLT_INT'},
+                                             {<<":p_rowid">>, 'SQLT_STR'}])),
+    ?assertMatch({rowids, _},
+                 BoundUpdStmt:exec_stmt(
+                   [{$0 + $9 - list_to_integer(oci_util:from_num(C1)), RowId}
+                    || [RowId, C1] <- Rows], -1)),
+    ?assertMatch(ok, BoundUpdStmt:close()),
+
+    DropStmtFinal = OciSession:prep_sql(?DROP),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmtFinal),
+    ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
+    ?assertEqual(ok, DropStmtFinal:close()),
+    ok.
