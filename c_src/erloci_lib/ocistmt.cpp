@@ -315,7 +315,7 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 					memset(rowID, 0, size + 1); // Set to all nulls so that string will be null terminated.
 					checkerr(&r, OCIRowidToChar(pRowID, rowID, &size, (OCIError*)_errhp));
 					if(r.fn_ret != SUCCESS) {
-						REMOTE_LOG(ERR, "failed OCIStmtExecute error %s (%s)\n", r.gerrbuf, _stmtstr);
+						REMOTE_LOG(ERR, "failed OCIRowidToChar error %s (%s)\n", r.gerrbuf, _stmtstr);
 						if(auto_commit) OCITransRollback((OCISvcCtx*)_svchp, (OCIError*)_errhp, OCI_DEFAULT);
 						ocisess->release_stmt(this);
 						throw r;
