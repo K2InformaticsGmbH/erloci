@@ -83,7 +83,7 @@ extern const erlcmdtable cmdtbl[];
 {\
     {RMOTE_MSG,	"RMOTE_MSG",	2, "Remote debugging turning on/off"},\
     {CMD_UNKWN,	"CMD_UNKWN",	0, "Unknown command"},\
-    {GET_SESSN,	"GET_SESSN",	4, "Get a OCI session"},\
+    {GET_SESSN,	"GET_SESSN",	5, "Get a OCI session"},\
     {PUT_SESSN,	"PUT_SESSN",	2, "Release a OCI session"},\
     {PREP_STMT,	"PREP_STMT",	3, "Prepare a statement from SQL string"},\
     {BIND_ARGS,	"BIND_ARGS",	4, "Bind parameters into prepared SQL statement"},\

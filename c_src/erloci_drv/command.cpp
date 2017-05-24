@@ -77,17 +77,20 @@ bool command::get_session(term & t, term & resp)
 {
     bool ret = false;
 
-	// {{pid, ref}, GET_SESSN, Connection String, User name, Password}
+	// {{pid, ref}, GET_SESSN, Connection String, User name, Password, client identifier}
 	term & con_str = t[2];
 	term & usr_str = t[3];
 	term & passwrd = t[4];
+	term & clnt_id = t[5];
     if(con_str.is_binary() && usr_str.is_binary() && passwrd.is_binary()) {
 		try {
 			ocisession * conn_handle = new ocisession(
 				&con_str.str[0], con_str.str_len,		// Connect String
 				&usr_str.str[0], usr_str.str_len,		// User Name String
-				&passwrd.str[0], passwrd.str_len);		// Password String
-			REMOTE_LOG(INF, "got connection %lu\n", (unsigned long long)conn_handle);
+				&passwrd.str[0], passwrd.str_len,		// Password String
+				&clnt_id.str[0], clnt_id.str_len);		// Client identifier
+			REMOTE_LOG(INF, "got connection %lu id %s\n",
+				(unsigned long long)conn_handle, &clnt_id.str[0]);
 			resp.insert().integer((unsigned long long)conn_handle);
 		} catch (intf_ret r) {
 			term & _t = resp.insert().tuple();

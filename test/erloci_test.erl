@@ -181,7 +181,8 @@ db_test_() ->
                ssh:stop()
        end,
        {with,
-        [fun drop_create/1,
+        [fun named_session/1,
+         fun drop_create/1,
          fun bad_sql_connection_reuse/1,
          fun insert_select_update/1,
          fun auto_rollback/1,
@@ -256,6 +257,22 @@ ssh_cmd_result(ConRef, Chn, Buffer) ->
         closed -> Buffer;
         {error, Error} -> error(Error)
     end.
+
+named_session(#{ociport := OciPort,
+                conf := #{tns := Tns, user := User,
+                          password := Pswd}}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                named_session                |"),
+    ?ELog("+---------------------------------------------+"),
+    OciSession = OciPort:get_session(Tns, User, Pswd, "eunit_test_tagged"),
+    StmtSelect = OciSession:prep_sql(
+                   <<"select * from V$SESSION"
+                     " where CLIENT_IDENTIFIER = 'eunit_test_tagged'">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtSelect),
+    ?assertMatch({cols, _}, StmtSelect:exec_stmt()),
+    ?assertMatch({{rows, _}, true}, StmtSelect:fetch_rows(1)),
+    ?assertEqual(ok, StmtSelect:close()),
+    OciSession:close().
 
 lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
     ?ELog("+---------------------------------------------+"),

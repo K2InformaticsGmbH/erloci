@@ -19,7 +19,7 @@
 -include("oci.hrl").
 
 %% API
--export([start_link/2, logging/2, get_session/4, describe/3,
+-export([start_link/2, logging/2, get_session/4, get_session/5, describe/3,
          prep_sql/2, ping/1, commit/1, rollback/1, bind_vars/2, lob/4,
          exec_stmt/1, exec_stmt/2, exec_stmt/3, fetch_rows/2, keep_alive/2,
          close/1, echo/2, split_binds/2]).
@@ -74,9 +74,13 @@ echo(Term, {?MODULE, PortPid}) ->
         Return -> Return
     end.
 
-get_session(Tns, Usr, Pswd, {?MODULE, PortPid})
-  when is_binary(Tns); is_binary(Usr); is_binary(Pswd) ->
-    case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd]},
+get_session(Tns, Usr, Pswd, {?MODULE, PortPid}) ->
+    ClientId = list_to_binary(io_lib:format("~p:~p", [node(self()), self()])),
+    get_session(Tns, Usr, Pswd, ClientId, {?MODULE, PortPid}).
+get_session(Tns, Usr, Pswd, ClientId, {?MODULE, PortPid})
+  when is_binary(Tns); is_binary(Usr); is_binary(Pswd); is_binary(ClientId) ->
+    case gen_server:call(PortPid, {port_call, [?GET_SESSN, Tns, Usr, Pswd,
+                                               ClientId]},
                          ?PORT_TIMEOUT) of
         {error, Error} -> {error, Error};
         SessionId ->
