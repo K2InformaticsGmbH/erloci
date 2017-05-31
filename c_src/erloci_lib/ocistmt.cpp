@@ -830,7 +830,9 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 
 	r.fn_ret = FAILURE;
 	if (_columns.size() <= 0) {
-		REMOTE_LOG(INF, "statement %s has no rows\n", _stmtstr);
+		REMOTE_LOG(ERR, "statement %s has no rows\n", _stmtstr);
+		r.gerrcode = 0;
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "statement has no rows");
         throw r;
 	}
 	r.fn_ret = SUCCESS;
