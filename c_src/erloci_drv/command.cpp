@@ -627,7 +627,7 @@ bool command::fetch_rows(term & t, term & resp)
 			_t.insert().atom("error");
 			term & _t1 = _t.insert().tuple();
 			_t1.insert().integer(r.gerrcode);
-			_t1.insert().binary("invalid statement handle");
+			_t1.insert().binary(r.gerrbuf);
 			if (r.fn_ret == CONTINUE_WITH_ERROR) {
 				if(resp.is_undef())
 					REMOTE_LOG(INF, "Continue with ERROR fetch STMT %s\n", r.gerrbuf);

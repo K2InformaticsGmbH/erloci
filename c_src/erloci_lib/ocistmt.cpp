@@ -821,7 +821,6 @@ for (ub2 pos = 1; pos <= count; pos++)
 intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 {
 	intf_ret r;
-
 	r.handle = _errhp;
     unsigned int num_rows = 0;
     sword res = OCI_NO_DATA;
@@ -831,6 +830,8 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 	r.fn_ret = FAILURE;
 	if (_columns.size() <= 0) {
 		REMOTE_LOG(INF, "statement %s has no rows\n", _stmtstr);
+		r.gerrcode = 0;
+		SPRINT(r.gerrbuf, sizeof(r.gerrbuf), "[%s:%d] statement has no rows", __FUNCTION__, __LINE__);
         throw r;
 	}
 	r.fn_ret = SUCCESS;
