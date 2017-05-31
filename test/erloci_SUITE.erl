@@ -36,7 +36,7 @@ io:format(user, "---~p---~n", [?LINE]),
      , list_to_binary(["_hero_",integer_to_list(I),"_"])
      , list_to_binary(["_reality_",integer_to_list(I),"_"])
      , I
-     , oci_util:edatetime_to_ora(erlang:now())
+     , oci_util:edatetime_to_ora(os:timestamp())
      , I
      } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
     ct:pal(info, "Starting ~p processes", [length(Tables)]),

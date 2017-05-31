@@ -283,7 +283,7 @@ lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
 
     Files =
     [begin
-         ContentSize = random:uniform(1024),
+         ContentSize = rand:uniform(1024),
          Filename = "/tmp/test"++integer_to_list(I)++".bin",
          RCmd = lists:flatten(
                   io_lib:format(
@@ -432,7 +432,7 @@ insert_select_update(#{ocisession := OciSession}) ->
          , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                % publisher
          , I+I/2                                                                            % rank
          , 1.0e-307                                                                         % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , 9.999999350456404e-39                                                            % chapters
@@ -445,7 +445,7 @@ insert_select_update(#{ocisession := OciSession}) ->
          , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                % publisher
          , I+I/2                                                                            % rank
          , 1.0e-307                                                                         % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , 9.999999350456404e-39                                                            % chapters
@@ -558,7 +558,7 @@ auto_rollback(#{ocisession := OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I                                                                                % chapters
@@ -588,7 +588,7 @@ auto_rollback(#{ocisession := OciSession}) ->
          , list_to_binary(["_Publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/3                                                                            % rank
          , I+I/2                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end           % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I+2                                                                              % chapters
@@ -622,8 +622,8 @@ commit_rollback(#{ocisession := OciSession}) ->
            , list_to_binary(["_publisher_",integer_to_list(I),"_"])         % publisher
            , I+I/2                                                          % rank
            , I+I/3                                                          % hero
-           , list_to_binary([random:uniform(255)
-                             || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
+           , list_to_binary([rand:uniform(255)
+                             || _I <- lists:seq(1,rand:uniform(5)+5)])    % reality
            , I                                                              % votes
            , oci_util:edatetime_to_ora(os:timestamp())                      % createdate
            , I*2+I/1000                                                     % chapters
@@ -654,8 +654,8 @@ commit_rollback(#{ocisession := OciSession}) ->
            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])         % publisher
            , I+I/3                                                          % rank
            , I+I/2                                                          % hero
-           , list_to_binary([random:uniform(255)
-                             || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
+           , list_to_binary([rand:uniform(255)
+                             || _I <- lists:seq(1,rand:uniform(5)+5)])    % reality
            , integer_to_binary(I+1)                                         % votes
            , oci_util:edatetime_to_ora(os:timestamp())                      % createdate
            , I+2                                                            % chapters
@@ -691,7 +691,7 @@ asc_desc(#{ocisession := OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I*2+I/1000                                                                       % chapters
@@ -861,7 +861,7 @@ procedure_cur(#{ocisession := OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I*2+I/1000                                                                       % chapters
@@ -1050,7 +1050,7 @@ multiple_bind_reuse(#{ocisession := OciSession}) ->
     DropStmt:exec_stmt(),
     DropStmt:close(),
 
-    Data = [list_to_tuple([lists:nth(random:uniform(3),
+    Data = [list_to_tuple([lists:nth(rand:uniform(3),
                                      [<<"">>, <<"big">>, <<"small">>])
                            || _ <- Cols]) || _ <- lists:seq(1, 10)],
 
