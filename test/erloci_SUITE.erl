@@ -31,15 +31,15 @@ init_per_suite(ConfigData) ->
             || S <- ?STMTIDLIST]}
         || C <- ?CONNIDLIST],
     ct:pal(info, "Building ~p rows to bind for ~p tables", [?ROWS_PER_TABLE, length(Tables)]),
-    Binds = [{I
-        , list_to_binary(["_publisher_", integer_to_list(I), "_"])
-        , I + I / 2
-        , list_to_binary(["_hero_", integer_to_list(I), "_"])
-        , list_to_binary(["_reality_", integer_to_list(I), "_"])
-        , I
-        , oci_util:edatetime_to_ora(erlang:timestamp())
-        , I
-    } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
+    Binds = [{ I
+     , list_to_binary(["_publisher_",integer_to_list(I),"_"])
+     , I+I/2
+     , list_to_binary(["_hero_",integer_to_list(I),"_"])
+     , list_to_binary(["_reality_",integer_to_list(I),"_"])
+     , I
+     , oci_util:edatetime_to_ora(os:timestamp())
+     , I
+     } || I <- lists:seq(1, ?ROWS_PER_TABLE)],
     ct:pal(info, "Starting ~p processes", [length(Tables)]),
     [{tables, Tables}, {binds, Binds}, {config, {Tns, User, Pswd, Lang, Logging}} | ConfigData].
 

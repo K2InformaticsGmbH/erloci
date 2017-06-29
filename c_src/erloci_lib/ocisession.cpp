@@ -71,7 +71,8 @@ void ocisession::config(intf_funs _intf)
 
 ocisession::ocisession(const char * connect_str, size_t connect_str_len,
 					   const char * user_name, size_t user_name_len,
-					   const char * password, size_t password_len)
+					   const char * password, size_t password_len,
+					   const char * clientid, size_t clientid_len)
 {
 	intf_ret r;
 	OCIAuthInfo *authp = NULL;
@@ -99,12 +100,16 @@ ocisession::ocisession(const char * connect_str, size_t connect_str_len,
 
 	// usrname and password
 	checkerr(&r, OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,
-								(void*) user_name, (ub4)user_name_len,
-								OCI_ATTR_USERNAME, (OCIError *)_errhp));
+							(void*) user_name, (ub4)user_name_len,
+							OCI_ATTR_USERNAME, (OCIError *)_errhp));
 	checkerr(&r, OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,
-								(void*) password, (ub4)password_len,
-								OCI_ATTR_PASSWORD, (OCIError *)_errhp));
+							(void*) password, (ub4)password_len,
+							OCI_ATTR_PASSWORD, (OCIError *)_errhp));
 
+	// client identifier
+	checkerr(&r, OCIAttrSet(authp, OCI_HTYPE_AUTHINFO,
+							(void*)clientid, (ub4)clientid_len,
+							OCI_ATTR_CLIENT_IDENTIFIER, (OCIError *)_errhp));
 
     /* get the database connection */
     checkerr(&r, OCISessionGet((OCIEnv*)envhp, (OCIError *)_errhp,

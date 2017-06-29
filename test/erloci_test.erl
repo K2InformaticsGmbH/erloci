@@ -181,7 +181,8 @@ db_test_() ->
                ssh:stop()
        end,
        {with,
-        [fun drop_create/1,
+        [fun named_session/1,
+         fun drop_create/1,
          fun bad_sql_connection_reuse/1,
          fun insert_select_update/1,
          fun auto_rollback/1,
@@ -197,7 +198,8 @@ db_test_() ->
          fun multiple_bind_reuse/1,
          fun check_ping/1,
          fun check_session_without_ping/1,
-         fun check_session_with_ping/1
+         fun check_session_with_ping/1,
+         fun urowid/1
         ]}
       }}.
 
@@ -256,6 +258,22 @@ ssh_cmd_result(ConRef, Chn, Buffer) ->
         {error, Error} -> error(Error)
     end.
 
+named_session(#{ociport := OciPort,
+                conf := #{tns := Tns, user := User,
+                          password := Pswd}}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                named_session                |"),
+    ?ELog("+---------------------------------------------+"),
+    OciSession = OciPort:get_session(Tns, User, Pswd, "eunit_test_tagged"),
+    StmtSelect = OciSession:prep_sql(
+                   <<"select * from V$SESSION"
+                     " where CLIENT_IDENTIFIER = 'eunit_test_tagged'">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtSelect),
+    ?assertMatch({cols, _}, StmtSelect:exec_stmt()),
+    ?assertMatch({{rows, _}, true}, StmtSelect:fetch_rows(1)),
+    ?assertEqual(ok, StmtSelect:close()),
+    OciSession:close().
+
 lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
     ?ELog("+---------------------------------------------+"),
     ?ELog("|                     lob                     |"),
@@ -265,7 +283,7 @@ lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
 
     Files =
     [begin
-         ContentSize = random:uniform(1024),
+         ContentSize = rand:uniform(1024),
          Filename = "/tmp/test"++integer_to_list(I)++".bin",
          RCmd = lists:flatten(
                   io_lib:format(
@@ -414,7 +432,7 @@ insert_select_update(#{ocisession := OciSession}) ->
          , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                % publisher
          , I+I/2                                                                            % rank
          , 1.0e-307                                                                         % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , 9.999999350456404e-39                                                            % chapters
@@ -427,7 +445,7 @@ insert_select_update(#{ocisession := OciSession}) ->
          , unicode:characters_to_binary(["_püèr_",integer_to_list(I),"_"])                % publisher
          , I+I/2                                                                            % rank
          , 1.0e-307                                                                         % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , 9.999999350456404e-39                                                            % chapters
@@ -540,7 +558,7 @@ auto_rollback(#{ocisession := OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I                                                                                % chapters
@@ -570,7 +588,7 @@ auto_rollback(#{ocisession := OciSession}) ->
          , list_to_binary(["_Publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/3                                                                            % rank
          , I+I/2                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , if I > (RowCount-2) -> <<"error">>; true -> integer_to_binary(I+1) end           % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I+2                                                                              % chapters
@@ -604,8 +622,8 @@ commit_rollback(#{ocisession := OciSession}) ->
            , list_to_binary(["_publisher_",integer_to_list(I),"_"])         % publisher
            , I+I/2                                                          % rank
            , I+I/3                                                          % hero
-           , list_to_binary([random:uniform(255)
-                             || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
+           , list_to_binary([rand:uniform(255)
+                             || _I <- lists:seq(1,rand:uniform(5)+5)])    % reality
            , I                                                              % votes
            , oci_util:edatetime_to_ora(os:timestamp())                      % createdate
            , I*2+I/1000                                                     % chapters
@@ -636,8 +654,8 @@ commit_rollback(#{ocisession := OciSession}) ->
            , list_to_binary(["_Publisher_",integer_to_list(I),"_"])         % publisher
            , I+I/3                                                          % rank
            , I+I/2                                                          % hero
-           , list_to_binary([random:uniform(255)
-                             || _I <- lists:seq(1,random:uniform(5)+5)])    % reality
+           , list_to_binary([rand:uniform(255)
+                             || _I <- lists:seq(1,rand:uniform(5)+5)])    % reality
            , integer_to_binary(I+1)                                         % votes
            , oci_util:edatetime_to_ora(os:timestamp())                      % createdate
            , I+2                                                            % chapters
@@ -673,7 +691,7 @@ asc_desc(#{ocisession := OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I*2+I/1000                                                                       % chapters
@@ -843,7 +861,7 @@ procedure_cur(#{ocisession := OciSession}) ->
          , list_to_binary(["_publisher_",integer_to_list(I),"_"])                           % publisher
          , I+I/2                                                                            % rank
          , I+I/3                                                                            % hero
-         , list_to_binary([random:uniform(255) || _I <- lists:seq(1,random:uniform(5)+5)])  % reality
+         , list_to_binary([rand:uniform(255) || _I <- lists:seq(1,rand:uniform(5)+5)])  % reality
          , I                                                                                % votes
          , oci_util:edatetime_to_ora(os:timestamp())                                        % createdate
          , I*2+I/1000                                                                       % chapters
@@ -1032,7 +1050,7 @@ multiple_bind_reuse(#{ocisession := OciSession}) ->
     DropStmt:exec_stmt(),
     DropStmt:close(),
 
-    Data = [list_to_tuple([lists:nth(random:uniform(3),
+    Data = [list_to_tuple([lists:nth(rand:uniform(3),
                                      [<<"">>, <<"big">>, <<"small">>])
                            || _ <- Cols]) || _ <- lists:seq(1, 10)],
 
@@ -1150,3 +1168,55 @@ check_session_with_ping(#{ocisession := OciSession, conf := #{tns := Tns, user :
     ?assertMatch({'EXIT', {noproc, _}}, catch SelStmt1:exec_stmt()),
     PingOciPort:close().
 
+urowid(#{ocisession := OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                  urowid                     |"),
+    ?ELog("+---------------------------------------------+"),
+
+    CreateStmt = OciSession:prep_sql(
+                   <<"create table "?TESTTABLE" ("
+                       " c1 number,"
+                       " c2 varchar2(3000),"
+                       " primary key(c1, c2))"
+                     " organization index">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, CreateStmt),
+    ?assertEqual({executed, 0}, CreateStmt:exec_stmt()),
+    ?assertEqual(ok, CreateStmt:close()),
+
+    ?ELog("testing insert returns UROWID"),
+    [begin
+         StmtInsert = OciSession:prep_sql(
+                        <<"insert into "?TESTTABLE" values(",
+                          (integer_to_binary(I))/binary, ",'",
+                          (list_to_binary(
+                             lists:duplicate(crypto:rand_uniform(1000,3000), I))
+                          )/binary, "')">>),
+        ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
+        ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
+        ?assertEqual(ok, StmtInsert:close())
+     end || I <- lists:seq($0,$9)],
+
+    ?ELog("testing select UROWID"),
+    SelectStmt = OciSession:prep_sql(<<"select rowid, c1 from "?TESTTABLE>>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, SelectStmt),
+    ?assertMatch({cols, _}, SelectStmt:exec_stmt()),
+    {{rows, Rows}, true} = SelectStmt:fetch_rows(100),
+    ?assertEqual(ok, SelectStmt:close()),
+
+    ?ELog("testing update UROWID"),
+    BoundUpdStmt = OciSession:prep_sql(
+                     <<"update "?TESTTABLE" set c1 = :p_c1"
+                       " where "?TESTTABLE".rowid = :p_rowid">>),
+    ?assertMatch(ok, BoundUpdStmt:bind_vars([{<<":p_c1">>, 'SQLT_INT'},
+                                             {<<":p_rowid">>, 'SQLT_STR'}])),
+    ?assertMatch({rowids, _},
+                 BoundUpdStmt:exec_stmt(
+                   [{$0 + $9 - list_to_integer(oci_util:from_num(C1)), RowId}
+                    || [RowId, C1] <- Rows], -1)),
+    ?assertMatch(ok, BoundUpdStmt:close()),
+
+    DropStmtFinal = OciSession:prep_sql(?DROP),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, DropStmtFinal),
+    ?assertEqual({executed, 0}, DropStmtFinal:exec_stmt()),
+    ?assertEqual(ok, DropStmtFinal:close()),
+    ok.
