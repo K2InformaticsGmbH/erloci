@@ -1,6 +1,7 @@
 _build
-c_src/x64/
-c_src/*/x64/
+.eunit
+.rebar
+*.swp
 erl_crash.dump
 logs
 priv
@@ -8,3 +9,18 @@ rebar.lock
 rebar3.crashdump
 test/*.beam
 tmp
+
+# VS files
+*.user
+*.filters
+*.db
+*.ncb
+*.sdf
+*.cache
+*.suo
+c_src/*/Debug/
+c_src/*/x64/
+c_src/*/Win32/
+c_src/ipch
+c_src/x64
+*.exports
