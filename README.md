@@ -153,6 +153,9 @@ The Oracle connection information are taken from the file `connect.config` in di
 2. Support Variable binding for Input
 3. Concurrent connection and statements
 4. Common test for load testing
+#### 0.1.0
+1. Compiled with rebar3
+2. CommonTests restructured
 
 ### Work-In-Progess
 1. Testing and stabilization
