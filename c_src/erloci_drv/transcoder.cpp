@@ -3,6 +3,9 @@
 
 using namespace std;
 
+// for erl_interface libs -- compiled with older version of VS
+extern "C" { FILE __iob_func[3] = { *stdin,*stdout,*stderr }; }
+
 transcoder::transcoder(void)
 {
 	erl_init(NULL, 0);

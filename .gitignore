@@ -24,3 +24,4 @@ c_src/*/Win32/
 c_src/ipch
 c_src/x64
 *.exports
+*.pdb

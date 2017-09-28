@@ -11,7 +11,6 @@
 	#include <Windows.h>
 	#include <WinSock2.h>
 	#include <crtdbg.h>
-	#include "wstdint.h"
 
 	#pragma comment(lib, "Ws2_32.lib")
 
