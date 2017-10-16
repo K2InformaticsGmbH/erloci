@@ -25,3 +25,4 @@ c_src/ipch
 c_src/x64
 *.exports
 *.pdb
+.vs
