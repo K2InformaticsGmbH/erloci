@@ -73,22 +73,7 @@ We assume you have [rebar3](https://www.rebar3.org/) somewhere on your path. Reb
 <code>rebar3 compile</code>
 Please check the rebar3 documentation for how to add erloci as a dependency to your project.
 
-#### Compiling C++ port in visual studio (2008)
-Change/Add the following:
-  * In project properties of erloci_drv and erloci_lib 
-    * Configuration Properties -> C/C++ -> General -> Additional Include Directories: path-to-instant-client\sdk\include
-    * Configuration Properties -> C/C++ -> General -> Additional Include Directories: path-to-instant-client\sdk\include
-  * In project property of erloci_lib 
-    * Configuration Properties -> Librarian -> General -> Additional Library Directories: path-to-instant-client\sdk\lib\msvc
-    * Configuration Properties -> Librarian -> General -> Additional Dependencies: oraocciXX.lib (replace XX with matching file in path)
-
-#### Compiling C++ port in visual studio (2013)
-
-This is experimental at the moment, a patch need to be applied to update the VS project files in order to make them use the 2013 toolchain:
-
-```
-git apply misc/vs2013.patch
-```
+**DEPRICATION WARNING** Visual Studio 2008 and Visual Studio 2013 are no longer supported please build with Visual Studio 2017 (Community Edition) instead
 
 Issue `rebar3 compile` as usual; then don't forget to revert temporarily changed vcxproj files: `git reset --hard`.
 
@@ -100,8 +85,8 @@ This library is unused (not linked) in a Windows environment. For an easier inst
 #### Oracle Call Interface (OCI)
 OCI provides a high performance, native 'C' language based interface to the Oracle Database. There is no ODBC layer between your application and the database. Since we don't want to distribute the Oracle Code you MUST download the OCI Packages (basic and devel) from the Oracle Website: http://www.oracle.com/technetwork/database/features/instant-client/index-097480.html.
 
-#### Compile ERLOCI in Windows
-Make sure you have <code>vcbuild.exe</code> in path. After that <code>rebar3 compile</code> will take care the rest. Currently erloci can only be build with VS2008.
+#### Compile ERLOCI in Windows command line
+Make sure you have `MSbuild.exe` in path. After that `rebar3 compile` will take care the rest. Currently erloci can only be build with VS2008.
 
 ### Erlang to/from Oracle datatype mapping (currently)
 
@@ -149,13 +134,15 @@ The Oracle connection information are taken from the file `connect.config` in di
 ### CHANGE LOG
 #### 0.0.2
 1. STL term class for wrapping erlang term
-2. Native process redesigned to OO
-2. Support Variable binding for Input
-3. Concurrent connection and statements
-4. Common test for load testing
+1. Native process redesigned to OO
+1. Support Variable binding for Input
+1. Concurrent connection and statements
+1. Common test for load testing
 #### 0.1.0
 1. Compiled with rebar3
-2. CommonTests restructured
+1. CommonTests restructured
+#### 0.1.1
+1. Compile with Visual Studio 2017 Community Edition tool chain
 
 ### Work-In-Progess
 1. Testing and stabilization
