@@ -14,7 +14,7 @@
     <ProjectGuid>{DD2FFF74-76DC-4719-90E9-24F5EA170FF2}</ProjectGuid>
     <RootNamespace>erloci_drv</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -99,7 +99,7 @@ copy  """$(VCInstallDir)redist\$(PlatformName)\Microsoft.VC100.CRT\*.dll""" """$
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>%ERL_INTERFACE_DIR%\include;%INSTANT_CLIENT_LIB_PATH%\sdk\include;$(ProjectDir)..\erloci_lib;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>_WIN32;__WIN32__;WIN32;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_SCL_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
@@ -107,7 +107,7 @@ copy  """$(VCInstallDir)redist\$(PlatformName)\Microsoft.VC100.CRT\*.dll""" """$
       <BufferSecurityCheck>false</BufferSecurityCheck>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>ei_md.lib;erl_interface_md.lib;%(AdditionalDependencies);legacy_stdio_definitions.lib</AdditionalDependencies>
+      <AdditionalDependencies>ei_md.lib;erl_interface_md.lib;%(AdditionalDependencies);legacy_stdio_definitions.lib;msvcrt.lib;libcmt.lib</AdditionalDependencies>
       <OutputFile>$(OutDir)$(ProjectName).exe</OutputFile>
       <AdditionalLibraryDirectories>%ERL_INTERFACE_DIR%\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
@@ -116,6 +116,7 @@ copy  """$(VCInstallDir)redist\$(PlatformName)\Microsoft.VC100.CRT\*.dll""" """$
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <TargetMachine>MachineX64</TargetMachine>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
     </Link>
     <PreBuildEvent>
       <Command>del """$(SolutionDir)..\priv\ocierl.exe"""</Command>

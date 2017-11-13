@@ -14,7 +14,7 @@
     <ProjectGuid>{7C2A067E-4DE0-41B3-98BA-05B971CCF708}</ProjectGuid>
     <RootNamespace>erloci_lib</RootNamespace>
     <Keyword>Win32Proj</Keyword>
-    <WindowsTargetPlatformVersion>10.0.15063.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
@@ -96,7 +96,7 @@ copy """$(INSTANT_CLIENT_LIB_PATH)\oraociei12.dll""" """$(SolutionDir)..\priv\or
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <AdditionalIncludeDirectories>%INSTANT_CLIENT_LIB_PATH%\sdk\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>WIN32;_LIB;__WIN32__;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreadedDLL</RuntimeLibrary>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
@@ -108,6 +108,7 @@ copy """$(INSTANT_CLIENT_LIB_PATH)\oraociei12.dll""" """$(SolutionDir)..\priv\or
       <AdditionalLibraryDirectories>%INSTANT_CLIENT_LIB_PATH%\sdk\lib\msvc;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
       <IgnoreSpecificDefaultLibraries>libcmt.lib;msvcrt.lib;%(IgnoreSpecificDefaultLibraries)</IgnoreSpecificDefaultLibraries>
       <Verbose>false</Verbose>
+      <IgnoreAllDefaultLibraries>false</IgnoreAllDefaultLibraries>
     </Lib>
     <PreBuildEvent>
       <Command>del """$(SolutionDir)..\priv\$(ProjectName).lib"""
