@@ -57,9 +57,8 @@ erloci.lib: priv\ocisession.obj priv\ocistmt.obj priv\checkerror.obj
 	$(LIB) $(LIBFLAGS) /OUT:"priv/erloci.lib" priv/ocisession.obj priv/ocistmt.obj priv\checkerror.obj
 	del priv\*.obj
 
-{erloci_lib\}.cpp{priv\}.obj:
-	$(CPP) $(LIBCPPFLAGS) -c $< -Fo:priv/
+{erloci_lib\}.cpp{priv\}.obj::
+	$(CPP) $(LIBCPPFLAGS) -Fo:$O\ -c $<
 
-{erloci_drv\}.cpp{priv\}.obj:
-	$(CPP) $(DRVCFLAGS) -c $< -Fo:priv/
-
+{erloci_drv\}.cpp{priv\}.obj::
+	$(CPP) $(DRVCFLAGS) -Fo:$O\ -c $<
