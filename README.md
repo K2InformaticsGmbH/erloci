@@ -77,6 +77,8 @@ Please check the rebar3 documentation for how to add erloci as a dependency to y
 
 Issue `rebar3 compile` as usual; then don't forget to revert temporarily changed vcxproj files: `git reset --hard`.
 
+__NOTE__: Setting the environment variables for the comand line tools might be needed: ``"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" x64``
+
 ### 3rd party dependencies
 #### Threadpool 
 The threadpool code (threadpool.cpp/h) is developed by Mathias Brossard mathias@brossard.org. His threadpool library is hosted at https://github.com/mbrossard/threadpool.
