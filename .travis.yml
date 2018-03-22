@@ -1,0 +1,25 @@
+sudo: true
+install:
+  - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
+language: erlang
+env:
+  global:
+    - ORACLE_DOWNLOAD_DIR=.cache/oracle
+cache:
+  - directories:
+    - .cache/oracle
+- .travis/oracle/download.sh --unless-exists
+- ORACLE_COOKIE=ic_linuxx8664
+- ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm' download.sh
+- ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm' download.sh
+- ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-sqlplus-12.1.0.2.0-1.x86_64.rpm' download.sh
+- sudo apt-get -qq install libaio1 rpm
+- sudo rpm --install --nodeps oracle-instantclient12.1-*.rpm
+otp_release:
+  - 20.3
+  - 20.2
+  - 20.1
+  - 20.0
+script:
+  - ./rebar3 compile
+  - ./rebar3 eunit
