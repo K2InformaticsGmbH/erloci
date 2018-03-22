@@ -16,8 +16,6 @@ cache:
 - sudo apt-get -qq install libaio1 rpm
 - sudo rpm --install --nodeps oracle-instantclient12.1-*.rpm
 otp_release:
-  - kerl update releases
-  - kerl list releases
   - 20.3
   - 20.2
   - 20.1
