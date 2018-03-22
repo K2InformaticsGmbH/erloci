@@ -1,5 +1,7 @@
 # erloci - An Erlang driver for the Oracle Call Interface
 
+[![Build Status](https://travis-ci.org/K2InformaticsGmbH/erloci.svg?branch=master)](https://travis-ci.org/K2InformaticsGmbH/erloci) [![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/erloci/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/erloci?branch=master)
+
 ### Users
 <a href="http://www.k2informatics.ch/">
   <img src="http://www.k2informatics.ch/logo.gif" alt="K2 Informatics GmbH">
@@ -59,7 +61,7 @@ sudo apt-get install libevent-dev
 sudo apt-get install alien dpkg-dev debhelper build-essential
 sudo alien oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
 sudo alien oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
-sudo dpkg -i oracle-instantclient12.1-basic_12.1.0.2.0-2_amd64.deb 
+sudo dpkg -i oracle-instantclient12.1-basic_12.1.0.2.0-2_amd64.deb
 sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
 ~/.profile
@@ -80,7 +82,7 @@ Issue `rebar3 compile` as usual; then don't forget to revert temporarily changed
 __NOTE__: Setting the environment variables for the comand line tools might be needed: ``"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvarsall.bat" x64``
 
 ### 3rd party dependencies
-#### Threadpool 
+#### Threadpool
 The threadpool code (threadpool.cpp/h) is developed by Mathias Brossard mathias@brossard.org. His threadpool library is hosted at https://github.com/mbrossard/threadpool.
 This library is unused (not linked) in a Windows environment. For an easier installation process we include the required threadpool files in the erloci repo. So this is NOT a dependency you have to resolve by yourself.
 
@@ -107,7 +109,7 @@ SQLT_INTERVAL_DS|binary()
 SQLT_IBFLOAT|float()
 
 ### Eunit test
-The database user `<<db_user>>` must have at least the following privileges: 
+The database user `<<db_user>>` must have at least the following privileges:
 
 	-- Roles
 	GRANT CONNECT TO <<db_user>>;
