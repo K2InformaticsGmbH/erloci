@@ -10,8 +10,8 @@ env:
     - ORACLE_DOWNLOAD_DIR=.cache/oracle
     - ORACLE_COOKIE=ic_linuxx8664
     - ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm'
-    - ORACLE_LOGIN_userid="walter.weinmann@gmail.com"
-    - ORACLE_LOGIN_pass="1Gross1Klein"
+    - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
+    - ORACLE_LOGIN_pass=1GrossKlein
 cache:
   - directories:
     - .cache/oracle
