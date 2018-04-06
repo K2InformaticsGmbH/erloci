@@ -7,7 +7,7 @@ otp_release:
 
 env:
   - ORACLE_COOKIE=ic_linuxx8664
-  - ORACLE_FILE='instantclient/121020/oracle-instantclient12.2-devel-12.2.0.1.0-1.x86_64.rpm'
+  - ORACLE_FILE='instantclient/122010/oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.rpm'
   - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
   - ORACLE_LOGIN_pass=1GrossKlein
 
@@ -19,7 +19,7 @@ install:
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - .travis/oracle/download.sh
   - sudo apt-get -qq install libaio1 rpm
-  - sudo rpm --install --nodeps oracle-instantclient12.1-*.rpm
+  - sudo rpm --install --nodeps oracle-instantclient12.2-*.rpm
 
 script:
   - ./rebar3 compile
