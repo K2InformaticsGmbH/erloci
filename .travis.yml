@@ -10,7 +10,7 @@ env:
     - ORACLE_CLIENT_FILE=oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64
     - ORACLE_COOKIE=ic_linuxx8664
     - ORACLE_DOWNLOAD_DIR=/home/travis/build/K2InformaticsGmbH/erloci
-    - ORACLE_FILE='instantclient/122010/${ORACLE_CLIENT_FILE}.rpm'
+    - ORACLE_FILE=instantclient/122010/${ORACLE_CLIENT_FILE}.rpm
     - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
     - ORACLE_LOGIN_pass=1GrossKlein
 
