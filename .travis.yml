@@ -6,10 +6,11 @@ otp_release:
   - 20.2
 
 env:
-  - ORACLE_COOKIE=ic_linuxx8664
-  - ORACLE_FILE='instantclient/122010/oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.rpm'
-  - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
-  - ORACLE_LOGIN_pass=1GrossKlein
+  global:
+    - ORACLE_COOKIE=ic_linuxx8664
+    - ORACLE_FILE='instantclient/122010/oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.rpm'
+    - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
+    - ORACLE_LOGIN_pass=1GrossKlein
 
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
