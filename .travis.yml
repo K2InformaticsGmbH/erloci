@@ -7,7 +7,6 @@ otp_release:
 
 env:
   global:
-    - ORACLE_CLIENT_FILE=oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64
     - ORACLE_COOKIE=ic_linuxx8664
     - ORACLE_DOWNLOAD_DIR=/home/travis/build/K2InformaticsGmbH/erloci
     - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
@@ -21,18 +20,18 @@ install:
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - export ORACLE_FILE=instantclient/122010/oracle-instantclient12.2-basic-12.2.0.1.0-1.x86_64.rpm
   - .travis/oracle/download.sh
-  - export ORACLE_FILE=instantclient/122010/oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.rpm
+  - export ORACLE_FILE=instantclient/122010/oracle-instantclient12.2-devel-12.2.0.1.0-1.x86_64.rpm
   - .travis/oracle/download.sh
   - export ORACLE_FILE=instantclient/122010/oracle-instantclient12.2-sqlplus-12.2.0.1.0-1.x86_64.rpm
   - .travis/oracle/download.sh
   - ls -R -l
   - sudo apt-get install alien
   - sudo alien oracle-instantclient12.2-basic-12.2.0.1.0-1.x86_64.rpm
-  - sudo alien oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.rpm
+  - sudo alien oracle-instantclient12.2-devel-12.2.0.1.0-1.x86_64.rpm
   - sudo alien oracle-instantclient12.2-sqlplus-12.2.0.1.0-1.x86_64.rpm
   - ls -R -l
   - sudo dpkg -i oracle-instantclient12.2-basic-12.2.0.1.0-1.x86_64.deb
-  - sudo dpkg -i oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.deb
+  - sudo dpkg -i oracle-instantclient12.2-devel-12.2.0.1.0-1.x86_64.deb
   - sudo dpkg -i oracle-instantclient12.2-sqlplus-12.2.0.1.0-1.x86_64.deb
 
 script:
