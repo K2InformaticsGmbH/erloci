@@ -21,10 +21,10 @@ install:
   - mkdir -p .travis/oracle
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - .travis/oracle/download.sh
-  - ls
+  - ls -R
   - sudo apt-get install alien
   - sudo alien oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.rpm
-  - ls
+  - ls -R
   - sudo dpkg -i oracle-instantclient12.2-develop-12.2.0.1.0-1.x86_64.deb
 
 script:
