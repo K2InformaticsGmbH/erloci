@@ -30,9 +30,9 @@ install:
   - sudo alien oracle-instantclient12.2-devel-12.2.0.1.0-1.x86_64.rpm
   - sudo alien oracle-instantclient12.2-sqlplus-12.2.0.1.0-1.x86_64.rpm
   - ls -R -l
-  - sudo dpkg -i oracle-instantclient12.2-basic-12.2.0.1.0-2_amd64.deb
-  - sudo dpkg -i oracle-instantclient12.2-devel-12.2.0.1.0-2_amd64.deb
-  - sudo dpkg -i oracle-instantclient12.2-sqlplus-12.2.0.1.0-2_amd64.deb
+  - sudo dpkg -i oracle-instantclient12.2-basic_12.2.0.1.0-2_amd64.deb
+  - sudo dpkg -i oracle-instantclient12.2-devel_12.2.0.1.0-2_amd64.deb
+  - sudo dpkg -i oracle-instantclient12.2-sqlplus_12.2.0.1.0-2_amd64.deb
 
 script:
   - ./rebar3 compile
