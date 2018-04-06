@@ -19,6 +19,7 @@ install:
   - mkdir -p .travis/oracle
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - .travis/oracle/download.sh
+  - echo $ORACLE_DOWNLOAD_DIR
   - pwd
   - ls
   - sudo apt-get -qq install libaio1 rpm
