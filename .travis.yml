@@ -7,24 +7,21 @@ otp_release:
 
 env:
   global:
-    - travis encrypt ORACLE_LOGIN_userid="walter.weinmann@gmail.com" --add
-    - travis encrypt ORACLE_LOGIN_pass="1Gross1Klein" --add
-    - ORACLE_COOKIE=ic_linuxx8664
     - ORACLE_DOWNLOAD_DIR=.cache/oracle
+    - ORACLE_COOKIE=ic_linuxx8664
+    - ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm'
+    - ORACLE_LOGIN_userid="walter.weinmann@gmail.com"
+    - ORACLE_LOGIN_pass="1Gross1Klein"
 cache:
   - directories:
     - .cache/oracle
 
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
+
   - wget https://github.com/cbandy/travis-oracle/archive/v2.0.3.tar.gz
   - mkdir -p .travis/oracle
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
-  - ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm'
-  - .travis/oracle/download.sh
-  - ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm'
-  - .travis/oracle/download.sh
-  - ORACLE_FILE='instantclient/121020/oracle-instantclient12.1-sqlplus-12.1.0.2.0-1.x86_64.rpm'
   - .travis/oracle/download.sh
   - sudo apt-get -qq install libaio1 rpm
   - sudo rpm --install --nodeps oracle-instantclient12.1-*.rpm
