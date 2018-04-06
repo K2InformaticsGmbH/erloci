@@ -1,6 +1,12 @@
 sudo: true
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
+env:
+  global:
+    - ORACLE_DOWNLOAD_DIR=.cache/oracle
+cache:
+  - directories:
+    - .cache/oracle
 language: erlang
 otp_release:
   - 20.3
