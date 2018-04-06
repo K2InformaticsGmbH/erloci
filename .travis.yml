@@ -19,11 +19,9 @@ install:
   - mkdir -p .travis/oracle
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - .travis/oracle/download.sh
-  - echo $ORACLE_DOWNLOAD_FILE
-  - pwd
-  - ls
-  - sudo apt-get -qq install libaio1 rpm
-  - sudo rpm --install --nodeps oracle-instantclient12.2-*.rpm
+  - sudo apt-get install alien
+  - sudo alien oracle-instantclient12.2-*.rpm
+  - sudo dpkg -i oracle-instantclient12.2-*.deb
 
 script:
   - ./rebar3 compile
