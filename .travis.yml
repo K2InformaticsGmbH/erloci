@@ -8,9 +8,9 @@ otp_release:
 env:
   global:
 #   - ORACLE_LOGIN_userid=
-    - secure: Cxk6iZI9sSZjHVlA/QrCiRS79mfzRPUxuJhNceRILlGWYLbjCRaGGWnoLZ43+dku+WBCEEJ7trLEXEr9wzDxDfq1BzddWiJgbwlnTW1t9oVlFEK834x6p0GuifReSJL2DVU3ebDRp/19huktadP66pwFj6Oo8jWELKfxi3mDOyQ=
+    - secure: DbfrrrcALz9sTzpg/JyFA4Ds89my7hYDtqzvVUDpild85/0cG1vEClJY3JQP4FxUxI+4KhS/p4ZIJ3ubtlLJ5SX5v2QWEXmwDmjiMCbqaWgf7wFvqM+r96nZ1TTTKVYQv3oN23TLWy2py618RAOHpQVIN96oK7W19nyq00TaOZ8=
 #   - ORACLE_LOGIN_pass=
-    - secure: nmJLA265gVDgN0ZJGbZsTGMXndlUM9UYJxBA+k/LqHLyNpAv4jNEHp+Mot4JfCATTkAN92dJygEWRn3P4v6m3O+q1+9YyvITIm+G5sE3B6ClAqiJ2n284fvM09R90sQPoCksGEYUvA4Nb5DnEqYr9hwdnu3KoA1wZ+VQfvXVHp0=
+    - secure: UUEW6+loLgg+83m8rsezZygw4kRCpM9xZr9rIXOIOzzu+MxpYKXGhAb80j7BeLbrmKcHlLfhPTaWNDZM6F1on9Og+Nn3DtnnMQUTO3nR15VKoHzuZYe6klnhXhjgmncukwUr1Shbh5zlC155HJuF0tonu7mWifSN7aCT1GHKx/Q=
 
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
