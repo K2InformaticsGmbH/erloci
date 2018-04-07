@@ -14,9 +14,9 @@ install:
   - export ORACLE_COOKIE=ic_linuxx8664
   - export ORACLE_DOWNLOAD_DIR="/home/travis/build/K2InformaticsGmbH/erloci"
 # - export ORACLE_LOGIN_userid=
-  - secure: GWDi2+IFZSRZoXSAhc4TdwoAqfgqPgojYfY8nKjBmlKoBjfmlUd0ImFHO09bH+gsrfMnE7H5Fozijot2asQHImXE8O5ydDd9cXnKnVKkAAKPYsfzhz4BlMq9nn8sxUpUBthISFN4l6J+JRQWQNVkSN5L15pFnPz3h+VJR/zkM34=
+# - secure: GWDi2+IFZSRZoXSAhc4TdwoAqfgqPgojYfY8nKjBmlKoBjfmlUd0ImFHO09bH+gsrfMnE7H5Fozijot2asQHImXE8O5ydDd9cXnKnVKkAAKPYsfzhz4BlMq9nn8sxUpUBthISFN4l6J+JRQWQNVkSN5L15pFnPz3h+VJR/zkM34=
 # - export ORACLE_LOGIN_pass=
-  - secure: i9s18kUDC1X6cV5CyaY+2dUvri9YcV/MkWPObLGle0BujAfv1MZXhNGKjNRLsN6tD7jzAnswl9D/RRR41Bts5TduZopAUBTjYzxDHxjz9VMPGoBIbK+Tu5smbdtCozBBtr/RsYszC3rpmPZCfwTn2NGeyXWSx01ELUpIduBZ5d4=
+# - secure: i9s18kUDC1X6cV5CyaY+2dUvri9YcV/MkWPObLGle0BujAfv1MZXhNGKjNRLsN6tD7jzAnswl9D/RRR41Bts5TduZopAUBTjYzxDHxjz9VMPGoBIbK+Tu5smbdtCozBBtr/RsYszC3rpmPZCfwTn2NGeyXWSx01ELUpIduBZ5d4=
   - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
   - .travis/oracle/download.sh
   - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
