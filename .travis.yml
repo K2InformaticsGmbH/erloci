@@ -42,9 +42,9 @@ install:
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
 
-  - echo "ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;\nexit" > travis.oracle.install.sql
-  - echo travis.oracle.install.sql
-  - $ORACLE_HOME/bin/sqlplus / AS SYSDBA @travis.oracle.install.sql
+  - echo "ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;" > travis.oracle.install.sql
+  - cat travis.oracle.install.sql
+  - echo exit | $ORACLE_HOME/bin/sqlplus / AS SYSDBA @travis.oracle.install.sql
 
 script:
   - export ERL_INTERFACE_DIR=$(ls -d /home/travis/otp/${TRAVIS_OTP_RELEASE}/lib/erl_interface-*)
