@@ -38,12 +38,13 @@ install:
   - export ORACLE_FILE=oracle11g/xe/oracle-xe-11.2.0-1.0.x86_64.rpm.zip
   - export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe
   - export ORACLE_SID=XE
+  - export USER=erloci
 
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
 
   - ls $ORACLE_HOME
-  - $ORACLE_HOME/bin/sqlplus sys as sysdba
+  - $ORACLE_HOME/bin/sqlplus erloci as sysdba
   - ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
   - quit
 
