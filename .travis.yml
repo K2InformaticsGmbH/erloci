@@ -32,6 +32,9 @@ install:
   - sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
 script:
+  - pwd
+  - ls
+  - ls /opt/bin
   - ls "/usr/lib/erlang/lib"
   - ls "/usr/lib/erlang/lib/erl_interface-3.7.15"
   - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.15"
