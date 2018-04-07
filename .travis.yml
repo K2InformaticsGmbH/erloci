@@ -20,9 +20,9 @@ install:
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - export ORACLE_COOKIE=ic_linuxx8664
   - export ORACLE_DOWNLOAD_DIR="/home/travis/build/K2InformaticsGmbH/erloci"
-  - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
+  - export ORACLE_FILE="instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm"
   - .travis/oracle/download.sh
-  - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
+  - export ORACLE_FILE="instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm"
   - .travis/oracle/download.sh
   - sudo apt-get install libevent-dev
   - sudo apt-get install alien dpkg-dev debhelper build-essential
@@ -34,9 +34,7 @@ install:
 script:
   - pwd
   - ls
-  - ls /opt/bin
-  - ls "/usr/lib/erlang/lib"
-  - ls "/usr/lib/erlang/lib/erl_interface-3.7.15"
+  - whereis erl
   - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.15"
   - export INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
   - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
