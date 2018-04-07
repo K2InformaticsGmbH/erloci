@@ -20,7 +20,7 @@ install:
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
 
   - export ORACLE_COOKIE=ic_linuxx8664
-  - export ORACLE_DOWNLOAD_DIR="/home/travis/build/K2InformaticsGmbH/erloci"
+  - export ORACLE_DOWNLOAD_DIR=$(pwd)
 
   - export ORACLE_FILE="instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm"
   - .travis/oracle/download.sh
