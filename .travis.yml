@@ -44,7 +44,7 @@ install:
 
   - env | sort
   - ls $ORACLE_HOME
-  - $ORACLE_HOME/bin/sqlplus system as sysdba
+  - $ORACLE_HOME/bin/sqlplus travis as sysdba
   - ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
   - quit
 
