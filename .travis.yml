@@ -43,11 +43,9 @@ install:
   - .travis/oracle/install.sh
 
   - echo "CREATE USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
-          -- Roles
           GRANT CONNECT TO scott;
           GRANT RESOURCE TO scott;
           ALTER USER scott DEFAULT ROLE ALL;
-          -- System Privileges
           GRANT ALTER SESSION TO scott;
           GRANT ALTER SYSTEM TO scott;
           GRANT CREATE ANY DIRECTORY TO scott;
@@ -57,7 +55,6 @@ install:
           GRANT CREATE SYNONYM TO scott;
           GRANT CREATE VIEW TO scott;
           GRANT DROP ANY DIRECTORY TO scott;
-          -- Object Privileges
           GRANT EXECUTE ON SYS.DBMS_STATS TO scott;
           GRANT SELECT ON SYS.GV_$PROCESS TO scott;
           GRANT SELECT ON SYS.GV_$SESSION TO scott;" | $ORACLE_HOME/bin/sqlplus / AS SYSDBA
