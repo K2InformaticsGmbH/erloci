@@ -32,7 +32,7 @@ script:
   - ls /usr/lib
   - ls /usr/lib/erlang
   - ls /usr/lib/erlang/lib
-  - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.10.1"
+  - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.15"
   - export INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
   - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
   - ./rebar3 compile
