@@ -31,6 +31,8 @@ install:
   - sudo dpkg -i oracle-instantclient12.1-basic_12.1.0.2.0-2_amd64.deb
   - sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
+before_script:
+  - kerl list installations
 script:
   - pwd
   - ls
