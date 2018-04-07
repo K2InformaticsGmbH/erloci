@@ -42,9 +42,9 @@ install:
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
 
-  - echo "ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
-          GRANT CONNECT TO scott;
-          GRANT RESOURCE TO scott;
+  - echo "ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;" | $ORACLE_HOME/bin/sqlplus / AS SYSDBA
+  - echo "GRANT CONNECT TO scott;" | $ORACLE_HOME/bin/sqlplus / AS SYSDBA
+  - echo "GRANT RESOURCE TO scott;
           ALTER USER scott DEFAULT ROLE ALL;
           GRANT ALTER SESSION TO scott;
           GRANT ALTER SYSTEM TO scott;
