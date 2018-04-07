@@ -42,9 +42,7 @@ install:
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
 
-  - env | sort
-  - ls $ORACLE_HOME
-  - $ORACLE_HOME/bin/sqlplus -L -S / AS SYSDBA<<SQL ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK; SQL
+  - @echo ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK; | $ORACLE_HOME/bin/sqlplus -L -S / AS SYSDBA
 
 script:
   - export ERL_INTERFACE_DIR=$(ls -d /home/travis/otp/${TRAVIS_OTP_RELEASE}/lib/erl_interface-*)
