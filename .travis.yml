@@ -7,10 +7,10 @@ otp_release:
 
 env:
   global:
-#   - ORACLE_LOGIN_userid=        Bikram ???
+#   - ORACLE_LOGIN_userid=
     - secure: Cxk6iZI9sSZjHVlA/QrCiRS79mfzRPUxuJhNceRILlGWYLbjCRaGGWnoLZ43+dku+WBCEEJ7trLEXEr9wzDxDfq1BzddWiJgbwlnTW1t9oVlFEK834x6p0GuifReSJL2DVU3ebDRp/19huktadP66pwFj6Oo8jWELKfxi3mDOyQ=
-#   - ORACLE_LOGIN_pass=          Bikram ???
-    - secure: lxVLWoaI1cRZ5Ymk1nNMyZV4rzY1+QSnJWrur5xDWUjCqu7zxjlPHtwqiPObUHKJhzsJxF5NmAFPwaW1UKajnPpLrp6pdgqgFA/UNoBps7mHT9E3jl6XFLs2ZVspe8ucrb0pnV5WBUWQ/fwkk+TGyBskWvTcCLufe6zGzgRdIP8=
+#   - ORACLE_LOGIN_pass=
+    - secure: nmJLA265gVDgN0ZJGbZsTGMXndlUM9UYJxBA+k/LqHLyNpAv4jNEHp+Mot4JfCATTkAN92dJygEWRn3P4v6m3O+q1+9YyvITIm+G5sE3B6ClAqiJ2n284fvM09R90sQPoCksGEYUvA4Nb5DnEqYr9hwdnu3KoA1wZ+VQfvXVHp0=
 
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
@@ -40,9 +40,9 @@ script:
   - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
 
   - ./rebar3 compile
-# - ./rebar3 ct                   Bikram ???
-# - ./rebar3 eunit                Bikram ???
-  - ./rebar3 cover
-  - ./rebar3 as test coveralls send
-# - ./rebar3 dialyzer             Bikram ???
+# - ./rebar3 ct                       Bikram ???
+# - ./rebar3 eunit                    Bikram ???
+# - ./rebar3 cover                    TBD after ct & eunit
+# - ./rebar3 as test coveralls send   TBD after ct & eunit
+# - ./rebar3 dialyzer                 Bikram ???
   - ./rebar3 as test geas
