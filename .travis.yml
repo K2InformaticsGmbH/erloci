@@ -7,11 +7,6 @@ otp_release:
 
 env:
   global:
-    - ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.10.1"
-    - INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
-    - INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
-    - ORACLE_COOKIE=ic_linuxx8664
-    - ORACLE_DOWNLOAD_DIR="/home/travis/build/K2InformaticsGmbH/erloci"
     - ORACLE_LOGIN_userid=walter.weinmann@gmail.com
     - ORACLE_LOGIN_pass=1GrossKlein
 
@@ -21,6 +16,8 @@ install:
   - wget https://github.com/cbandy/travis-oracle/archive/v2.0.3.tar.gz
   - mkdir -p .travis/oracle
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
+  - export ORACLE_COOKIE=ic_linuxx8664
+  - export ORACLE_DOWNLOAD_DIR="/home/travis/build/K2InformaticsGmbH/erloci"
   - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
   - .travis/oracle/download.sh
   - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
@@ -33,6 +30,12 @@ install:
   - sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
 script:
+  - ls /usr/lib
+  - ls /usr/lib/erlang
+  - ls /usr/lib/erlang/lib
+  - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.10.1"
+  - export INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
+  - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
   - ./rebar3 compile
   - ./rebar3 ct
   - ./rebar3 eunit
