@@ -5,6 +5,13 @@ otp_release:
   - 20.3
   - 20.2
 
+env:
+  global:
+#   - ORACLE_LOGIN_userid=
+    - secure: Cxk6iZI9sSZjHVlA/QrCiRS79mfzRPUxuJhNceRILlGWYLbjCRaGGWnoLZ43+dku+WBCEEJ7trLEXEr9wzDxDfq1BzddWiJgbwlnTW1t9oVlFEK834x6p0GuifReSJL2DVU3ebDRp/19huktadP66pwFj6Oo8jWELKfxi3mDOyQ=
+#   - ORACLE_LOGIN_pass=
+    - secure: lxVLWoaI1cRZ5Ymk1nNMyZV4rzY1+QSnJWrur5xDWUjCqu7zxjlPHtwqiPObUHKJhzsJxF5NmAFPwaW1UKajnPpLrp6pdgqgFA/UNoBps7mHT9E3jl6XFLs2ZVspe8ucrb0pnV5WBUWQ/fwkk+TGyBskWvTcCLufe6zGzgRdIP8=
+
 install:
   - wget https://s3.amazonaws.com/rebar3/rebar3 && chmod +x rebar3
 
@@ -13,10 +20,6 @@ install:
   - tar x -C .travis/oracle --strip-components=1 -f v2.0.3.tar.gz
   - export ORACLE_COOKIE=ic_linuxx8664
   - export ORACLE_DOWNLOAD_DIR="/home/travis/build/K2InformaticsGmbH/erloci"
-# - export ORACLE_LOGIN_userid=
-  - secure: GWDi2+IFZSRZoXSAhc4TdwoAqfgqPgojYfY8nKjBmlKoBjfmlUd0ImFHO09bH+gsrfMnE7H5Fozijot2asQHImXE8O5ydDd9cXnKnVKkAAKPYsfzhz4BlMq9nn8sxUpUBthISFN4l6J+JRQWQNVkSN5L15pFnPz3h+VJR/zkM34=
-# - export ORACLE_LOGIN_pass=
-  - secure: i9s18kUDC1X6cV5CyaY+2dUvri9YcV/MkWPObLGle0BujAfv1MZXhNGKjNRLsN6tD7jzAnswl9D/RRR41Bts5TduZopAUBTjYzxDHxjz9VMPGoBIbK+Tu5smbdtCozBBtr/RsYszC3rpmPZCfwTn2NGeyXWSx01ELUpIduBZ5d4=
   - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-basic-12.1.0.2.0-1.x86_64.rpm
   - .travis/oracle/download.sh
   - export ORACLE_FILE=instantclient/121020/oracle-instantclient12.1-devel-12.1.0.2.0-1.x86_64.rpm
@@ -29,9 +32,6 @@ install:
   - sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
 script:
-  - ls /usr/lib
-  - ls /usr/lib/erlang
-  - ls /usr/lib/erlang/lib
   - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.15"
   - export INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
   - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
