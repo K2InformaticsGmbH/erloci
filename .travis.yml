@@ -34,10 +34,10 @@ install:
   - sudo dpkg -i oracle-instantclient12.1-basic_12.1.0.2.0-2_amd64.deb
   - sudo dpkg -i oracle-instantclient12.1-devel_12.1.0.2.0-2_amd64.deb
 
-  - ORACLE_COOKIE=sqldev
-  - ORACLE_FILE=oracle11g/xe/oracle-xe-11.2.0-1.0.x86_64.rpm.zip
-  - ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe
-  - ORACLE_SID=XE
+  - export ORACLE_COOKIE=sqldev
+  - export ORACLE_FILE=oracle11g/xe/oracle-xe-11.2.0-1.0.x86_64.rpm.zip
+  - export ORACLE_HOME=/u01/app/oracle/product/11.2.0/xe
+  - export ORACLE_SID=XE
 
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
