@@ -42,7 +42,7 @@ install:
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
 
-  - echo "ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
+  - echo "CREATE USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
           -- Roles
           GRANT CONNECT TO scott;
           GRANT RESOURCE TO scott;
@@ -68,7 +68,7 @@ script:
   - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
 
   - ./rebar3 compile
-# - ./rebar3 ct                       % Bikram ???
+  - ./rebar3 ct
   - ./rebar3 eunit
   - ./rebar3 cover
   - ./rebar3 as test coveralls send
