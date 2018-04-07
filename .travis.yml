@@ -68,8 +68,6 @@ script:
 # - ./rebar3 ct                       % Bikram ???
   - ./rebar3 eunit
   - ./rebar3 cover
-  - export DEBUG=1
   - ./rebar3 as test coveralls send
-  - export DEBUG=
 # - ./rebar3 dialyzer                 % Bikram ???
   - ./rebar3 as test geas
