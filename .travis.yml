@@ -34,10 +34,9 @@ install:
 before_script:
   - kerl path
 script:
-  - pwd
-  - ls
-  - whereis erl
-  - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.7.15"
+  - echo $TRAVIS_OTP_RELEASE
+  - ls /home/travis/otp/20.3
+  - export ERL_INTERFACE_DIR="/usr/lib/erlang/lib/erl_interface-3.10.1"
   - export INSTANT_CLIENT_LIB_PATH="/usr/lib/oracle/12.1/client64/lib/"
   - export INSTANT_CLIENT_INCLUDE_PATH="/usr/include/oracle/12.1/client64/"
   - ./rebar3 compile
