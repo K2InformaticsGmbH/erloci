@@ -42,7 +42,8 @@ install:
   - .travis/oracle/download.sh
   - .travis/oracle/install.sh
 
-  - ./sqlplus sys as sysdba
+  - ./$ORACLE_HOME/bin/sqlplus sys as sysdba
+  - ALTER USER scott IDENTIFIED BY tiger ACCOUNT UNLOCK;
   - quit
 
 script:
