@@ -135,6 +135,43 @@ The Oracle connection information are taken from the file `connect.config` in di
   1. <code>rebar3 compile</code>
   2. <code>rebar3 eunit</code>
 
+## API Description through examples
+
+### Create a new erloci environment
+```
+OciPort = erloci:new([{logging, false}, {env, []}]),
+```
+### Get an OCI Session
+```
+Tns = <<"(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))">>,
+Pswd= <<"XXXXXX">>,
+User= <<"User">>,
+OciSession = OciPort:get_session(Tns, User, Pswd),
+```
+### Prepare an OCI Statement
+```
+SelStmt = OciSession:prep_sql("SELECT lastname, firstname from testtable where personid > :a "),
+```
+### Bind Variable types
+```
+SelStmt:bind_vars([{<<":a">>,'SQLT_INT'}]),
+```
+### Execute the statement with bind values
+```
+SelStmt:exec_stmt([{1}]),
+```
+
+Returns:
+`{cols, [Definition]}` where
+Definition is `{ColumnName, ColumnType, ColumnSize, Precision, Scale}`
+
+### Fetch result rows
+```
+SelStmt:fetch_rows(NumRows)
+```
+Returns:
+`{{rows, [Row]}, IsComplete}`
+
 ### CHANGE LOG
 #### 0.0.2
 1. STL term class for wrapping erlang term
