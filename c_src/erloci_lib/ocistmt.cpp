@@ -982,13 +982,6 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 							(size_t)OCIRawSize(envhp, (OCIRaw*)_columns[i]->row_valp),
 							row
 						);
-						// There isn't any de-allocator for OCIRaw specially, OCIRawResize to tricked to de-allocate
-						// by requesting it to resize to zero
-						checkerr(&r, OCIRawResize(envhp, (OCIError*)_errhp, 0, (OCIRaw **)&(_columns[i]->row_valp)));
-						if (r.fn_ret != SUCCESS) {
-							REMOTE_LOG(ERR, "failed OCIRawResize error %s (%s)\n", r.gerrbuf, _stmtstr);
-							throw r;
-						}
 						break;
 					case SQLT_RID:
 					case SQLT_AFC:
@@ -1137,6 +1130,13 @@ ocistmt::~ocistmt(void)
 			checkerr(&r, OCIObjectFree((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, (dvoid*)(_columns[i]->row_valp), OCI_OBJECTFREE_FORCE | OCI_OBJECTFREE_NONULL));
 			if(r.fn_ret != SUCCESS)
 				REMOTE_LOG(ERR, "failed OCIObjectFree for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+		} else if (_columns[i]->dtype == SQLT_BIN) {
+			// There isn't any de-allocator for OCIRaw specially, OCIRawResize to tricked to de-allocate
+			// by requesting it to resize to zero
+			checkerr(&r, OCIRawResize((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, 0, (OCIRaw **)&(_columns[i]->row_valp)));
+			if (r.fn_ret != SUCCESS) {
+				REMOTE_LOG(ERR, "failed OCIRawResize for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+			}
 		} else {
 			if(_columns[i]->rtype == LCL_DTYPE_NONE)
 				delete (char*)(_columns[i]->row_valp);
