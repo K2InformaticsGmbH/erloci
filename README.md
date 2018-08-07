@@ -7,7 +7,7 @@
   <img src="http://www.k2informatics.ch/logo.gif" alt="K2 Informatics GmbH">
 </a>
 <a href="http://privatbank.ua/">
-  <img src="http://privatbank.ua/img/logo.png?v=2828" alt="Privat Bank, Ukraine">
+  <img src="https://privatbank.ua/favicon.ico" alt="Privat Bank, Ukraine">
 </a>
 
 ### Setup the development system
