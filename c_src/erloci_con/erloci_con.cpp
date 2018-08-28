@@ -12,8 +12,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */ 
+
+
+#define _CRTDBG_MAP_ALLOC  
+#include <stdlib.h>  
+#include <crtdbg.h>  
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <oci.h>
 #include <orid.h>
@@ -56,10 +60,17 @@ void checkerr(OCIError * errhp, sword status, int line)
   }
 }
 
+#if 0
 const char
 	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 	*usr = "scott",
 	*pwd = "tiger";
+#else
+const char
+	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
+	*usr = "scott",
+	*pwd = "regit";
+#endif
 
 OCIEnv		*envhp = NULL;
 OCIError	*errhp = NULL;
@@ -80,7 +91,7 @@ sword err;
 
 bool setup_env()
 {
-	err = OCIEnvCreate(&envhp,OCI_THREADED | OCI_OBJECT, NULL, NULL, NULL, NULL, (size_t) 0, (void**) NULL);
+	err = OCIEnvCreate(&envhp, OCI_OBJECT | OCI_THREADED, NULL, NULL, NULL, NULL, (size_t) 0, (void**) NULL);
 	if(err != OCI_SUCCESS) return true;
 
 	err = OCIHandleAlloc(envhp, (void **) &errhp, OCI_HTYPE_ERROR, (size_t) 0, (void **) NULL);
@@ -103,21 +114,23 @@ bool setup_env()
 
 bool statement(const char *stmt)
 {
-	err = OCIHandleAlloc(envhp, (void **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (void **) NULL);
+	//err = OCIHandleAlloc(envhp, (void **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (void **) NULL);
 	if(err != OCI_SUCCESS) return true;
 
 	err = OCIStmtPrepare2(svchp, &stmthp, errhp, (OraText*) stmt, (ub4)strlen(stmt), NULL, 0, OCI_NTV_SYNTAX, OCI_DEFAULT);
 	if(err != OCI_SUCCESS) {
+		printf("prepare error\n");
 		checkerr(errhp, err, __LINE__);
 		return true;
 	}
 
 	err = OCIStmtExecute(svchp, stmthp, errhp, (ub4) 0, (ub4) 0, (CONST OCISnapshot*) 0, (OCISnapshot*) 0, (ub4) OCI_DEFAULT);
 	if(err != OCI_SUCCESS) {
+		printf("statement error\n");
 		checkerr(errhp, err, __LINE__);
 		return true;
 	}
-
+	//printf("statement success\n");
 	return false;
 }
 
@@ -611,7 +624,6 @@ bool describe(const char objptr[])
 		checkerr(errhp, err, __LINE__);
 		goto err_ret;
 	}
-
 	TYP_PROP(OCI_ATTR_IS_INCOMPLETE_TYPE);
 	TYP_PROP(OCI_ATTR_IS_SYSTEM_TYPE);
 	TYP_PROP(OCI_ATTR_IS_PREDEFINED_TYPE);
@@ -817,60 +829,151 @@ err_ret:
 	return false;
 }
 
+const char * const ociError(sword o){
+	switch (o) {
+	case 0: return "OCI_SUCCESS";
+	case 1: return "OCI_SUCCESS_WITH_INFO";
+	case 200: return "OCI_RESERVED_FOR_INT_USE";
+	case 100: return "OCI_NO_DATA";
+	case -1: return "OCI_INVALID_HANDLE";
+	case -2: return "OCI_NEED_DATA";
+	case 99: return "OCI_STILL_EXECUTING";
+	default: throw;
+	}
+}
+
+std::string string_to_hex(const std::string& input)
+{
+	static const char* const lut = "0123456789ABCDEF";
+	size_t len = input.length();
+
+	std::string output;
+	output.reserve(2 * len);
+	for (size_t i = 0; i < len; ++i)
+	{
+		const unsigned char c = input[i];
+		output.push_back(lut[c >> 4]);
+		output.push_back(lut[c & 15]);
+	}
+	return output;
+}
+
+/** executes a statement using a session pool */
+void dbThread(const char *stmt, OraText* poolname, ub4 poolNameLen) {
+	OCIStmt *stmthp;		// its own variables in isolation
+	sword err;
+	OCIError *errhp;
+	OCIAuthInfo *authp;
+	OCISvcCtx *svchp;
+	OCIHandleAlloc(envhp, (void **)&errhp, OCI_HTYPE_ERROR, (size_t)0, (void **)NULL);			// make errhp
+	OCIHandleAlloc(envhp, (void**)&authp, OCI_HTYPE_AUTHINFO, (size_t)0, (void **)NULL);	// make authp
+	err = OCISessionGet(envhp, errhp, &svchp, authp, poolname, poolNameLen, 0, 0, 0, 0, 0, OCI_SESSGET_SPOOL);
+	if (err != OCI_SUCCESS) {printf("dbThread logon error!\n");checkerr(errhp, err, __LINE__);exit(-1);}
+	err = OCIStmtPrepare2(svchp, &stmthp, errhp, (OraText*)stmt, (ub4)strlen(stmt), NULL, 0, OCI_NTV_SYNTAX, OCI_DEFAULT);
+	if (err != OCI_SUCCESS) {printf("statement prepare error!\n");checkerr(errhp, err, __LINE__);return;}
+	err = OCIStmtExecute(svchp, stmthp, errhp, (ub4)0, (ub4)0, (CONST OCISnapshot*) 0, (OCISnapshot*)0, (ub4)OCI_DEFAULT);
+	if (err != OCI_SUCCESS) {printf("statement execute error\n");checkerr(errhp, err, __LINE__);return;}
+	printf("session pool success\n");
+	err = OCISessionRelease(svchp, errhp, 0, 0, OCI_DEFAULT);
+	if (err != OCI_SUCCESS) { printf("OCISessionRelease error\n"); checkerr(errhp, err, __LINE__); return; }
+	//err = OCIHandleFree(svchp, OCI_HTYPE_SVCCTX);						// free svchp
+	err = OCIHandleFree(authp, OCI_HTYPE_AUTHINFO);						// free authp
+	err = OCIStmtRelease(stmthp, errhp, nullptr, 0, OCI_DEFAULT);		// release stmthp
+	err = OCIHandleFree(errhp, OCI_HTYPE_ERROR);						// free errhp
+}
+
+
+
 int main(int argc, char* argv[])
 {
 	dvoid * obj = NULL;
 	dvoid * null_obj = NULL;
 	cobject o;
-
+	OCIRowid * pRowID;
 	if(setup_env())
 		goto error_return;
-
-	if(statement("select rowid from myiot"))
-		goto error_return;
-
-	// http://docs.oracle.com/cd/B28359_01/appdev.111/b28395/oci03typ.htm#i423684
-
-	OCIRowid * pRowID;
-	err = OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL);
-	if(err != OCI_SUCCESS) {
-		checkerr(errhp, err, __LINE__);
-		return true;
-	}
-	err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)1, (void*)&pRowID, (sb4)0, (ub2) SQLT_RDD,
-		(void*)0, (ub2*)0, (ub2*)0, (ub4) OCI_DEFAULT);
-	if(err != OCI_SUCCESS) {
-		checkerr(errhp, err, __LINE__);
-		return true;
-	}
-
-	err = OCIStmtFetch((OCIStmt*)stmthp, (OCIError*)errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
-	if(err != OCI_SUCCESS) {
-		checkerr(errhp, err, __LINE__);
-		return true;
-	}
-
-	ub2 size = 4999;
-	OraText *rowID = new OraText[size + 1];
-	memset(rowID, 0, 19);
-
-	err = OCIRowidToChar(pRowID, rowID, &size, errhp);
-	if(err != OCI_SUCCESS) {
-		checkerr(errhp, err, __LINE__);
-		return true;
-	}
-
-	printf("ROWID %s\n", (unsigned char *)rowID);
+	
 #if 0
 	if(dump_object(envhp, errhp, svchp, "sys.aq$_jms_map_message", obj, null_obj, o))
 	//if(describe("sys.aq$_jms_map_message"))
 		goto error_return;
 #endif
 
-#if 0 // statement tests
+#if 1 // statement tests
+
+	OCISPool *spoolhp;
+	OCIHandleAlloc((dvoid *)envhp, (dvoid **)&spoolhp, OCI_HTYPE_SPOOL, (size_t)0, (dvoid **)0);
+
+	oratext* poolname = (oratext*)malloc(50);	// it seems like it always has a size of 39. Calling OCISessionPoolCreate saves the name here.
+	ub4 poolNameLen;							// calling OCISessionPoolCreate saves the length of the name here.
+	const char *tnst = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.1.43)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))";
+	OCISessionPoolCreate( // https://docs.oracle.com/cd/A97630_01/appdev.920/a96584/oci15r16.htm
+		/* OCIEnv */ envhp,
+		/* OCIError */ errhp,
+		/* OCISPool */spoolhp,
+		/* poolName */(&poolname),
+		/* poolNameLen */ (ub4*)&poolNameLen,
+		/* connStr */(OraText*)tnst,
+		/* connStrLen */ (sb4)strlen(tnst),
+		/* sessMin */ 1,
+		/* sessMax */ 10,
+		/* sessIncr */ 1,
+		/* userid */ (OraText*)usr,
+		/* useridLen */(sb4)strlen(usr),
+		/* password */ (OraText*)pwd,
+		/* passwordLen */ (sb4)strlen(pwd),
+		/* mode */ OCI_DEFAULT );		// construct the session pool
+	const char * stmt = "select rowid from myiot";
+	for (int i = 0; i < 10000; i++) dbThread("select rowid from myiot", poolname, poolNameLen);
+	for (int i = 0; i < 10000; i++) {
+		if (!(i%1000))printf("run %d\n", i);
+		if (statement("select rowid from myiot")) goto error_return;	// execute the statement
+		OCIRowid * pRowID;
+		err = OCIDescriptorAlloc(envhp, (void**)&pRowID, OCI_DTYPE_ROWID, 0, NULL);
+		if (err != OCI_SUCCESS) {
+			checkerr(errhp, err, __LINE__);
+			return true;
+		}
+		err = OCIDefineByPos(stmthp, &defnp, errhp, (ub4)1, (void*)&pRowID, (sb4)0, (ub2)SQLT_RDD,
+			(void*)0, (ub2*)0, (ub2*)0, (ub4)OCI_DEFAULT);
+		if (err != OCI_SUCCESS) {
+			checkerr(errhp, err, __LINE__);
+			return true;
+		}
+
+		err = OCIStmtFetch((OCIStmt*)stmthp, (OCIError*)errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
+		if (err != OCI_SUCCESS) {
+			checkerr(errhp, err, __LINE__);
+			return true;
+		}
+
+		ub2 size = 4999;
+		OraText *rowID = new OraText[size + 1];
+		memset(rowID, 0, 19);
+
+		err = OCIRowidToChar(pRowID, rowID, &size, errhp);
+		if (err != OCI_SUCCESS) {
+			checkerr(errhp, err, __LINE__);
+			return true;
+		}
+
+		printf("ROWID %s\n", (unsigned char *)rowID);
+		OCIDescriptorFree(pRowID, OCI_DTYPE_ROWID);
+		err = OCIStmtRelease(stmthp, errhp, nullptr, 0, OCI_DEFAULT);
+		delete rowID;
+		if (err != OCI_SUCCESS) {
+			checkerr(errhp, err, __LINE__);
+			return true;
+		}
+	}
+
+	_CrtDumpMemoryLeaks();
+	OCISessionRelease(svchp, errhp, nullptr, 0, OCI_DEFAULT);
+	return 0;
 	if(statement("select longd from rawlong"))
 		goto error_return;
 
+	
 	OCIParam *mypard = NULL;
     err = OCIParamGet(stmthp, OCI_HTYPE_STMT, errhp, (dvoid **)&mypard,(ub4) 1);
 	if(err != OCI_SUCCESS) {
@@ -894,7 +997,7 @@ int main(int argc, char* argv[])
 
 	if(binds())
 		goto error_return;
-	
+	printf("fetching...\n");
 	err = OCIStmtFetch(stmthp, errhp, 1, OCI_FETCH_NEXT, OCI_DEFAULT);
 	if(err != OCI_SUCCESS) {
 		checkerr(errhp, err, __LINE__);
@@ -942,7 +1045,8 @@ int main(int argc, char* argv[])
 		printf("[%d] UnBind failure\n", __LINE__);
 	}
 #endif // statement tests
-
-error_return:
 	return 0;
+error_return:
+	printf("There was an Error.\n");
+	return -1;
 }
