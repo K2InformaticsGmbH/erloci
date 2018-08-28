@@ -122,7 +122,7 @@ ocistmt::ocistmt(void *ocisess, OraText *stmt, size_t stmt_len)
 	/* Get a prepared statement handle */
 	r.handle = _errhp;
     checkerr(&r, OCIStmtPrepare2((OCISvcCtx*)_svchp,
-                                 (OCIStmt**)&_stmthp,	/* returned statement handle. IMPORTANT: must NOT be allocated before this call, otherwise it leaks the memory */
+                                 (OCIStmt**)&_stmthp,	/* returned statement handle */
                                  (OCIError*)_errhp,		/* error handle */
                                  (OraText *) stmt,		/* the statement text */
                                  (ub4)stmt_len,				/* length of the text */
