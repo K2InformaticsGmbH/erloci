@@ -842,6 +842,7 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
         maxrowcount = 100;
 
 	void * row = NULL;
+	tick_init();
     do {
         ++num_rows;
 		//if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);
@@ -994,7 +995,9 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 			}
 			total_est_row_size += (*intf.calculate_resp_size)(row);
 		}
-    } while (res != OCI_NO_DATA
+		long long diff = tick_diff();
+		REMOTE_LOG(INF, "exe time %u s\n", diff);
+	} while (res != OCI_NO_DATA
 			&& num_rows < maxrowcount
 			&& total_est_row_size < max_term_byte_size);
 

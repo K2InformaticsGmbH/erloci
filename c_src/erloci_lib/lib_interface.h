@@ -131,4 +131,7 @@ typedef struct _intf_funs
 	void (*append_cur_arg_tuple_to_list)(const unsigned char *, unsigned long long, unsigned long long, unsigned long long, void *);
 } intf_funs;
 
+extern void tick_init(void);
+extern long long tick_diff(void);
+
 #endif // OCI_LIB_INTF

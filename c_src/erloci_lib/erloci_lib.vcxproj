@@ -133,6 +133,7 @@ copy """$(INSTANT_CLIENT_LIB_PATH)\oraociei12.dll""" """$(SolutionDir)..\priv\or
     <ClCompile Include="checkerror.cpp" />
     <ClCompile Include="ocisession.cpp" />
     <ClCompile Include="ocistmt.cpp" />
+    <ClCompile Include="utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="lib_interface.h" />
