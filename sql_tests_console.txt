@@ -1,0 +1,116 @@
+Select = <<"select abs(:p_val1), floor(:p_val2) from dual">>.
+SelectBindVars = [{<<":p_val1">>,'SQLT_VNU'},{<<":p_val2">>,'SQLT_VNU'}].
+
+application:stop(erloci).
+application:start(erloci).
+
+Select = <<"select rowid from myiot">>.
+f(SelectStmt).
+SelectStmt = OciSession:prep_sql(Select).
+SelectStmt:exec_stmt().
+SelectStmt:fetch_rows(100).
+SelectStmt:close().
+
+OciPort:close().
+
+f(SelectStmt).
+SelectStmt = OciSession:prep_sql(Select).
+ok = SelectStmt:bind_vars(SelectBindVars).
+SelectStmt:exec_stmt([{oci_util:to_num("-5.5"), oci_util:to_num("4.9")}]).
+f(Rows).
+f(N1).
+f(N2).
+{{rows, [[N1,N2]]}, true} = SelectStmt:fetch_rows(100).
+oci_util:from_num(N1).
+oci_util:from_num(N2).
+ok = SelectStmt:close().
+
+
+f(PlSql).
+PlSql = <<"
+BEGIN
+  :p_res1 := 'This is a test1';
+  :p_res2 := 'This is a test2';
+END;
+">>.
+f(PlSqlBindVars).
+PlSqlBindVars = [{<<":p_res1">>,out,'SQLT_STR'},{<<":p_res2">>,out,'SQLT_STR'}].
+f(PlSqlStmt).
+PlSqlStmt = OciSession:prep_sql(PlSql).
+ok = PlSqlStmt:bind_vars(PlSqlBindVars).
+PlSqlStmt:exec_stmt([{<<"                          ">>,<<"                          ">>}], 1).
+ok = PlSqlStmt:close().
+
+
+f(PlSql).
+PlSql = <<"
+BEGIN
+  :p_Absolute := abs(:p_val1);
+  :p_Floor := floor(:p_val2);
+END;
+">>.
+f(PlSqlBindVars).
+PlSqlBindVars =
+[{<<":p_val1">>,in,'SQLT_VNU'},{<<":p_val2">>,in,'SQLT_VNU'},{<<":p_Absolute">>,out,'SQLT_VNU'},{<<":p_Floor">>,out,'SQLT_VNU'}].
+f(PlSqlStmt).
+PlSqlStmt = OciSession:prep_sql(PlSql).
+ok = PlSqlStmt:bind_vars(PlSqlBindVars).
+f(DefaultNumBin).
+DefaultNumBin = list_to_binary(lists:duplicate(22,0)).
+PlSqlStmt:exec_stmt([{oci_util:to_num("-5.5"),
+oci_util:to_num("4.9"),DefaultNumBin,DefaultNumBin}], 1).
+ok = PlSqlStmt:close().
+
+f(PlSql).
+PlSql = <<"
+BEGIN
+  :p_Absolute := abs(:p_val1);
+  :p_Floor := floor(:p_val2);
+END;
+">>.
+f(PlSqlBindVars).
+PlSqlBindVars =
+[{<<":p_val1">>,in,'SQLT_VNU'},{<<":p_val2">>,in,'SQLT_VNU'},{<<":p_Absolute">>,out,'SQLT_FLT'},{<<":p_Floor">>,out,'SQLT_FLT'}].
+f(PlSqlStmt).
+PlSqlStmt = OciSession:prep_sql(PlSql).
+ok = PlSqlStmt:bind_vars(PlSqlBindVars).
+PlSqlStmt:exec_stmt([{oci_util:to_num("-5.5"),
+oci_util:to_num("4.9"),0.1,0.1}], 1).
+ok = PlSqlStmt:close().
+
+f(PlSql).
+PlSql = <<"
+BEGIN
+  :p_Absolute := abs(:p_val1);
+  :p_Floor := floor(:p_val2);
+END;
+">>.
+f(PlSqlBindVars).
+PlSqlBindVars = [{<<":p_val1">>,in,'SQLT_VNU'},{<<":p_val2">>,in,'SQLT_VNU'},{<<":p_Absolute">>,out,'SQLT_VNU'},{<<":p_Floor">>,out,'SQLT_VNU'}].
+f(PlSqlStmt).
+PlSqlStmt = OciSession:prep_sql(PlSql).
+ok = PlSqlStmt:bind_vars(PlSqlBindVars).
+PlSqlStmt:exec_stmt([{oci_util:to_num("-5.5"), oci_util:to_num("4.9"),oci_util:to_num("-100.100"), oci_util:to_num("-100.100")}], 1).
+ok = PlSqlStmt:close().
+
+
+f(PlSql).
+PlSql = <<"
+DECLARE
+Str1 VARCHAR2;
+-- Str2 VARCHAR2;
+BEGIN
+  Str1 := trim(:p_val1);
+  -- Str2 := trim(:p_val2);
+  -- :p_Str1 := Str1;
+  -- :p_Str2 := Str2;
+END;
+">>.
+%PlSqlBindVars = [{<<":p_val1">>,in,'SQLT_CHR'},{<<":p_val2">>,in,'SQLT_CHR'},{<<":p_Str1">>,out,'SQLT_CHR'},{<<":p_Str2">>,out,'SQLT_CHR'}].
+PlSqlBindVars = [{<<":p_val1">>,in,'SQLT_CHR'},{<<":p_val2">>,in,'SQLT_CHR'}].
+f(PlSqlStmt).
+PlSqlStmt = OciSession:prep_sql(PlSql).
+ok = PlSqlStmt:bind_vars(PlSqlBindVars).
+PlSqlStmt:exec_stmt([{<<" abcd123  ">>, <<"  ABCD123 ">>, <<"               ">>, <<"            ">>}], 1).
+ok = PlSqlStmt:close().
+
