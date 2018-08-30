@@ -1,4 +1,4 @@
-/* Copyright 2012 K2Informatics GmbH, Root Laengenbold, Switzerland
+/* Copyright 2018 K2Informatics GmbH, Root Laengenbold, Switzerland
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,34 +14,38 @@
  */ 
 
 
-#include "lib_interface.h"
+#include "timing.h"
 
-#ifndef __WIN32__
-#else
-#include <Windows.h>
-static double PCFreq = -1;
-__int64 CounterStart = 0;
-#endif
-
-void tick_init(void)
+erloci_tick tick_init(void)
 {
-	LARGE_INTEGER li;
-	if(PCFreq < 0) {
-		if(QueryPerformanceFrequency(&li))
-			PCFreq = double(li.QuadPart);
-	}
+#ifndef __WIN32__
+    return clock();
+#else
+    LARGE_INTEGER start;
+    if(PCFreq < 0) {
+        if(QueryPerformanceFrequency(&start))
+            PCFreq = double(li.QuadPart);
+    }
 
-	if(QueryPerformanceCounter(&li))
-    	CounterStart = li.QuadPart;
+    QueryPerformanceCounter(&start);
+
+    return start;
+#endif
 }
 
-__int64 tick_diff(void)
+double tick_diff(erloci_tick start)
 {
-	LARGE_INTEGER EndingTime;
+#ifndef __WIN32__
+    clock_t end = clock();
 
-	if(QueryPerformanceCounter(&EndingTime)) {
-		return __int64(double(EndingTime.QuadPart - CounterStart) / PCFreq);
-	}
+    return ((double)(end - start)) / CLOCKS_PER_SEC;
+#else
+    LARGE_INTEGER EndingTime;
 
-	return 0;
+    if(QueryPerformanceCounter(&EndingTime)) {
+        return double(EndingTime.QuadPart - start) / PCFreq;
+    }
+
+    return 0;
+#endif
 }
