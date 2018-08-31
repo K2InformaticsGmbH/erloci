@@ -3,16 +3,6 @@ CPP = cl.exe
 LIB  = lib.exe
 LINK = link.exe
 
-
-# ----- VERSION MACROS -----
-# Visual Studio Library usually found in C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\
-VS_LIB_VERSION = 14.15.26726
-
-# version of the Win SDK usually found in C:\Program Files (x86)\Windows Kits\10\Lib\
-WIN_SDK_VERSION = 10.0.17134.0
-# --------------------------
-
-
 INSTANT_CLIENT_INCLUDE_PATH = "%INSTANT_CLIENT_LIB_PATH%\sdk\include"
 
 CFLAGS = /GL /W3 /Gy /Zc:wchar_t /Gm- /O2 /Zi /Zc:inline /fp:precise\
@@ -45,17 +35,15 @@ WIN_LIBS = kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
        odbccp32.lib
 
 PLATFORM_LIBS = $(ERL_LIBS) $(VS_LIBS) $(WIN_LIBS)
-VS_LIB_PATH = "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Tools\MSVC\$(VS_LIB_VERSION)\lib\x64"
-WIN_SDK_ROOT = C:\Program Files (x86)\Windows Kits\10\Lib\$(WIN_SDK_VERSION)
 LINKFLAGS = /LTCG:incremental /NXCOMPAT /DYNAMICBASE /DEBUG /MACHINE:X64\
     /OPT:REF /INCREMENTAL:NO /SUBSYSTEM:CONSOLE /OPT:ICF /NOLOGO\
     /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /TLBID:1\
     /ERRORREPORT:PROMPT $(PLATFORM_LIBS)\
-    /LIBPATH:$(VS_LIB_PATH)\
+    /LIBPATH:"%VS_LIB_PATH%"\
     /LIBPATH:"$(WIN_SDK_ROOT)\um\x64"\
     /LIBPATH:"$(WIN_SDK_ROOT)\ucrt\x64"\
-    /LIBPATH:"%ERL_INTERFACE_DIR%\lib"\
-    /LIBPATH:"%ERL_INTERFACE_DIR%\include"\
+    /LIBPATH:"$(ERL_INTERFACE_DIR)\lib"\
+    /LIBPATH:"$(ERL_INTERFACE_DIR)\include"\
 
 # compiling all the .cpp files and placing the resulting .o files in the folder "priv"
 {c_src\erloci_lib}.cpp{priv}.obj:
@@ -79,6 +67,4 @@ erloci.exe: erloci.lib $(pr)
 
 # initialization done at the beginning of the installation
 init:
-	echo $(l4)
     if NOT EXIST "priv" mkdir "priv"
-    "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat"
