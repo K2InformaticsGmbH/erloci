@@ -24,7 +24,7 @@ erloci_tick tick_init(void)
     LARGE_INTEGER start;
     if(PCFreq < 0) {
         if(QueryPerformanceFrequency(&start))
-            PCFreq = double(li.QuadPart);
+            PCFreq = double(start.QuadPart);
     }
 
     QueryPerformanceCounter(&start);
@@ -43,7 +43,7 @@ double tick_diff(erloci_tick start)
     LARGE_INTEGER EndingTime;
 
     if(QueryPerformanceCounter(&EndingTime)) {
-        return double(EndingTime.QuadPart - start) / PCFreq;
+        return double(EndingTime.QuadPart - start.QuadPart) / PCFreq;
     }
 
     return 0;
