@@ -999,10 +999,8 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
         double diff = tick_diff(start);
         /*REMOTE_LOG(INF, "%lu OCIStmtFetch %d rows in %lf\n",
             GetCurrentThreadId(), num_rows, diff);*/
-        if(diff >= 1.0) {
-            res = !OCI_NO_DATA;
+        if(diff >= 1.0)
             break;
-        }
     } while (res != OCI_NO_DATA
             && num_rows < maxrowcount
             && total_est_row_size < max_term_byte_size);
