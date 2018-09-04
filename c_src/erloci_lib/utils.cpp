@@ -18,10 +18,11 @@
 
 erloci_tick tick_init(void)
 {
+    erloci_tick start;
 #ifndef __WIN32__
-    return clock();
+    struct timezone tz;
+    gettimeofday(&start, &tz);
 #else
-    LARGE_INTEGER start;
     if(PCFreq < 0) {
         if(QueryPerformanceFrequency(&start))
             PCFreq = double(start.QuadPart);
@@ -29,23 +30,26 @@ erloci_tick tick_init(void)
 
     QueryPerformanceCounter(&start);
 
-    return start;
 #endif
+    return start;
 }
 
 double tick_diff(erloci_tick start)
 {
+    erloci_tick end;
+    double diff = 0.0;
 #ifndef __WIN32__
-    clock_t end = clock();
+    struct timezone tz;
+    gettimeofday(&end, &tz);
 
-    return ((double)(end - start)) / CLOCKS_PER_SEC;
+    diff = (double)(end.tv_sec - start.tv_sec);
 #else
     LARGE_INTEGER EndingTime;
 
     if(QueryPerformanceCounter(&EndingTime)) {
-        return double(EndingTime.QuadPart - start.QuadPart) / PCFreq;
+        diff = double(EndingTime.QuadPart - start.QuadPart) / PCFreq;
     }
-
-    return 0;
 #endif
+
+    return diff;
 }

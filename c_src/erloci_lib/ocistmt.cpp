@@ -843,7 +843,6 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 
     void * row = NULL;
     erloci_tick start = tick_init();
-    //REMOTE_LOG(INF, "%lu is %s\n", GetCurrentThreadId(), _stmtstr);
     do {
         ++num_rows;
         //if(num_rows % 100 == 0) REMOTE_LOG("OCI: Fetched %lu rows of %d bytes\n", num_rows, total_est_row_size);
@@ -997,8 +996,10 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
             total_est_row_size += (*intf.calculate_resp_size)(row);
         }
         double diff = tick_diff(start);
-        /*REMOTE_LOG(INF, "%lu OCIStmtFetch %d rows in %lf\n",
-            GetCurrentThreadId(), num_rows, diff);*/
+        //REMOTE_LOG(INF, "OCIStmtFetch %d rows in %lf\n", num_rows, diff);
+        /*****
+         * CAUTION, REVISIT ... : hardcoded >= 1 second timeout for single row fetching
+         *****/
         if(diff >= 1.0)
             break;
     } while (res != OCI_NO_DATA

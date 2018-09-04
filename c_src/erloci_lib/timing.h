@@ -17,8 +17,8 @@
 
 #ifndef __WIN32__
 
-#include <time.h>
-typedef clock_t erloci_tick;
+#include <sys/time.h>
+typedef struct timeval erloci_tick;
 
 #else
 
