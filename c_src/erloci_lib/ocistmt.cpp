@@ -802,6 +802,7 @@ for (ub2 pos = 1; pos <= count; pos++)
 		}
 		_argsin[i].datap_len = 0;
 		_argsin[i].value_sz = 0;
+		for (void* p : _argsin[i].valuep) free(p);
 		_argsin[i].valuep.clear();
 		_argsin[i].alen.clear();
 	}

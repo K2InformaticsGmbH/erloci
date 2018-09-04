@@ -71,6 +71,9 @@ typedef struct var {
 		if (_name != NULL)
 			strcpy((char*)name, _name);
 	}
+	~var(){
+		for (void* p : valuep) free(p);
+	}
 } var;
 
 typedef enum _INTF_RET {
