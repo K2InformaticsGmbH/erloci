@@ -7,7 +7,7 @@ logs
 priv
 rebar.lock
 rebar3.crashdump
-test/*.beam
+*.beam
 tmp
 
 # VS files
@@ -26,3 +26,4 @@ c_src/x64
 *.exports
 *.pdb
 .vs
+*.o
