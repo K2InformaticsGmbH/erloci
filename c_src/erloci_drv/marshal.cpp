@@ -344,7 +344,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	
 	// remove any old bind from the vars
 	for(unsigned int i=0; i < vars.size(); ++i) {
-		for (void* p : vars[i].valuep) free(p);
+		for (unsigned int i = 0; i < vars[i].valuep.size(); i++) free(vars[i].valuep[i]);
 		vars[i].valuep.clear();
 		vars[i].alen.clear();
 		vars[i].ind.clear();
