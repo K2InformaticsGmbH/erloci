@@ -103,7 +103,6 @@ bool setup_env()
 
 bool statement(const char *stmt)
 {
-	err = OCIHandleAlloc(envhp, (void **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (void **) NULL);
 	if(err != OCI_SUCCESS) return true;
 
 	err = OCIStmtPrepare2(svchp, &stmthp, errhp, (OraText*) stmt, (ub4)strlen(stmt), NULL, 0, OCI_NTV_SYNTAX, OCI_DEFAULT);

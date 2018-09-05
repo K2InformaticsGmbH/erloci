@@ -72,9 +72,10 @@ typedef struct var {
 		if (_name != NULL)
 			strcpy((char*)name, _name);
 	}
-	~var(){
-		for (unsigned int i = 0; i < valuep.size(); i++) free(valuep[i]);
-		//for (void* p : valuep) free(p);
+	~var()
+	{
+		for (unsigned int i = 0; i < valuep.size(); i++)
+			free(valuep[i]);
 	}
 } var;
 
