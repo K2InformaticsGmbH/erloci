@@ -3,7 +3,7 @@ CPP = cl.exe
 LIB  = lib.exe
 LINK = link.exe
 
-INSTANT_CLIENT_INCLUDE_PATH = "%INSTANT_CLIENT_LIB_PATH%\sdk\include"
+INSTANT_CLIENT_INCLUDE_PATH = "$(INSTANT_CLIENT_LIB_PATH)\sdk\include"
 
 CFLAGS = /GL /W3 /Gy /Zc:wchar_t /Gm- /O2 /Zi /Zc:inline /fp:precise\
      /errorReport:prompt /WX- /Zc:forScope /Gd /Oi /MT /EHsc /nologo\
@@ -17,18 +17,18 @@ pr = priv\transcoder.obj priv\threads.obj priv\term.obj priv\port.obj priv\marsh
 
 LIBCPPFLAGS = $(CFLAGS) -I$(INSTANT_CLIENT_INCLUDE_PATH) $(DEFS)
 
-LIBFLAGS = /LTCG "oci.lib" /MACHINE:X64 /NODEFAULTLIB:"libcmt.lib" /NODEFAULTLIB:"msvcrt.lib" /NOLOGO /LIBPATH:"%INSTANT_CLIENT_LIB_PATH%\sdk\lib\msvc"
+LIBFLAGS = /LTCG "oci.lib" /MACHINE:X64 /NODEFAULTLIB:"libcmt.lib" /NODEFAULTLIB:"msvcrt.lib" /NOLOGO /LIBPATH:"$(INSTANT_CLIENT_LIB_PATH)\sdk\lib\msvc"
 
-DRV_INCLUDES = /I"%ERL_INTERFACE_DIR%\include"\
+DRV_INCLUDES = /I"$(ERL_INTERFACE_DIR)\include"\
                /I$(INSTANT_CLIENT_INCLUDE_PATH)\
            /I"erloci_lib"
 
 # additional includes path that contain headers required by some of the cpp files that are compiled
-ADD_INCS = -I"C:\Program Files\erl9.2\lib\erl_interface-3.10.1\include" -I"c_src\erloci_lib"
+ADD_INCS = -I"$(ERL_INTERFACE_DIR)\include" -I"c_src\erloci_lib"
 
 DRVCFLAGS = $(CFLAGS) $(DRV_INCLUDES) $(DEFS)
 
-ERL_LIBS = ei_md.lib erl_interface_md.lib
+ERL_LIBS = ei_md.lib erl_interface_md.lib erl_interface.lib
 VS_LIBS  = legacy_stdio_definitions.lib msvcrt.lib libcmt.lib
 WIN_LIBS = kernel32.lib user32.lib gdi32.lib winspool.lib comdlg32.lib\
        advapi32.lib shell32.lib ole32.lib oleaut32.lib uuid.lib odbc32.lib\
@@ -38,8 +38,9 @@ PLATFORM_LIBS = $(ERL_LIBS) $(VS_LIBS) $(WIN_LIBS)
 LINKFLAGS = /LTCG:incremental /NXCOMPAT /DYNAMICBASE /DEBUG /MACHINE:X64\
     /OPT:REF /INCREMENTAL:NO /SUBSYSTEM:CONSOLE /OPT:ICF /NOLOGO\
     /MANIFESTUAC:"level='asInvoker' uiAccess='false'" /TLBID:1\
-    /ERRORREPORT:PROMPT $(PLATFORM_LIBS)\
-    /LIBPATH:"%VS_LIB_PATH%"\
+    /ERRORREPORT:PROMPT \
+	$(PLATFORM_LIBS)\
+    /LIBPATH:"$(VS_LIB_PATH)"\
     /LIBPATH:"$(WIN_SDK_ROOT)\um\x64"\
     /LIBPATH:"$(WIN_SDK_ROOT)\ucrt\x64"\
     /LIBPATH:"$(ERL_INTERFACE_DIR)\lib"\
