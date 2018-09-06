@@ -344,6 +344,8 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 	
 	// remove any old bind from the vars
 	for(unsigned int i=0; i < vars.size(); ++i) {
+		for (unsigned int j = 0; j < vars[i].valuep.size(); j++)
+			free(vars[i].valuep[j]);
 		vars[i].valuep.clear();
 		vars[i].alen.clear();
 		vars[i].ind.clear();
@@ -387,7 +389,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_any_int() || t2.is_float()) {
 						ind = 0;
 						arg_len = sizeof(float);
-						tmp_arg = new float;
+						tmp_arg = malloc(sizeof(float));
 						*(float*)tmp_arg = (float)(t2.is_any_int() ? t2.v.ll : t2.v.d);
 					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT got %d)\n", bind_count, vars[i].name, (int)t2.type);
@@ -400,7 +402,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_any_int() || t2.is_float()) {
 						ind = 0;
 						arg_len = sizeof(double);
-						tmp_arg = new double;
+						tmp_arg = malloc(sizeof(double));
 						*(double*)tmp_arg = (double)(t2.is_any_int() ? t2.v.ll : t2.v.d);
 					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed float for %s (expected INTEGER or FLOAT got %d)\n", bind_count, vars[i].name, (int)t2.type);
@@ -413,7 +415,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_any_int()) {
 						ind = 0;
 						arg_len = sizeof(int);
-						tmp_arg = new int;
+						tmp_arg = malloc(sizeof(int));
 						*(int*)tmp_arg = t2.v.i;
 					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed integer for %s (expected INTEGER)\n", bind_count, vars[i].name);
@@ -425,7 +427,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_binary() && t2.str_len > 0 && t2.str_len <= OCI_NUMBER_SIZE) {
 						ind = 0;
 						arg_len = t2.str_len;
-						tmp_arg = new char[arg_len];
+						tmp_arg = malloc(arg_len);
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed number for %s (expected BINARY)\n", bind_count, vars[i].name);
@@ -444,7 +446,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_binary() && t2.str_len > 0) {
 						ind = 0;
 						arg_len = t2.str_len;
-						tmp_arg = new char[arg_len];
+						tmp_arg = malloc(arg_len);
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed binary for %s (expected BINARY)\n", bind_count, vars[i].name);
@@ -456,7 +458,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_binary() && t2.str_len > 0) {
 						ind = 0;
 						arg_len = t2.str_len;
-						tmp_arg = new char[arg_len];
+						tmp_arg = malloc(arg_len);
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 						((OCIDate*)tmp_arg)->OCIDateYYYY = htons((ub2)((OCIDate*)tmp_arg)->OCIDateYYYY);
 					} else if (!t2.is_binary()) {
@@ -472,7 +474,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_binary() && t2.str_len > 0) {
 						ind = 0;
 						arg_len = t2.str_len;
-						tmp_arg = new char[arg_len];
+						tmp_arg = malloc(arg_len);
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 					} else if (!t2.is_binary()) {
 						REMOTE_LOG(ERR, "row %d: malformed string for %s (expected BINARY)\n", bind_count, vars[i].name);
@@ -484,7 +486,7 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
 					if(t2.is_binary() && t2.str_len > 0) {
 						ind = 0;
 						arg_len = t2.str_len;
-						tmp_arg = new char[arg_len+1];
+						tmp_arg = malloc(arg_len+1);
 						memcpy(tmp_arg, &t2.str[0], arg_len);
 						((char*)tmp_arg)[arg_len] = '\0';
 						arg_len++;

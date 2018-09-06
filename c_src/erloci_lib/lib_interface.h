@@ -34,6 +34,7 @@ typedef enum _LOG_LEVEL {
 #include <string.h>
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #define memcpy_s(_dest, _noelms, _src, _count)	memcpy((_dest), (_src), (_count))
 #define sprintf_s(_a, _b, _c, ...)				sprintf((_a), (_c), __VA_ARGS__)
 #define strncpy_s(_a, _b, _c, _d)               strncpy((_a), (_c), (_d))
@@ -70,6 +71,11 @@ typedef struct var {
 		dty = _dty;
 		if (_name != NULL)
 			strcpy((char*)name, _name);
+	}
+	~var()
+	{
+		for (unsigned int i = 0; i < valuep.size(); i++)
+			free(valuep[i]);
 	}
 } var;
 

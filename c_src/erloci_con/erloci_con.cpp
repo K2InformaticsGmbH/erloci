@@ -59,7 +59,7 @@ void checkerr(OCIError * errhp, sword status, int line)
 const char
 	*tns = "(DESCRIPTION=(ADDRESS_LIST=(ADDRESS=(PROTOCOL=tcp)(HOST=127.0.0.1)(PORT=1521)))(CONNECT_DATA=(SERVICE_NAME=XE)))",
 	*usr = "scott",
-	*pwd = "tiger";
+	*pwd = "regit";
 
 OCIEnv		*envhp = NULL;
 OCIError	*errhp = NULL;
@@ -103,7 +103,6 @@ bool setup_env()
 
 bool statement(const char *stmt)
 {
-	err = OCIHandleAlloc(envhp, (void **) &stmthp, OCI_HTYPE_STMT, (size_t) 0, (void **) NULL);
 	if(err != OCI_SUCCESS) return true;
 
 	err = OCIStmtPrepare2(svchp, &stmthp, errhp, (OraText*) stmt, (ub4)strlen(stmt), NULL, 0, OCI_NTV_SYNTAX, OCI_DEFAULT);
