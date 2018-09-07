@@ -69,3 +69,9 @@ erloci.exe: erloci.lib $(pr)
 # initialization done at the beginning of the installation
 init:
     if NOT EXIST "priv" mkdir "priv"
+	
+clean:
+	del priv\*.obj
+	del priv\*.exe
+	del priv\*.dll
+	del priv\*.lib
