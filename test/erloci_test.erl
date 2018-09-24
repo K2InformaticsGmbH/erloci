@@ -189,6 +189,7 @@ db_test_() ->
          fun commit_rollback/1,
          fun asc_desc/1,
          fun lob/1,
+         fun bfile/1,
          fun describe/1,
          fun function/1,
          fun procedure_scalar/1,
@@ -274,9 +275,9 @@ named_session(#{ociport := OciPort,
     ?assertEqual(ok, StmtSelect:close()),
     OciSession:close().
 
-lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
+bfile(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
     ?ELog("+---------------------------------------------+"),
-    ?ELog("|                     lob                     |"),
+    ?ELog("|                     bfile                     |"),
     ?ELog("+---------------------------------------------+"),
 
     RowCount = 3,
@@ -308,7 +309,73 @@ lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
             ?assertEqual("Directory Created", "Directory creation failed")
     end,
     StmtCreate = OciSession:prep_sql(
-                   <<"create table lobs(clobd clob, blobd blob, nclobd nclob, bfiled bfile)">>),
+                   <<"create table b_file(bfiled bfile)">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtCreate),
+    case StmtCreate:exec_stmt() of
+        {executed, 0} ->
+            ?ELog("creating table b_file", []),
+            ?assertEqual(ok, StmtCreate:close());
+        _ ->
+            StmtTruncate = OciSession:prep_sql(<<"truncate table b_file">>),
+            ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtTruncate),
+            ?assertEqual({executed, 0}, StmtTruncate:exec_stmt()),
+            ?ELog("truncated table b_file", []),
+            ?assertEqual(ok, StmtTruncate:close())
+    end,
+
+    [begin
+        StmtInsert = OciSession:prep_sql(list_to_binary(["insert into b_file values("
+            "bfilename('TestDir', 'test",integer_to_list(I),".bin')"
+            ")"])),
+        ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
+        ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
+        ?assertEqual(ok, StmtInsert:close())
+     end
+     || I <- lists:seq(1,RowCount)],
+    ?ELog("inserted ~p rows into b_file", [RowCount]),
+
+    StmtSelect = OciSession:prep_sql(<<"select * from b_file">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtSelect),
+    ?assertMatch({cols, _}, StmtSelect:exec_stmt()),
+    {{rows, Rows}, true} = StmtSelect:fetch_rows(RowCount+1),
+    ?assertEqual(RowCount, length(Rows)),
+
+    lists:foreach(
+      fun(Row) ->
+              [{LidBfiled, BfiledLen, DirBin, File} | _] = Row,
+              ?assertEqual(DirBin, <<"TestDir">>),
+              ?ELog("processing... : ~s", [File]),
+              [FileContent] = ssh_cmd(ConRef,"cat "++File),
+              {lob, FileContentDB} = StmtSelect:lob(LidBfiled, 1, BfiledLen),
+              ?assertEqual(FileContent, FileContentDB),
+              ?ELog("processed : ~s", [File])
+      end, Rows),
+
+    ?assertEqual(ok, StmtSelect:close()),
+
+    ?ELog("RM ~p", [[ssh_cmd(ConRef, "rm -f "++File) || File <- Files]]),
+    StmtDrop = OciSession:prep_sql(<<"drop table b_file">>),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
+    ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),
+    ?assertEqual(ok, StmtDrop:close()),
+    StmtDirDrop = OciSession:prep_sql(list_to_binary(["drop directory \"TestDir\""])),
+    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirDrop),
+    ?assertEqual({executed, 0}, StmtDirDrop:exec_stmt()),
+    ?assertEqual(ok, StmtDirDrop:close());
+bfile(_) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|            bfile (SKIPPED)                    |"),
+    ?ELog("+---------------------------------------------+").
+
+lob(#{ocisession := OciSession}) ->
+    ?ELog("+---------------------------------------------+"),
+    ?ELog("|                     lob                     |"),
+    ?ELog("+---------------------------------------------+"),
+
+    RowCount = 3,
+
+    StmtCreate = OciSession:prep_sql(
+                   <<"create table lobs(clobd clob, blobd blob, nclobd nclob)">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtCreate),
     case StmtCreate:exec_stmt() of
         {executed, 0} ->
@@ -326,8 +393,7 @@ lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
         StmtInsert = OciSession:prep_sql(list_to_binary(["insert into lobs values("
             "to_clob('clobd0'),"
             "hextoraw('453d7a30'),"
-            "to_nclob('nclobd0'),"
-            "bfilename('TestDir', 'test",integer_to_list(I),".bin')"
+            "to_nclob('nclobd0')"
             ")"])),
         ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtInsert),
         ?assertMatch({rowids, [_]}, StmtInsert:exec_stmt()),
@@ -344,37 +410,21 @@ lob(#{ocisession := OciSession, ssh_conn_ref := ConRef}) ->
 
     lists:foreach(
       fun(Row) ->
-              [{LidClobd, ClobdLen}, {LidBlobd, BlobdLen}, {LidNclobd, NclobdLen},
-               {LidBfiled, BfiledLen, DirBin, File} | _] = Row,
-              ?assertEqual(DirBin, <<"TestDir">>),
-              ?ELog("processing... : ~s", [File]),
+              [{LidClobd, ClobdLen}, {LidBlobd, BlobdLen}, {LidNclobd, NclobdLen} | _] = Row,
               {lob, ClobDVal} = StmtSelect:lob(LidClobd, 1, ClobdLen),
               ?assertEqual(<<"clobd0">>, ClobDVal),
               {lob, BlobDVal} = StmtSelect:lob(LidBlobd, 1, BlobdLen),
               ?assertEqual(<<16#45, 16#3d, 16#7a, 16#30>>, BlobDVal),
               {lob, NClobDVal} = StmtSelect:lob(LidNclobd, 1, NclobdLen),
-              ?assertEqual(<<"nclobd0">>, NClobDVal),
-              [FileContent] = ssh_cmd(ConRef,"cat "++File),
-              {lob, FileContentDB} = StmtSelect:lob(LidBfiled, 1, BfiledLen),
-              ?assertEqual(FileContent, FileContentDB),
-              ?ELog("processed : ~s", [File])
+              ?assertEqual(<<"nclobd0">>, NClobDVal)
       end, Rows),
 
     ?assertEqual(ok, StmtSelect:close()),
 
-    ?ELog("RM ~p", [[ssh_cmd(ConRef, "rm -f "++File) || File <- Files]]),
     StmtDrop = OciSession:prep_sql(<<"drop table lobs">>),
     ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDrop),
     ?assertEqual({executed, 0}, StmtDrop:exec_stmt()),
-    ?assertEqual(ok, StmtDrop:close()),
-    StmtDirDrop = OciSession:prep_sql(list_to_binary(["drop directory \"TestDir\""])),
-    ?assertMatch({?PORT_MODULE, statement, _, _, _}, StmtDirDrop),
-    ?assertEqual({executed, 0}, StmtDirDrop:exec_stmt()),
-    ?assertEqual(ok, StmtDirDrop:close());
-lob(_) ->
-    ?ELog("+---------------------------------------------+"),
-    ?ELog("|            lob (SKIPPED)                    |"),
-    ?ELog("+---------------------------------------------+").
+    ?assertEqual(ok, StmtDrop:close()).
 
 drop_create(#{ocisession := OciSession}) ->
     ?ELog("+---------------------------------------------+"),
