@@ -61,4 +61,22 @@ main(_) ->
     ?L("Cols1 ~p~n", [Cols1]),
     {{rows, Rows1}, true} = StmtSelect1:fetch_rows(10),
     ?L("Rows1 ~p~n", [Rows1]),
+
+    %- % Insert bind testclob
+    %- {oci_port, statement, _, _, _} = StmtInsert2
+    %-     = OciSession:prep_sql(<<"insert into testclob values(:SQLT_INT_1, :SQLT_CLOB_2)">>),
+	%- ok = StmtInsert2:bind_vars([{<<":SQLT_INT_1">>, 'SQLT_INT'}, {<<":SQLT_CLOB_2">>, 'SQLT_CLOB'}]),
+	%- ?L("sleeping for 10 seconds....~n"),
+	%- timer:sleep(10000),
+    %- {rowids, RowIds2} = StmtInsert2:exec_stmt([{3, <<>>}, {4, <<"this is a test">>}], 1),
+    %- ok = StmtInsert2:close(),
+    %- ?L("RowIds2 ~p~n", [RowIds2]),
+
+    %- % Select 3 testclob
+    %- {oci_port, statement, _, _, _} = StmtSelect2 = OciSession:prep_sql(<<"select * from testclob">>),
+    %- {cols, Cols2} = StmtSelect2:exec_stmt(),
+    %- ?L("Cols2 ~p~n", [Cols2]),
+    %- {{rows, Rows2}, true} = StmtSelect2:fetch_rows(10),
+    %- ?L("Rows2 ~p~n", [Rows2]),
+
     ?L("DONE!!~n").
