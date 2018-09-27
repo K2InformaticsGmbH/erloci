@@ -499,6 +499,19 @@ size_t map_value_to_bind_args(term & t, vector<var> & vars)
                 case SQLT_RSET:
 					// Ouput ref cursors bind values are ignored.
                     break;
+				case SQLT_CLOB:
+					if(t2.is_binary() && t2.str_len > 0) {
+						ind = 0;
+						arg_len = t2.str_len;
+						tmp_arg = malloc(arg_len);
+						REMOTE_LOG(INF, "row %d: non trivial clob for %s\n", bind_count, vars[i].name);
+						memcpy(tmp_arg, &t2.str[0], arg_len);
+					} else if (!t2.is_binary()) {
+						REMOTE_LOG(ERR, "row %d: malformed clob for %s (expected BINARY)\n", bind_count, vars[i].name);
+						strcpy(r.gerrbuf, "Malformed clob parameter value");
+						throw r;
+					}
+					break;
 				default:
 					strcpy(r.gerrbuf, "Unsupported type in bind");
 					throw r;
