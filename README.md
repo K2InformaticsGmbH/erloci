@@ -41,6 +41,18 @@ INSTANT_CLIENT_LIB_PATH     = path to oci libraries
 INSTANT_CLIENT_INCLUDE_PATH = path to oci headers
 ERL_INTERFACE_DIR           = path to erl_interface or erlang installation
 ```
+Example `.bashrc` snippet:
+```sh
+...
+INSTANT_CLIENT_LIB_PATH=$(find /usr/lib/oracle/ -type d -name client64)/lib
+INSTANT_CLIENT_INCLUDE_PATH=$(find /usr/include/oracle/ -type d -name client64)
+ERL_INTERFACE_DIR=$(find /usr/lib/erlang/lib/ -type d -name erl_interface-*)
+
+export INSTANT_CLIENT_LIB_PATH
+export INSTANT_CLIENT_INCLUDE_PATH
+export ERL_INTERFACE_DIR
+...
+```
 
 For example:
 ```
