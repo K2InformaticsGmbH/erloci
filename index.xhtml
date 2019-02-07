@@ -1,0 +1,253 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>Page Title: Site Name</title>
+
+	<style type="text/css">
+		body 		{background-color: #eeeeff;}
+		.title 		{ font-weight: bold; font-size: 24px; text-decoration: underline; padding-bottom: 10px; margin-left: 10px;}
+		.chapter 	{ margin-left: 40px; border: 1px solid black; background-color: MintCream; margin-bottom: 20px; }
+		.item-box 	{ margin-bottom: 10px; margin-top: 15px; }
+		.item 		{ margin-left: 40px; font-size: 18px; border: 1px solid black; background-color: lightblue; }
+		.desc 		{ margin-left: 80px; font-size: 16px; }
+		table, th, td {border: 1px solid black; border-collapse: collapse;}
+		.git-bash	{ background-color: #000000; color: #41FF00; font-family: Consolas, Menlo, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono, Courier New, monospace, serif;}
+		.thumb 		{ border: 1px solid #ddd; /* Gray border */ border-radius: 4px; /* Rounded border */ padding: 5px; /* Some padding */ width: 150px; /* Set a small width */ }
+		.thumb:hover{ box-shadow: 0 0 2px 1px rgba(0, 140, 186, 0.5); }
+	</style>
+
+	<script type="text/javascript">
+		function sizeToggle(image) {
+			image.style.width = ((image.toggled = (!image.toggled))?'70%':'150px');	
+		}
+	</script>
+	
+</head>
+
+<body>
+
+
+
+<div id="page">
+		
+	<div id="content">
+		<div id="main">
+			<h1>Setting up Erloci on a new Windows 10 Installation</h1>	
+		</div>
+		<div id="description">This manual describes how to build erloci and install the required dependencies, such as rebar3 and the Visual Studio Build Tools. It assumes a fresh Windows 10 installation.</div><br />
+		
+		<div class="chapter" id="updating-windows">
+		
+			<div class="title">Updating Windows</div>
+
+			<div class="item-box">
+				<div class="item">Mac Users: install Bootcamp Drivers</div>
+				<div class="desc">If Windows runs on a Mac, the Bootcamp Drivers should be installed so hardware such as trackpads and wireless cards work properly. It doesn't matter whether the Bootcamp Assistant was used to install Windows.</div>
+			</div>
+			
+			<div class="item-box">
+				<div class="item">Virtual Box: install Guest Additions</div>
+				<div class="desc">If Windows runs in a virtual machine, the Guest Additions should be installed in order to allow features such as drag/dropping between the host and guest system.<br />
+				<img class="thumb" src="img/guestAdditions.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." /></div>
+			</div>
+			
+			<div class="item-box">
+				<div class="item">Update Windows</div>
+				<div class="desc">Search &#8594; &quot;Windows Update&quot; to install updates. This takes a while and might require multiple restarts. Repeat until no updates are left.<br /><img class="thumb" src="img/winupdate.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." /></div>
+			</div>
+			
+		</div>
+		
+		<div class="chapter" id="recommended-tools">
+		
+			<div class="title">Recommended Tools</div>
+
+			<div class="item-box">
+				<div class="item">Install Chrome</div>
+				<div class="desc"><a href="https://www.google.com/chrome/">Click here to download Chrome</a> (or Firefox, or a different browser of choice). Per default Edge is installed on Windows 10 with Bing as search engine. Google seems to deliver better results when searching for more software online later.</div>
+			</div>
+			
+			<div class="item-box">
+				<div class="item">Download and Install Notepad++:</div>
+				<div class="desc"><a href="https://notepad-plus-plus.org/download/v7.5.8.html">Click here</a>, download &quot;Notepad++ Installer 64-bit x64&quot; </div>
+			</div>
+			
+			<div class="item-box">
+				<div class="item">Download and install Git</div>
+				<div class="desc">
+					<a href="https://git-scm.com/download/win">Click here</a> to download Git. This may take a while. Recommended install options are:<br />
+					<ul>
+						<li>Use Notepad++ as Git's default editor (for people who don't know how to use vim)</li>
+						<li>Use Git from Git Bash only</li>
+						<li>Use MinTTY</li>
+					</ul>
+					<img class="thumb" src="img/gitNotepad.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." />
+					<img class="thumb" src="img/gitPathEnv.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." />
+					<img class="thumb" src="img/gitBashHere.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." />
+				</div>
+			</div>
+			
+		</div>
+		
+		<div class="chapter" id="windows-options">
+			<div class="title">Windows Options</div>
+			<div class="item-box">
+				<div class="item">Show file extensions</div>
+				<div class="desc"> Search &#8594; &quot;File Explorer Options&quot; &#8594; Tab &quot;View&quot; &#8594; Uncheck &quot;Hide Extensions for known file types&quot;<br />
+				<img class="thumb" src="img/fileExplorerOptions.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." /></div>
+			</div>
+		</div>
+		
+		<div class="chapter" id="prerequisites">
+			<div class="title">Install Prerequisites</div>
+			
+			<div class="item-box">
+				<div class="item">Install OCI</div>
+				<div class="desc">
+					<ul>
+						<li>Make Folder &quot;C:\Oracle&quot;</li>
+						<li>Open Install\Oracle_12.2.0.1.0 (or go <a href="http://www.oracle.com/technetwork/topics/winx64soft-089540.html">here</a> and download the respective files)</li>
+						<li>Unzip all four .zip files to &quot;C:\Oracle\instantclient_12_2&quot;</li>
+					</ul>
+					<img class="thumb" src="img/oracleInstantClient.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." />
+				</div>
+			</div>
+			<div class="item-box">
+				<div class="item">Install Visual Studio Build Tools</div>
+				<div class="desc">
+					It is possible to install all of Visual Studio instead of just the build tools. However, in this case the environment variables set later will ahve to be adjusted accordingly beause the paths are different. This can be circumvented by installing both Visual Studio and the Build Tools. The following instructions install just the Build Tools:<br />
+					<ul>
+						<li><a href="https://www.visualstudio.com/downloads/#build-tools-for-visual-studio-2017">Click here</a>, scroll down to &quot;Tools for Visual Studio 2017&quot; &#8594; &quot;Build Tools für Visual Studio 2017&quot; and download the downloader.</li>
+						<li>Start the installer, select the following workloads:
+						<ul>
+							<li>Visual C++ build tools</li>
+							<li>.NET desktop build tools</li>
+							<li>Universal Windows Platform build tools</li>
+						</ul></li>
+						<li>As well as the following components:
+						<ul>
+							<li>C++/CLI support</li>
+						</ul></li>
+					</ul>
+				</div>
+			</div>
+			<div class="item-box">
+				<div class="item">Erlang</div>
+				<div class="desc"><a href="https://www.erlang.org/downloads/20.2">Go here</a>, download &quot;OTP 21.2 Windows 64-bit Binary File&quot; and install it. Note: don't use newer version of Erlang with Erloci, they're not fully compatible (they may still be downloaded and installed, though).<br />
+				<img class="thumb" src="img/erlangDownload.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." /></div>
+			</div>
+		
+		</div>
+		
+		<div class="chapter" id="environment-variables">
+			<div class="title">Environment Variables</div>
+			<div class="item-box">
+				<div class="item">Setting environmnt variables</div>
+				<div class="desc"> Search &#8594; &quot;Edit the system environment variables&quot; click &quot;Environment Variables...&quot; and under &quot;System Variables&quot;, insert the following variables:
+					<table>
+						<tr>
+							<th>Variable</th>
+							<th>Value</th>
+						</tr>
+						<tr>
+							<td>ERL_INTERFACE_DIR</td>
+							<td>%OTPROOT%\lib\erl_interface-3.10.1</td>
+						</tr>
+						<tr>
+							<td>HOME_VS_2017</td>
+							<td>C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\bin\Hostx64\x6</td>
+						</tr>
+						<tr>
+							<td>INCLUDE</td>
+							<td>C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\include;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.6.1\include\um;C:\Program Files (x86)\Windows Kits\10\Include\10.0.17134.0\ucrt;C:\Program Files (x86)\Windows Kits\10\include\10.0.17134.0\shared;C:\Program Files (x86)\Windows Kits\10\include\10.0.17134.0\um;C:\Program Files (x86)\Windows Kits\10\include\10.0.17134.0\winrt;C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\include;%ERL_INTERFACE_DIR%\include;</td>
+						</tr>
+						<tr>
+							<td>INSTANT_CLIENT_LIB_PATH</td>
+							<td>C:\Oracle\instantclient_12_2</td>
+						</tr>
+						<tr>
+							<td>LIB</td>
+							<td>C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\include;C:\Program Files (x86)\Windows Kits\NETFXSDK\4.6.1\lib\um\x64;C:\Program Files (x86)\Windows Kits\10\lib\10.0.17134.0\ucrt\x64;C:\Program Files (x86)\Windows Kits\10\lib\10.0.17134.0\um\x64;C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\lib\x64;</td>
+						</tr>
+						<tr>
+							<td>OTPROOT</td>
+							<td>C:\Program Files\erl9.2</td>
+						</tr>
+						<tr>
+							<td>PATH</td>
+							<td>%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SYSTEMROOT%\System32\WindowsPowerShell\v1.0\;%SYSTEMROOT%\System32\OpenSSH\;C:\Program Files\dotnet\;C:\Program Files\nodejs\;C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\bin\Hostx64\x64;%HOME_VS_2017%;%ERLANG_OTP%;C:\Program Files\erl9.2\erts-9.2\bin;C:\Program Files\rebar3;C:\Windows\Microsoft.NET\Framework\v4.0.30319</td>
+						</tr>
+						<tr>
+							<td>WINSDKBIN</td>
+							<td>C:\Program Files (x86)\Microsoft SDKs\Windows\v10.0A\bin\NETFX 4.6.1 Tools\x64</td>
+						</tr>
+						<tr>
+							<td>VS_LIB_PATH</td>
+							<td>C:\Program Files (x86)\Microsoft Visual Studio\2017\BuildTools\VC\Tools\MSVC\14.15.26726\lib\x64</td>
+						</tr>
+						<tr>
+							<td>WIN_SDK_ROOT</td>
+							<td>C:\Program Files (x86)\Windows Kits\10\Lib\10.0.17134.0</td>
+						</tr>
+					</table>
+					If any version numbers of installed components differ, then the respective variables must be adjusted accordingly.<br />
+					<img class="thumb" src="img/envMenu.PNG" onclick="sizeToggle(this)" alt="Bild konnte nicht dargestellt werden." />
+				</div>
+				<div class="item-box">
+					<div class="item">Renaming link.exe</div>
+					<div class="desc"> Rename &quot;C:\Program Files\Git\usr\bin\link.exe&quot; &quot;C:\Program Files\Git\usr\bin\link_disabled.exe&quot;</div>
+				</div>
+				
+			</div>
+		</div>
+		
+		<div class="chapter" id="projects">
+			<div class="title">Projects</div>
+			<div class="item-box">
+				<div class="item">Make Projects</div>
+				<div class="desc">
+					<ul>
+						<li>Create Folder &quot;projects&quot; wherever it is wished</li>
+						<li>Open &quot;projects&quot;</li>
+						<li>Right click --> Git Bash Here</li>
+					</ul>
+				</div>
+			</div>
+			<div class="item-box">
+				<div class="item">rebar3</div>
+				<div class="desc">
+					<ul>
+						<li><div class="git-bash">git clone https://github.com/K2InformaticsGmbH/rebar3</div></li>
+						<li><div class="git-bash">cd rebar3</div></li>
+						<li><div class="git-bash">./bootstrap</div></li>
+						<li><div class="git-bash">cd ..</div></li>
+						<li>Move &quot;rebar3&quot; to &quot;C:\Program Files\rebar3&quot; (might not work in git bash, so has to be done manually)</li>
+					</ul>
+				</div>
+				<div class="item">erloci</div>
+				<div class="desc">
+					<ul>
+						<li><div class="git-bash">git clone https://github.com/K2InformaticsGmbH/erloci</div></li>
+						<li><div class="git-bash">cd erloci</div></li>
+						<li><div class="git-bash">rebar3 compile</div></li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		
+	</div>
+	
+		
+</div>
+
+<p>
+    <a href="http://validator.w3.org/check?uri=referer"><img
+      src="http://www.w3.org/Icons/valid-xhtml10" alt="Valid XHTML 1.0 Strict" height="31" width="88" /></a>
+ </p>
+  
+</body>
+
+</html>
