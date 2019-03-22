@@ -10,9 +10,9 @@
 
 %10 10 100
 %select table_name from all_tables where table_name like 'ERL%';
--define(CONNECTIONS, 100).
--define(STATEMENTS, 100).
--define(ROWS_PER_TABLE, 5).
+-define(CONNECTIONS, 25).
+-define(STATEMENTS, 1).
+-define(ROWS_PER_TABLE, 10000).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
@@ -67,13 +67,13 @@ load(ConfigData) ->
         {env, [{"NLS_LANG", Lang}]}
     ]),
     This = self(),
-    [spawn(fun() ->
+    [link(spawn(fun() ->
         connection(OciPort, C, proplists:get_value(C, Tables, []), Tns, User, Pswd, This, RowsPerProcess, Binds)
-           end)
+           end))
         || C <- ?CONNIDLIST],
     collect_processes(lists:sort(Tables), []),
     ct:pal(info, "Closing port ~p", [OciPort]),
-    ok = OciPort:close().
+    close = OciPort:close().
 
 connection(OciPort, Cid, Tables, Tns, User, Pswd, Master, RowsPerProcess, Binds) ->
     OciSession = OciPort:get_session(Tns, User, Pswd),
@@ -84,9 +84,9 @@ connection(OciPort, Cid, Tables, Tns, User, Pswd, Master, RowsPerProcess, Binds)
      end
         || Table <- Tables],
     This = self(),
-    [spawn(fun() ->
+    [link(spawn(fun() ->
         table(OciSession, Cid, Tid, This, RowsPerProcess, Binds)
-           end)
+           end))
         || Tid <- ?STMTIDLIST],
     collect_processes(lists:sort(Tables), []),
     ct:pal(info, "Closing session ~p", [OciSession]),
@@ -153,7 +153,6 @@ collect_processes(Tables, Acc) ->
 -define(SELECT_WITH_ROWID(__T), ?B([
     "select ", __T, ".rowid, ", __T, ".* from ", __T])
 ).
-
 tab_drop(OciSession, Table) when is_list(Table) ->
     DropStmt = OciSession:prep_sql(?B(["drop table ", Table])),
     {oci_port, statement, _, _, _} = DropStmt,
@@ -171,14 +170,21 @@ tab_create(OciSession, Table) when is_list(Table) ->
     ok = StmtCreate:close(),
     ct:pal(info, "[~s] Created", [Table]).
 
+%% new method that is more similar to how it is doen in oranif. Makes and
+%% executes a statement for each row
 tab_load(OciSession, Table, RowCount, Binds) ->
-    BoundInsStmt = OciSession:prep_sql(?INSERT(Table)),
-    {oci_port, statement, _, _, _} = BoundInsStmt,
-    BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
-    ok = BoundInsStmtRes,
-    {rowids, RowIds} = BoundInsStmt:exec_stmt(Binds),
-    RowCount = length(RowIds),
-    ok = BoundInsStmt:close(),
+    ProcessRow = fun(Bind) ->
+        BoundInsStmt = OciSession:prep_sql(?INSERT(Table)),
+        {oci_port, statement, _, _, _} = BoundInsStmt,
+        BoundInsStmtRes = BoundInsStmt:bind_vars(?BIND_LIST),
+        ok = BoundInsStmtRes,
+        {rowids, RowIds} = BoundInsStmt:exec_stmt([Bind]), %% a list containing just one bind
+        1 = length(RowIds), %% now only one row is processed at a time
+        ok = BoundInsStmt:close()
+
+        end,
+
+    [ProcessRow(X)|| X <- Binds],
     ct:pal(info, "[~s] Loaded ~p rows", [Table, RowCount]).
 
 tab_access(OciSession, Table, Count) ->

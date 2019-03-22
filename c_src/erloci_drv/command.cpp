@@ -525,7 +525,7 @@ bool command::exec_stmt(term & t, term & resp)
 			} else {
 				size_t bound_count = map_value_to_bind_args(bind_list, statement_handle->get_in_bind_args());
 				unsigned int exec_ret = statement_handle->execute(&columns, &rowids, &outdata, auto_commit);
-				if (bound_count) REMOTE_LOG(DBG, "Bounds %u", bound_count);
+				if (bound_count) /*REMOTE_LOG(DBG, "Bounds %u", bound_count)*/;
 				// TODO : Also return bound values from here
 				term & _t = resp.insert().tuple();
 				if (columns.length() == 0 && rowids.length() == 0) {
