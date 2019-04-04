@@ -1,5 +1,5 @@
 -module(erloci_SUITE).
--export([all/0, init_per_suite/1, end_per_suite/1]).
+-export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 -export([load/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -12,12 +12,18 @@
 %select table_name from all_tables where table_name like 'ERL%';
 -define(CONNECTIONS, 25).
 -define(STATEMENTS, 1).
--define(ROWS_PER_TABLE, 10000).
+-define(ROWS_PER_TABLE, 5000).
+-define(RUNS, 10).
 
 -define(CONNIDLIST, lists:seq(1, ?CONNECTIONS)).
 -define(STMTIDLIST, lists:seq(1, ?STATEMENTS)).
 
 all() -> [load].
+
+suite() ->
+     [
+      {timetrap, infinity}
+     ].
 
 init_per_suite(ConfigData) ->
     io:format(user, "---~p---~n", [?LINE]),
@@ -66,12 +72,15 @@ load(ConfigData) ->
         {logging, Logging},
         {env, [{"NLS_LANG", Lang}]}
     ]),
+    [begin
+    ct:pal(info, "Starting run ~p", [Run]),
     This = self(),
     [link(spawn(fun() ->
         connection(OciPort, C, proplists:get_value(C, Tables, []), Tns, User, Pswd, This, RowsPerProcess, Binds)
            end))
         || C <- ?CONNIDLIST],
-    collect_processes(lists:sort(Tables), []),
+    collect_processes(lists:sort(Tables), [])
+    end || Run <- lists:seq(1, ?RUNS)],
     ct:pal(info, "Closing port ~p", [OciPort]),
     close = OciPort:close().
 
@@ -181,7 +190,6 @@ tab_load(OciSession, Table, RowCount, Binds) ->
         {rowids, RowIds} = BoundInsStmt:exec_stmt([Bind]), %% a list containing just one bind
         1 = length(RowIds), %% now only one row is processed at a time
         ok = BoundInsStmt:close()
-
         end,
 
     [ProcessRow(X)|| X <- Binds],
