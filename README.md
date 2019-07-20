@@ -1,3 +1,6 @@
+# DEPRECATED
+This is no longer supported, please consider using [oranif](https://github.com/K2InformaticsGmbH/oranif) instead.
+
 # erloci - An Erlang driver for the Oracle Call Interface
 
 [![Build Status](https://travis-ci.org/K2InformaticsGmbH/erloci.svg?branch=master)](https://travis-ci.org/K2InformaticsGmbH/erloci) [![Coverage Status](https://coveralls.io/repos/github/K2InformaticsGmbH/erloci/badge.svg?branch=master)](https://coveralls.io/github/K2InformaticsGmbH/erloci?branch=master)
