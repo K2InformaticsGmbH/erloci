@@ -477,10 +477,15 @@ unsigned int ocistmt::execute(void * column_list, void * rowid_list, void * out_
 				OCIDEF(SQLT_STR, "SQLT_STR");
                 break;
 			case SQLT_BIN: // RAW
-				cur_clm.row_valp = new unsigned char[cur_clm.dlen + 1];
-				memset(cur_clm.row_valp, 0, (cur_clm.dlen + 1)*sizeof(unsigned char));
-				cur_clm.rtype = LCL_DTYPE_NONE;
-				OCIDEF(SQLT_BIN, "SQLT_BIN");
+				// There isn't any allocator for OCIRaw specially, OCIRawResize to tricked to allocate to max possible
+				// full length of the column (cur_clm.dlen)
+				checkerr(&r, OCIRawResize(envhp, (OCIError*)_errhp, (ub2)cur_clm.dlen, (OCIRaw **)&(cur_clm.row_valp)));
+				if (r.fn_ret != SUCCESS) {
+					REMOTE_LOG(ERR, "failed OCIRawResize error %s (%s)\n", r.gerrbuf, _stmtstr);
+					ocisess->release_stmt(this);
+					throw r;
+				}
+				OCIDEF(SQLT_LVB, "SQLT_LVB");
 				break;
 			// 5 bytes buffer
             case SQLT_INTERVAL_YM:
@@ -980,6 +985,12 @@ intf_ret ocistmt::rows(void * row_list, unsigned int maxrowcount)
 						break;
 					}
 					case SQLT_BIN:
+						(*intf.append_string_to_list)(
+							(char*)OCIRawPtr(envhp, (OCIRaw*)_columns[i]->row_valp),
+							(size_t)OCIRawSize(envhp, (OCIRaw*)_columns[i]->row_valp),
+							row
+						);
+						break;
 					case SQLT_RID:
 					case SQLT_AFC:
 					case SQLT_STR: {
@@ -1127,6 +1138,13 @@ ocistmt::~ocistmt(void)
 			checkerr(&r, OCIObjectFree((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, (dvoid*)(_columns[i]->row_valp), OCI_OBJECTFREE_FORCE | OCI_OBJECTFREE_NONULL));
 			if(r.fn_ret != SUCCESS)
 				REMOTE_LOG(ERR, "failed OCIObjectFree for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+		} else if (_columns[i]->dtype == SQLT_BIN) {
+			// There isn't any de-allocator for OCIRaw specially, OCIRawResize to tricked to de-allocate
+			// by requesting it to resize to zero
+			checkerr(&r, OCIRawResize((OCIEnv*)ocisession::getenv(), (OCIError*)_errhp, 0, (OCIRaw **)&(_columns[i]->row_valp)));
+			if (r.fn_ret != SUCCESS) {
+				REMOTE_LOG(ERR, "failed OCIRawResize for %p column %d reason %s (%s)\n", _stmthp, i, r.gerrbuf, _stmtstr);
+			}
 		} else {
 			if(_columns[i]->rtype == LCL_DTYPE_NONE)
 				delete (char*)(_columns[i]->row_valp);
